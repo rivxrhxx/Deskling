@@ -159,11 +159,12 @@ adapter(T74)가 알아야 할 점:
   (`reads_a_record_whose_writer_already_exited`, `round_trips_a_record_through_the_socket`).
 - macOS의 Unix 소켓 경로 한도는 104바이트다. 사용자 이름이 아주 길면 bind가 실패하고 실제 모드에 세션이 나타나지 않는다.
 
-## 7. settings.json 훅 설정 초안 (설치하지 않음)
+## 7. settings.json 훅 설정 블록
 
-**초안이다. 이 저장소의 어떤 스크립트도 아직 사용자 설정을 바꾸지 않는다.** 설치는 T75에서 사용자가 동의할 때만, 백업과 제거 명령을 함께 제공한다
-(ADR-024 §8, FR-CC5). `<NODE>`는 설치 스크립트가 찾은 node 절대 경로, `<HOOK>`은 `deskling-hook.mjs`의 절대 경로다
-(`hookRecord.mjs`가 같은 디렉터리에 있어야 한다).
+설치 스크립트(§8)가 사용자 설정에 덧붙이는 블록이다. 사용자가 `npm run hooks:install`을 직접 실행할 때만 들어간다
+(ADR-024 §8, FR-CC5). `<NODE>`는 설치 스크립트를 실행한 node의 절대 경로(`process.execPath`), `<HOOK>`은 `deskling-hook.mjs`의
+절대 경로다(`hookRecord.mjs`가 같은 디렉터리에 있어야 한다). 둘 다 sh용 작은따옴표로 감싸고, 경로 안의 `'`는 `'\''`로 바꾼다.
+`install.test.mjs`가 설치 스크립트의 블록이 아래 JSON과 같은지 확인한다.
 
 ```json
 {
@@ -203,14 +204,48 @@ adapter(T74)가 알아야 할 점:
 - `timeout: 2`는 Claude Code 쪽 안전망이다. 훅 자체가 300ms 안에 끝난다.
 - 동기 훅(기본값)으로 둔다. Claude Code는 `PreToolUse` 훅이 끝난 뒤 도구를 실행하므로 `tool-start`가 `tool-end`보다 먼저 도착한다.
   `"async": true`로 바꾸면 도구 호출마다 생기는 node 실행 지연(측정 약 30ms)은 사라지지만, 빠른 도구에서 두 레코드의 도착 순서가 바뀔 수 있다.
-- `Notification`(`permission_prompt`)은 `PermissionRequest`보다 약 6초 늦고 중복이므로 초안에서 뺐다. 훅 스크립트는 둘 다 처리한다.
+- `Notification`(`permission_prompt`)은 `PermissionRequest`보다 약 6초 늦고 중복이므로 블록에서 뺐다. 훅 스크립트는 둘 다 처리한다.
 
-## 8. 테스트
+## 8. 설치 스크립트 (`integrations/claude-code/install.mjs`)
+
+사용자가 동의하고 직접 실행할 때만 설정을 바꾼다. 의존성 없음, Node 18 이상.
+
+```sh
+npm run hooks:print      # 덧붙일 hooks 블록을 stdout에 JSON으로 출력. 아무것도 바꾸지 않음
+npm run hooks:status     # 설치 여부(이벤트별), 다른 훅 개수, Deskling 소켓 유무. 아무것도 바꾸지 않음
+npm run hooks:install    # 백업 → Deskling 훅 덧붙이기
+npm run hooks:uninstall  # 백업 → Deskling 훅만 제거
+npm run hooks:install -- --settings /다른/경로/settings.json   # 기본값: $HOME/.claude/settings.json
+```
+
+종료 코드: `0` 완료(바꿀 것이 없던 경우 포함), `1` 거부·실패(설정 파일은 그대로), `2` 사용법 오류.
+
+| 규칙 | 동작 |
+| --- | --- |
+| Deskling 항목 식별 | `command`에 `deskling-hook.mjs`의 절대 경로(또는 그 sh 인용 형태)가 들어 있는 handler. 경로는 `realpathSync.native`로 대소문자까지 맞춘다 |
+| install | 이벤트별 배열 **끝에** Deskling 그룹을 덧붙인다. 기존 그룹·handler·다른 키는 그대로, 키 순서 유지(새 키는 끝에). 이미 Deskling handler가 있는 이벤트는 건너뛴다(멱등) |
+| uninstall | Deskling handler만 지운 뒤, 그 때문에 비게 된 matcher 그룹·이벤트 배열·`hooks` 객체만 지운다. 원래 비어 있던 그룹·배열은 남긴다. 멱등 |
+| 파일 없음 | install은 디렉터리(`0700`)와 파일(`0600`)을 만들고 `hooks` 블록만 쓴다. uninstall·status·print는 아무것도 만들지 않는다 |
+| 백업 | 쓰기 전에 같은 디렉터리에 `settings.json.deskling-backup-<YYYYMMDD-HHMMSS>`(같은 초면 `-2`, `-3` …)로 원본 바이트를 원래 권한 그대로 저장. 바꿀 것이 없으면 백업도 쓰기도 하지 않는다 |
+| 쓰기 | 같은 디렉터리의 임시 파일 → fsync → rename(원자적). 원래 파일 권한 유지, 2칸 들여쓰기 JSON + 끝 줄바꿈. symlink면 링크를 유지하고 대상 파일에 쓴다 |
+| JSONC | 지원하지 않는다. `JSON.parse`가 실패하거나 최상위·`hooks`·이벤트 값의 형태가 다르면 중단한다(파일·백업 변화 없음, exit 1) |
+| 출력 | 한국어 + 관련 경로. 다른 훅의 명령이나 설정 값은 출력하지 않고 개수만 센다. JSON 파싱 오류 메시지도 파일 일부를 인용하므로 출력하지 않는다 |
+
+알려진 한계:
+
+- 들여쓰기·줄바꿈 등 원래 서식은 2칸 JSON으로 다시 쓴다. 숫자처럼 생긴 키(`"1"`)는 `JSON.parse`가 앞으로 옮긴다.
+- install 전부터 비어 있던 이벤트 배열(`"Stop": []`)이나 `"hooks": {}`는 Deskling 항목을 지운 뒤 비게 된 것과 구별할 수 없어 uninstall이 지운다.
+- 저장소를 옮기면 예전 경로의 항목은 Deskling 것으로 알아보지 못한다. 옮기기 전에 uninstall한다.
+- `<NODE>`는 설치할 때의 `process.execPath`다. Homebrew node는 버전 디렉터리(`/opt/homebrew/Cellar/node@24/<버전>/bin/node`)라서
+  `brew upgrade` 뒤에는 경로가 사라진다. 그때는 uninstall → install로 다시 넣는다.
+
+## 9. 테스트
 
 | 테스트 | 확인하는 것 |
 | --- | --- |
 | `integrations/claude-code/hookRecord.test.mjs` | 매핑 표, 도구 범주, 범주 밖 도구·모르는 이벤트 → `null`, 세션 ID 규칙, 금지 데이터가 직렬화 결과에 없음, 읽는 키 4개뿐 |
 | `integrations/claude-code/deskling-hook.test.mjs` | 실제 프로세스: 소켓에 정확히 한 줄, 출력 없음, exit 0, 소켓 없음·거부·무응답 서버·닫히지 않는 stdin에서 300ms 상한 |
+| `integrations/claude-code/install.test.mjs` | 임시 HOME만 사용. §7 블록과 일치, 등록 이벤트·도구가 레코드로 매핑됨, sh 인용(공백·`'`·`$`), 파일 없음·`{}`·기존 설정/훅 보존(deep-equal, 키 순서), 멱등, uninstall이 원래 구조로 복원, 백업 바이트·권한, JSONC·형태 오류 중단, 권한 유지, symlink, print/status 무변경, 출력에 다른 훅 내용 없음, CLI 기본 경로·사용법 |
 | `src-tauri/src/hook_bridge.rs` (`cargo test`) | 이벤트별 유효 레코드, 재직렬화 순서, 모르는·중복 필드, 잘못된 타입·`null`, enum, 버전, 세션, `at` 범위, `tool`/`ok` 위치, 1024바이트, 타임아웃, 닫힌 상대, 속도 제한, 소켓 권한·낡은 소켓 |
 | `src/platform/hookRecords.test.ts` | 이벤트 이름, Tauri 밖 no-op, payload를 그대로 전달, listen 실패 시 상세 없이 경고 |
 | `src/config/tauriConfig.test.ts` | capability = 창 권한 5개 + `core:event:allow-listen`·`allow-unlisten`, emit 권한 없음 |

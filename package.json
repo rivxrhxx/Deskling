@@ -22,7 +22,11 @@
     "rust:check": "npm run rust:fmt && npm run rust:clippy && npm run rust:test",
     "verify:fast": "npm run typecheck && npm run lint && npm run test",
     "verify": "npm run verify:fast && npm run build && npm run rust:check",
-    "build:app": "npm run tauri build -- --bundles app"
+    "build:app": "npm run tauri build -- --bundles app",
+    "hooks:print": "node integrations/claude-code/install.mjs print",
+    "hooks:install": "node integrations/claude-code/install.mjs install",
+    "hooks:uninstall": "node integrations/claude-code/install.mjs uninstall",
+    "hooks:status": "node integrations/claude-code/install.mjs status"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.12.5",
