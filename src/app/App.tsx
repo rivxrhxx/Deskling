@@ -57,14 +57,15 @@ export function App({ source: providedSource, controls: providedControls, storag
     [providedSource, settings.demoScript],
   );
   const source = providedSource ?? (demoSource as AgentEventSource);
+  // Functional update: several changes before a re-render must all survive (review T34g).
   const updateSettings = useCallback(
-    (patch: Partial<Settings>) => {
-      const next = parseSettings({ ...settings, ...patch });
-      setSettings(next);
-      saveSettings(storage, next);
-    },
-    [settings, storage],
+    (patch: Partial<Settings>) => setSettings((previous) => parseSettings({ ...previous, ...patch })),
+    [],
   );
+
+  useEffect(() => {
+    saveSettings(storage, settings);
+  }, [storage, settings]);
 
   // Apply window preferences to the native window on start and whenever they change.
   useEffect(() => {

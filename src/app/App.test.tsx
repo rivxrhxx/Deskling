@@ -80,8 +80,9 @@ describe('App with the demo source (FR-D2, FR-D5, FR-D6)', () => {
     expect(seen).toEqual([...VISUAL_STATES]);
   });
 
-  it('uses the demo tour by default', () => {
-    render(<App />);
+  it('uses the demo tour by default (starts offline, DEMO badge shown)', () => {
+    render(<App controls={fakeControls()} storage={fakeStorage()} />);
+    expect(sceneState()).toBe('offline');
     expect(screen.getByText('DEMO')).toBeVisible();
   });
 });
@@ -348,5 +349,23 @@ describe('App source switching (review T34c)', () => {
     second.emit(raw(2, 'tool.started', { tool: 'code' }));
     second.emit(raw(3, 'tool.finished', { tool: 'code', outcome: 'ok' }));
     expect(statusText()).toBe(VISUAL_SPEC.thinking.label);
+  });
+});
+
+describe('App settings updates (review T34g)', () => {
+  it('keeps both changes when two settings change before a re-render', async () => {
+    const { fireEvent } = await import('@testing-library/react');
+    const controls = fakeControls();
+    const storage = fakeStorage();
+    render(<App source={manualSource().source} controls={controls} storage={storage} />);
+
+    act(() => {
+      fireEvent.click(screen.getByRole('button', { name: '작게' }));
+      fireEvent.click(screen.getByRole('button', { name: '항상 위에 표시' }));
+    });
+
+    expect(JSON.parse(storage.data.get('deskling.settings.v1') ?? '{}')).toMatchObject({ size: 's', alwaysOnTop: false });
+    expect(controls.setSize).toHaveBeenLastCalledWith(256, 224);
+    expect(controls.setAlwaysOnTop).toHaveBeenLastCalledWith(false);
   });
 });
