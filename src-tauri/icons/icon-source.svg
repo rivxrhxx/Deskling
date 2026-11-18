@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <!-- Deskling app icon: original vector art (NFR-3). Regenerate sizes with `npx tauri icon src-tauri/icons/icon-source.svg`. -->
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1d2236"/>
+      <stop offset="1" stop-color="#0d1020"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#6cc7f2" stop-opacity="0.55"/>
+      <stop offset="1" stop-color="#6cc7f2" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="skin" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#aeb6cf"/>
+      <stop offset="1" stop-color="#eef1fa"/>
+    </linearGradient>
+    <clipPath id="tile">
+      <rect x="100" y="100" width="824" height="824" rx="186"/>
+    </clipPath>
+  </defs>
+
+  <rect x="100" y="100" width="824" height="824" rx="186" fill="url(#bg)"/>
+  <g clip-path="url(#tile)">
+    <ellipse cx="700" cy="420" rx="420" ry="360" fill="url(#glow)"/>
+    <rect x="100" y="760" width="824" height="164" fill="#151929"/>
+    <path d="M100 760 H924" stroke="#2a3047" stroke-width="8"/>
+  </g>
+
+  <g id="antenna">
+    <path d="M508 318 Q500 248 548 212" fill="none" stroke="#9aa3bd" stroke-width="22" stroke-linecap="round"/>
+    <circle cx="556" cy="200" r="70" fill="#6cc7f2" opacity="0.28"/>
+    <circle cx="556" cy="200" r="38" fill="#6cc7f2"/>
+  </g>
+
+  <g id="body">
+    <rect x="322" y="310" width="380" height="520" rx="186" fill="url(#skin)"/>
+    <ellipse cx="420" cy="560" rx="30" ry="17" fill="#a48df0" opacity="0.32"/>
+    <ellipse cx="610" cy="560" rx="30" ry="17" fill="#a48df0" opacity="0.32"/>
+  </g>
+
+  <g id="eyes" fill="#171a27">
+    <ellipse cx="458" cy="500" rx="22" ry="30"/>
+    <ellipse cx="578" cy="500" rx="22" ry="30"/>
+    <path d="M484 590 q32 24 64 0" fill="none" stroke="#171a27" stroke-width="16" stroke-linecap="round"/>
+  </g>
+
+  <g id="scarf" fill="#a48df0">
+    <path d="M330 660 Q512 730 694 660 L694 716 Q512 786 330 716 Z"/>
+    <path d="M372 712 L330 832 L398 812 Z"/>
+  </g>
+</svg>
