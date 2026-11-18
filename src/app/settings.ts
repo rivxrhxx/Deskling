@@ -23,6 +23,10 @@ export type TokenBudget = (typeof TOKEN_BUDGETS)[number];
 export const OPACITY_MIN = 0.3;
 export const OPACITY_MAX = 1;
 
+/** Which room to show (ADR-024): auto = the demo until a real session speaks, then the real room. */
+export const SOURCE_CHOICES = ['auto', 'live', 'demo'] as const;
+export type SourceChoice = (typeof SOURCE_CHOICES)[number];
+
 export interface Settings {
   readonly size: SizePreset;
   readonly opacity: number;
@@ -31,6 +35,7 @@ export interface Settings {
   readonly motion: MotionSetting;
   readonly demoScript: DemoScriptId;
   readonly tokenBudget: TokenBudget;
+  readonly sourceChoice: SourceChoice;
 }
 
 export const DEFAULT_SETTINGS: Settings = Object.freeze({
@@ -38,8 +43,9 @@ export const DEFAULT_SETTINGS: Settings = Object.freeze({
   opacity: 1,
   floatOnTop: false,
   motion: 'system',
-  demoScript: 'tour',
+  demoScript: 'friends',
   tokenBudget: 200_000,
+  sourceChoice: 'auto',
 });
 
 type StorageLike = Pick<Storage, 'getItem' | 'setItem'>;
@@ -57,15 +63,18 @@ export function normalizeOpacity(value: unknown, fallback = DEFAULT_SETTINGS.opa
 export function parseSettings(value: unknown): Settings {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) return DEFAULT_SETTINGS;
   const record = value as Record<string, unknown>;
+  // Settings saved before session friends (no sourceChoice yet) still hold the old default demo: show the friends once.
+  const legacyTour = !('sourceChoice' in record) && record.demoScript === 'tour';
   return {
     size: oneOf(SIZE_IDS, record.size, DEFAULT_SETTINGS.size),
     opacity: normalizeOpacity(record.opacity),
     floatOnTop: typeof record.floatOnTop === 'boolean' ? record.floatOnTop : DEFAULT_SETTINGS.floatOnTop,
     motion: oneOf(MOTION_SETTINGS, record.motion, DEFAULT_SETTINGS.motion),
-    demoScript: oneOf(DEMO_SCRIPT_IDS, record.demoScript, DEFAULT_SETTINGS.demoScript),
+    demoScript: legacyTour ? 'friends' : oneOf(DEMO_SCRIPT_IDS, record.demoScript, DEFAULT_SETTINGS.demoScript),
     tokenBudget: (TOKEN_BUDGETS as readonly unknown[]).includes(record.tokenBudget)
       ? (record.tokenBudget as TokenBudget)
       : DEFAULT_SETTINGS.tokenBudget,
+    sourceChoice: oneOf(SOURCE_CHOICES, record.sourceChoice, DEFAULT_SETTINGS.sourceChoice),
   };
 }
 

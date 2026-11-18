@@ -370,6 +370,13 @@ body {
   padding: 0.3rem 0.9rem 0.5rem;
 }
 
+.activity-panel__showing {
+  align-self: center;
+  margin-left: auto;
+  font-size: 0.9rem;
+  color: var(--text-dim);
+}
+
 .chip {
   padding: 0.15rem 0.6rem;
   border-radius: 1rem;

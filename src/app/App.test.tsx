@@ -81,9 +81,9 @@ describe('App with the demo source (FR-D2, FR-D5, FR-D6)', () => {
     expect(seen).toEqual([...VISUAL_STATES]);
   });
 
-  it('uses the demo tour by default (starts offline, DEMO badge shown)', () => {
+  it('plays the 방 친구들 demo by default (DEMO badge shown)', () => {
     render(<App controls={fakeControls()} storage={fakeStorage()} />);
-    expect(sceneState()).toBe('offline');
+    expect(sceneState()).toBe('coding');
     expect(screen.getByText('DEMO')).toBeVisible();
   });
 });
@@ -238,8 +238,9 @@ describe('App window settings (FR-W2, FR-W4–W6, FR-W8, FR-M2)', () => {
       opacity: 0.5,
       floatOnTop: true,
       motion: 'reduced',
-      demoScript: 'tour',
+      demoScript: 'friends',
       tokenBudget: 200_000,
+      sourceChoice: 'auto',
     });
   });
 
@@ -295,9 +296,9 @@ describe('App demo scenario (FR-D2, FR-D3)', () => {
     expect(sceneState()).toBe('thinking');
   });
 
-  it('starts the tour from offline by default', () => {
+  it('starts the tour from offline when it is chosen', () => {
     vi.useFakeTimers();
-    render(<App controls={fakeControls()} storage={fakeStorage()} />);
+    render(<App controls={fakeControls()} storage={fakeStorage({ demoScript: 'tour', sourceChoice: 'auto' })} />);
     expect(sceneState()).toBe('offline');
   });
 
@@ -708,5 +709,79 @@ describe('App window layer (FR-R7, ADR-021)', () => {
     fireEvent.click(screen.getByRole('button', { name: '위에 띄우기' }));
     expect(controls.setAlwaysOnBottom).toHaveBeenLastCalledWith(false);
     expect(controls.setAlwaysOnTop).toHaveBeenLastCalledWith(true);
+  });
+});
+
+describe('App source choice: real Claude Code sessions vs the demo (FR-CC4, ADR-024)', () => {
+  function fakeLive() {
+    let deliver: ((raw: unknown) => void) | null = null;
+    const unlisten = vi.fn();
+    const listen = vi.fn((onRecord: (raw: unknown) => void) => {
+      deliver = onRecord;
+      return Promise.resolve(unlisten);
+    });
+    const record = (event: string, extra: Record<string, unknown> = {}) =>
+      act(() => deliver?.({ v: 1, agent: 'claude-code', session: 'cc-session-1', event, at: 1_000, ...extra }));
+    return { listen, unlisten, record };
+  }
+  const guests = () => [...document.querySelectorAll('[data-part="guest"]')];
+
+  it('auto: plays the demo until a real session speaks, then shows the real room without the DEMO badge', async () => {
+    vi.useFakeTimers();
+    const live = fakeLive();
+    render(<App controls={fakeControls()} storage={fakeStorage()} liveListen={live.listen} />);
+    await act(async () => {});
+    expect(screen.getByText('DEMO')).toBeVisible();
+
+    live.record('tool-start', { tool: 'code' });
+    act(() => vi.advanceTimersByTime(8_000));
+
+    expect(screen.queryByText('DEMO')).toBeNull();
+    expect(sceneState()).toBe('offline');
+    expect(guests().map((g) => g.getAttribute('data-session-kind'))).toEqual(['claude-code']);
+    expect(guests()[0]).toHaveAttribute('data-visual', 'coding');
+  });
+
+  it('demo: stays on the demo even when real sessions speak', async () => {
+    const live = fakeLive();
+    render(<App controls={fakeControls()} storage={fakeStorage({ sourceChoice: 'demo' })} liveListen={live.listen} />);
+    await act(async () => {});
+    live.record('session-start');
+    expect(screen.getByText('DEMO')).toBeVisible();
+  });
+
+  it('live: shows the real room from the start — Hermes asleep when nobody is connected', async () => {
+    const live = fakeLive();
+    render(<App controls={fakeControls()} storage={fakeStorage({ sourceChoice: 'live' })} liveListen={live.listen} />);
+    await act(async () => {});
+    expect(screen.queryByText('DEMO')).toBeNull();
+    expect(sceneState()).toBe('offline');
+  });
+
+  it('switches from the panel, remembers the choice and hides the demo picker while showing real sessions', async () => {
+    const { fireEvent } = await import('@testing-library/react');
+    const live = fakeLive();
+    const storage = fakeStorage();
+    render(<App controls={fakeControls()} storage={storage} liveListen={live.listen} />);
+    await act(async () => {});
+    fireEvent.click(screen.getByRole('button', { name: '최근 활동 보기' }));
+    const view = screen.getByRole('group', { name: '보기' });
+    expect(view).toHaveTextContent('지금: 데모');
+    expect(screen.getByRole('group', { name: '데모 시나리오' })).toBeInTheDocument();
+
+    fireEvent.click(within(view).getByRole('button', { name: '실제' }));
+    expect(JSON.parse(storage.data.get('deskling.settings.v1') ?? '{}')).toMatchObject({ sourceChoice: 'live' });
+    expect(screen.getByRole('group', { name: '보기' })).toHaveTextContent('지금: 실제 세션');
+    expect(screen.queryByRole('group', { name: '데모 시나리오' })).toBeNull();
+    expect(screen.queryByText('DEMO')).toBeNull();
+  });
+
+  it('listens to the bridge once and stops on unmount', async () => {
+    const live = fakeLive();
+    const { unmount } = render(<App controls={fakeControls()} storage={fakeStorage()} liveListen={live.listen} />);
+    await act(async () => {});
+    unmount();
+    await act(async () => {});
+    expect(live.unlisten).toHaveBeenCalled();
   });
 });

@@ -331,3 +331,24 @@ describe('ActivityPanel sessions in the room (FR-MS6)', () => {
     expect(within(list).getAllByRole('listitem')).toHaveLength(entries.length);
   });
 });
+
+describe('ActivityPanel source choice (FR-CC4)', () => {
+  it('offers 자동 / 실제 / 데모, says what is showing, and reports the choice', async () => {
+    const onSelect = vi.fn();
+    const view = {
+      options: [
+        { value: 'auto', label: '자동', selected: true },
+        { value: 'live', label: '실제', selected: false },
+        { value: 'demo', label: '데모', selected: false },
+      ],
+      onSelect,
+      showing: '지금: 실제 세션',
+    };
+    render(<ActivityPanel entries={[]} onClose={vi.fn()} formatTime={(at) => `t${at}`} view={view} />);
+    const group = screen.getByRole('group', { name: '보기' });
+    expect(within(group).getByRole('button', { name: '자동' })).toHaveAttribute('aria-pressed', 'true');
+    expect(group).toHaveTextContent('지금: 실제 세션');
+    await userEvent.click(within(group).getByRole('button', { name: '실제' }));
+    expect(onSelect).toHaveBeenCalledWith('live');
+  });
+});

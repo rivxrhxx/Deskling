@@ -12,6 +12,12 @@ export interface DemoPicker {
   readonly onSelect: (value: string) => void;
 }
 
+/** Which room the panel is showing and the user's choice (FR-CC4). */
+export interface ViewPicker extends DemoPicker {
+  /** Fixed copy, e.g. '지금: 실제 세션'. */
+  readonly showing: string;
+}
+
 export interface BudgetPicker {
   readonly value: number;
   readonly options: readonly number[];
@@ -46,6 +52,8 @@ export interface ActivityPanelProps {
   readonly formatTime?: (at: number) => string;
   /** Present only while a demo source runs. */
   readonly demo?: DemoPicker;
+  /** 자동 / 실제 / 데모 (FR-CC4). */
+  readonly view?: ViewPicker;
   /** Energy and context numbers (FR-V5). The scene never shows numbers; this panel does. */
   readonly vitals?: Vitals;
   readonly budget?: BudgetPicker;
@@ -204,7 +212,7 @@ function SessionsSection({ sessions }: { sessions: readonly PanelSession[] }) {
 }
 
 /** A small log screen pinned to the wall: recent facts, newest first (FR-P1–P4). Read-only. */
-export function ActivityPanel({ entries, onClose, formatTime = formatClock, demo, vitals, budget, pet, sessions }: ActivityPanelProps) {
+export function ActivityPanel({ entries, onClose, formatTime = formatClock, demo, view, vitals, budget, pet, sessions }: ActivityPanelProps) {
   const closeRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
@@ -251,6 +259,22 @@ export function ActivityPanel({ entries, onClose, formatTime = formatClock, demo
             );
           })}
         </ol>
+      )}
+      {view && (
+        <div className="activity-panel__demo activity-panel__view" role="group" aria-label="보기">
+          {view.options.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              className="chip"
+              aria-pressed={option.selected}
+              onClick={() => view.onSelect(option.value)}
+            >
+              {option.label}
+            </button>
+          ))}
+          <span className="activity-panel__showing">{view.showing}</span>
+        </div>
       )}
       {demo && (
         <div className="activity-panel__demo" role="group" aria-label="데모 시나리오">

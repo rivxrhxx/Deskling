@@ -1,5 +1,7 @@
 import type { CSSProperties, MouseEvent } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { ListenHookRecords } from '../adapters/claudeCode/source';
+import { createClaudeCodeSource } from '../adapters/claudeCode/source';
 import { createDemoSource } from '../adapters/demo/demoSource';
 import type { DemoScriptId } from '../adapters/demo/scripts';
 import { DEMO_SCRIPT_IDS, DEMO_SCRIPTS } from '../adapters/demo/scripts';
@@ -10,6 +12,7 @@ import type { GuestInput } from '../core/life';
 import { deriveVitals } from '../core/mood';
 import { GUEST_SEATS, toScreen } from '../core/room';
 import { residentView } from '../core/roomState';
+import { listenHookRecords } from '../platform/hookRecords';
 import type { WindowControls } from '../platform/windowControls';
 import { createWindowControls } from '../platform/windowControls';
 import type { PanelSession } from '../ui/ActivityPanel';
@@ -20,8 +23,8 @@ import { DemoBadge } from '../ui/DemoBadge';
 import { StatusBubble } from '../ui/StatusBubble';
 import { MiniRoom } from '../ui/miniroom/MiniRoom';
 import { WindowToolbar } from '../ui/WindowToolbar';
-import type { Settings } from './settings';
-import { TOKEN_BUDGETS, loadSettings, parseSettings, saveSettings, windowSizeFor } from './settings';
+import type { Settings, SourceChoice } from './settings';
+import { SOURCE_CHOICES, TOKEN_BUDGETS, loadSettings, parseSettings, saveSettings, windowSizeFor } from './settings';
 import { useAgentFeed } from './useAgentFeed';
 import { useLife } from './useLife';
 import { usePet } from './usePet';
@@ -48,7 +51,14 @@ export interface AppProps {
   readonly controls?: WindowControls;
   /** Where UI preferences live. Defaults to localStorage when available. */
   readonly storage?: StorageLike | null;
+  /** Where real Claude Code hook records come from. Defaults to the Tauri bridge (ADR-024); injected in tests. */
+  readonly liveListen?: ListenHookRecords;
 }
+
+const SOURCE_LABEL: Readonly<Record<SourceChoice, string>> = { auto: '자동', live: '실제', demo: '데모' };
+
+/** A source that never emits — the live slot when a test supplies its own source. */
+const SILENT_SOURCE: AgentEventSource = { mode: 'live', start: () => () => {} };
 
 /** Hermes first (asleep when no resident session is known), then the friends; those beyond the seats wait (FR-MS2). */
 function panelSessions(
@@ -70,7 +80,7 @@ function browserStorage(): StorageLike | null {
   }
 }
 
-export function App({ source: providedSource, controls: providedControls, storage: providedStorage }: AppProps) {
+export function App({ source: providedSource, controls: providedControls, storage: providedStorage, liveListen }: AppProps) {
   const [defaults] = useState(() => ({
     controls: providedControls ? null : createWindowControls(),
     storage: providedStorage === undefined ? browserStorage() : null,
@@ -85,7 +95,11 @@ export function App({ source: providedSource, controls: providedControls, storag
     () => (providedSource ? null : createDemoSource({ script: DEMO_SCRIPTS[settings.demoScript] })),
     [providedSource, settings.demoScript],
   );
-  const source = providedSource ?? (demoSource as AgentEventSource);
+  const primarySource = providedSource ?? (demoSource as AgentEventSource);
+  // Real Claude Code sessions arrive through the hook bridge (ADR-024). Created once; its translator keeps per-session seqs.
+  const [liveSource] = useState<AgentEventSource>(() =>
+    providedSource ? SILENT_SOURCE : createClaudeCodeSource(liveListen ?? listenHookRecords),
+  );
   // Functional update: several changes before a re-render must all survive (review T34g).
   const updateSettings = useCallback(
     (patch: Partial<Settings>) => setSettings((previous) => parseSettings({ ...previous, ...patch })),
@@ -115,7 +129,13 @@ export function App({ source: providedSource, controls: providedControls, storag
   }, [controls, settings.floatOnTop]);
 
   // The whole room: Hermes is the latest resident session, every guest session a friend (ADR-022).
-  const room = useAgentFeed(source);
+  // Both rooms are always fed, so switching never drops an arrival; the choice only decides which one is shown.
+  const primaryRoom = useAgentFeed(primarySource);
+  const liveRoom = useAgentFeed(liveSource);
+  const showLive =
+    !providedSource && (settings.sourceChoice === 'live' || (settings.sourceChoice === 'auto' && liveRoom.entryCount > 0));
+  const source = showLive ? liveSource : primarySource;
+  const room = showLive ? liveRoom : primaryRoom;
   const resident = residentView(room);
   const reducedMotion = useReducedMotion(settings.motion);
   // Energy and anger: fixed readings of Hermes' reported numbers against the user's budget (ADR-016).
@@ -213,6 +233,19 @@ export function App({ source: providedSource, controls: providedControls, storag
               options: TOKEN_BUDGETS,
               onChange: (value) => updateSettings({ tokenBudget: value as Settings['tokenBudget'] }),
             }}
+            view={
+              providedSource
+                ? undefined
+                : {
+                    options: SOURCE_CHOICES.map((choice) => ({
+                      value: choice,
+                      label: SOURCE_LABEL[choice],
+                      selected: choice === settings.sourceChoice,
+                    })),
+                    onSelect: (value) => updateSettings({ sourceChoice: value as SourceChoice }),
+                    showing: showLive ? '지금: 실제 세션' : '지금: 데모',
+                  }
+            }
             demo={
               source.mode === 'demo' && !providedSource
                 ? {

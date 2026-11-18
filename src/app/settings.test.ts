@@ -18,9 +18,26 @@ function memoryStorage(initial: Record<string, string> = {}) {
   };
 }
 
+describe('source choice (FR-CC4, ADR-024)', () => {
+  it('defaults to auto and the 방 친구들 demo', () => {
+    expect(DEFAULT_SETTINGS.sourceChoice).toBe('auto');
+    expect(DEFAULT_SETTINGS.demoScript).toBe('friends');
+  });
+
+  it.each(['auto', 'live', 'demo'] as const)('keeps %s', (sourceChoice) => {
+    expect(parseSettings({ sourceChoice }).sourceChoice).toBe(sourceChoice);
+  });
+
+  it('moves settings saved before session friends from the tour to 방 친구들, once', () => {
+    expect(parseSettings({ demoScript: 'tour' }).demoScript).toBe('friends');
+    expect(parseSettings({ demoScript: 'tour', sourceChoice: 'auto' }).demoScript).toBe('tour');
+    expect(parseSettings({ demoScript: 'core' }).demoScript).toBe('core');
+  });
+});
+
 describe('parseSettings (FR-W6)', () => {
   it('accepts a complete valid object', () => {
-    const value = { size: 'l', opacity: 0.6, floatOnTop: false, motion: 'reduced', demoScript: 'core', tokenBudget: 500_000 };
+    const value = { size: 'l', opacity: 0.6, floatOnTop: false, motion: 'reduced', demoScript: 'core', tokenBudget: 500_000, sourceChoice: 'live' };
     expect(parseSettings(value)).toEqual(value);
   });
 
@@ -29,7 +46,7 @@ describe('parseSettings (FR-W6)', () => {
   });
 
   it('falls back per field instead of discarding everything', () => {
-    expect(parseSettings({ size: 'xl', opacity: 0.5, floatOnTop: 'yes', motion: 'wild', demoScript: 'nope' })).toEqual({
+    expect(parseSettings({ size: 'xl', opacity: 0.5, floatOnTop: 'yes', motion: 'wild', demoScript: 'nope', sourceChoice: 'both' })).toEqual({
       ...DEFAULT_SETTINGS,
       opacity: 0.5,
     });
@@ -105,13 +122,13 @@ describe('loadSettings / saveSettings (FR-W6, SEC-7)', () => {
 
   it('round-trips through a single storage key containing only settings fields', () => {
     const storage = memoryStorage();
-    const settings = { size: 's', opacity: 0.7, floatOnTop: false, motion: 'full', demoScript: 'core', tokenBudget: 100_000 } as const;
+    const settings = { size: 's', opacity: 0.7, floatOnTop: false, motion: 'full', demoScript: 'core', tokenBudget: 100_000, sourceChoice: 'auto' } as const;
     saveSettings(storage, { ...settings, extra: 'SECRET' } as typeof settings);
 
     expect([...storage.data.keys()]).toEqual([SETTINGS_KEY]);
     expect(storage.data.get(SETTINGS_KEY)).not.toContain('SECRET');
     expect(Object.keys(JSON.parse(storage.data.get(SETTINGS_KEY) ?? '{}')).sort()).toEqual(
-      ['floatOnTop', 'demoScript', 'motion', 'opacity', 'size', 'tokenBudget'].sort(),
+      ['floatOnTop', 'demoScript', 'motion', 'opacity', 'size', 'sourceChoice', 'tokenBudget'].sort(),
     );
     expect(loadSettings(storage)).toEqual(settings);
   });
