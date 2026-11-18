@@ -52,7 +52,7 @@
 
 ## M5 상호작용
 
-- [ ] **T25** `ActivityPanel`: 캐릭터 클릭·Enter로 열기, 닫기 버튼·Esc, 고정 문구 — FR-P1~P4
+- [x] **T25** `ActivityPanel`: 캐릭터 클릭·Enter로 열기, 닫기 버튼·Esc, 고정 문구 — FR-P1~P4
 - [ ] **T26** `settings`: 검증·로드·저장, 저장 키 하나 — FR-W6, SEC-7
 - [ ] **T27** `WindowControls` 인터페이스, Tauri/no-op 구현 선택
 - [ ] **T28** `WindowToolbar`: 크기 S/M/L, 투명도, 항상 위, 모션, 닫기 — FR-W2, W4, W5, W7, W8, FR-M2

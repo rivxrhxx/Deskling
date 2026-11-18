@@ -143,3 +143,37 @@ describe('App motion (FR-M1, FR-M3)', () => {
     expect(root.querySelector('[data-icon]')).not.toBeNull();
   });
 });
+
+describe('App activity panel (FR-P1, FR-P3)', () => {
+  it('opens from the character, lists recent activity and closes with Escape', async () => {
+    const { default: userEvent } = await import('@testing-library/user-event');
+    const user = userEvent.setup();
+    const live = manualSource('demo');
+    render(<App source={live.source} />);
+    live.emit(raw(1, 'agent.online'));
+    live.emit(raw(2, 'turn.started'));
+
+    const hotspot = screen.getByRole('button', { name: '최근 활동 보기' });
+    expect(hotspot).toHaveAttribute('aria-expanded', 'false');
+    await user.click(hotspot);
+
+    const dialog = screen.getByRole('dialog', { name: '최근 활동' });
+    expect(hotspot).toHaveAttribute('aria-expanded', 'true');
+    expect(dialog).toHaveTextContent('작업 시작');
+    expect(dialog).toHaveTextContent('에이전트 연결됨');
+    expect(screen.getByText('DEMO')).toBeVisible();
+
+    await user.keyboard('{Escape}');
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(hotspot).toHaveFocus();
+  });
+
+  it('opens from the keyboard', async () => {
+    const { default: userEvent } = await import('@testing-library/user-event');
+    const user = userEvent.setup();
+    render(<App source={manualSource().source} />);
+    screen.getByRole('button', { name: '최근 활동 보기' }).focus();
+    await user.keyboard('{Enter}');
+    expect(screen.getByRole('dialog', { name: '최근 활동' })).toBeInTheDocument();
+  });
+});
