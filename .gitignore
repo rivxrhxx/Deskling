@@ -1,0 +1,21 @@
+# dependencies
+node_modules/
+
+# build output
+dist/
+coverage/
+*.tsbuildinfo
+
+# tauri / rust
+src-tauri/target/
+src-tauri/gen/schemas/
+
+# local tooling state
+.omc/
+.vite/
+
+# os / editor
+.DS_Store
+*.log
+.env
+.env.*
