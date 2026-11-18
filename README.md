@@ -5,6 +5,8 @@ AI 에이전트가 실제로 일하는 모습을 바탕화면 위 작은 캐릭�
 > **상태:** 첫 vertical slice 개발 중. 아직 실제 에이전트와 연결되지 않았고 결정적(deterministic) **데모 이벤트**로만 동작한다.
 > 데모로 동작하는 동안 화면에는 항상 `DEMO` 배지가 표시된다.
 
+![Deskling 작업실 — 대기 중](docs/images/workshop-idle.png)
+
 ## 무엇을 하나
 
 - 투명하고 프레임 없는 오버레이 창에 어두운 미니어처 개발자 작업실과 캐릭터를 띄운다.
@@ -12,6 +14,18 @@ AI 에이전트가 실제로 일하는 모습을 바탕화면 위 작은 캐릭�
   `waiting-approval`, `delegated`, `success`, `error` 상태를 포즈·아이콘·텍스트로 보여준다.
 - 캐릭터를 클릭하면 최근 활동 패널이 열린다.
 - 항상 위 표시, 드래그 이동, 크기·투명도 조절, reduced-motion을 지원한다.
+
+### 11개 상태
+
+데모 투어(`offline → idle → thinking → coding → browsing → terminal → file-work → waiting-approval → delegated → success → error`)를 실제 앱 창에서 캡처한 모습. 상태마다 포즈·아이콘·텍스트·모니터 화면이 다르다.
+
+![11개 상태](docs/images/all-states.png)
+
+### 활동 패널과 창 설정
+
+캐릭터를 클릭하면 최근 활동 패널이, 마우스를 올리면 창 설정 툴바(크기 S/M/L, 불투명도, 항상 위, 모션, 닫기)가 나타난다.
+
+![활동 패널과 툴바](docs/images/panel-and-toolbar.png)
 
 ## 하지 않는 것
 
