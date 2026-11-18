@@ -4,14 +4,18 @@ _마지막 갱신: 2026-11-18_
 
 ## 현재 단계
 
-- **M0–M9 완료.** vertical slice, MVP 화면, 독립 리뷰 반영(T34), 생활감(M7: 에너지·화남·침대·하루 일과 데모),
+- **M0–M11 완료.** vertical slice, MVP 화면, 독립 리뷰 반영(T34), 생활감(M7: 에너지·화남·침대·하루 일과 데모),
   키우기(M8: 완료한 작업 = 경험치, 아기→어린이→어른, 방 꾸미기 해금, 이름·쓰다듬기·간식)가 동작한다.
 - **M9 미니룸(ADR-019~021):** 어두운 작업실을 밝은 아이소메트릭 픽셀 미니룸으로 교체했다. 헤르메스가 방을 걸어 다니며 대기 중 일상(샤워·밥·TV·책·창밖·스트레칭·물주기·낮잠·친구 초대)을 살고,
   에이전트 상태가 필수 행동을 정한다(작업 → 책상, 승인 대기 → 방 앞에서 손 흔들기, 위임 → 친구 도우미, 오프라인 → 불 끄고 잠). 일상은 펫의 생활이며 에이전트에 대한 주장이 아니다(ADR-020).
   창은 기본이 바탕화면에 박힌 항상 아래·Dock 없음·480×340이고 "위에 띄우기"로 바꾼다(ADR-021).
   T64에서 독립 코드 리뷰(HIGH 1: 빠른 도구 전환 때 책상에 못 가고 맴돎 → 수정)와 장면별 시각 QA(가림·배지·포스터·밤 가장자리 수정)를 반영했다.
-- 이벤트 규격은 v2(`usage.reported` 추가, ADR-016). 방 모양은 ADR-019가 ADR-017을 대체했다(이전 400×260 디오라마).
-- 실제 에이전트(Hermes 등)와는 아직 연결되지 않았다. 앱은 결정적 데모 소스로만 동작하며 항상 DEMO 배지를 보인다.
+- **M10 세션 친구(ADR-022/023):** 세션마다 캐릭터 하나 — `hermes`·`demo`·`custom`은 집주인 헤르메스, `claude-code`·`codex` 세션은 세션마다 친구(번호·색으로 구분).
+  세션별 커서·사실·사용량(ADR-014 대체), 방석 4개, 들어오기/나가기, 자기 상태만 표시, `session.message`로 실제 대화(말풍선) 또는 편지, 패널 세션 목록·알림 줄, 데모 "방 친구들". 동네 친구·친구 초대는 없앴다.
+- **M11 Claude Code 실제 연결(ADR-024):** 훅 스크립트 → Unix 소켓(0600) → Rust 엄격 검증 → Tauri 이벤트 → TS 번역 → 재정규화. 보기 자동/실제/데모.
+  사용자 동의를 받아 2026-11-19 훅 설치(백업 `~/.claude/settings.json.deskling-backup-20261119-011220`, 기존 훅 핸들러 34개 그대로). 제거는 `npm run hooks:uninstall`.
+- 이벤트 규격은 v3(v2 `usage.reported`, v3 `claude-code`·`codex` 종류와 `session.message`). 방 모양은 ADR-019가 ADR-017을 대체했다(이전 400×260 디오라마).
+- Hermes·Codex와는 아직 실제로 연결되지 않았다(데모로 표현). 데모가 보이는 동안에는 항상 DEMO 배지를 보인다.
 
 ## 환경 (2026-11-18 확인)
 
@@ -27,12 +31,15 @@ _마지막 갱신: 2026-11-18_
 
 | 명령 | 결과 |
 | --- | --- |
-| `npm run verify` (Node 24) | 통과 — typecheck, lint(경고 0), **763 tests / 29 files**, vite build, cargo fmt·clippy(`-D warnings`)·test (M9 완료 시점, 2026-11-19) |
+| `npm run verify` (Node 24) | 통과 — typecheck, lint(경고 0), **1388 tests / 38 files**, vite build, cargo fmt·clippy(`-D warnings`)·**test 21개** (M11 완료 시점, 2026-11-19) |
 | `npm run verify:fast` (Node 23.11) | 통과 — 334 tests (T34 이전 시점). Node 23은 EBADENGINE 경고만 남 |
 | `npm run build:app` | 통과 — `src-tauri/target/release/bundle/macos/Deskling.app` (9.7 MiB, arm64, 번들 ad-hoc 서명 + hardened runtime, `codesign --verify --deep --strict` 통과, M9 실행·렌더링·바탕화면 층 확인, 2026-11-19) |
 | `npm run tauri dev` | 실행됨 — 투명 창, layer 5(항상 위), M6 시점 11개 상태 네이티브 캡처, M7은 DOM 프로브 |
 
 ### 네이티브 확인 내역
+
+- **M11 (release 번들 + 실제 Claude Code):** 앱 데이터 폴더 0700, 소켓 `agent-events.sock` 0600 생성. 훅 설치 직후 **이 개발 세션(Claude Code) 자신이 Claude 1 친구로 방에 들어와**
+  방석에서 노트북으로 일하는 것을 창 캡처로 확인 — 자동 모드가 실제 방으로 바뀌어 DEMO 배지 없음, 헤르메스는 미연결이라 불 끄고 잠. 창 layer −1, UIElement.
 
 - **M9 (release 번들):** 창 layer −1(바탕화면 층, 다른 창 아래) + onscreen, 프로세스 type `UIElement`(Dock·⌘Tab 없음).
   데모 투어 동안 창 캡처 9장: 말풍선은 항상 실제 상태, 헤르메스는 상태별 자리로 걸어감(오프라인 → 밤 + 침대, 승인 대기 → 방 앞 + 호박색 !, 위임 → 친구 도우미).
