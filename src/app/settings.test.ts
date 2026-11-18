@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   DEFAULT_SETTINGS,
   SETTINGS_KEY,
+  TOKEN_BUDGETS,
   loadSettings,
   parseSettings,
   saveSettings,
@@ -19,7 +20,7 @@ function memoryStorage(initial: Record<string, string> = {}) {
 
 describe('parseSettings (FR-W6)', () => {
   it('accepts a complete valid object', () => {
-    const value = { size: 'l', opacity: 0.6, alwaysOnTop: false, motion: 'reduced', demoScript: 'core' };
+    const value = { size: 'l', opacity: 0.6, alwaysOnTop: false, motion: 'reduced', demoScript: 'core', tokenBudget: 500_000 };
     expect(parseSettings(value)).toEqual(value);
   });
 
@@ -50,6 +51,24 @@ describe('parseSettings (FR-W6)', () => {
   });
 });
 
+describe('token budget (FR-V6)', () => {
+  it('defaults to 200k', () => {
+    expect(DEFAULT_SETTINGS.tokenBudget).toBe(200_000);
+  });
+
+  it.each(TOKEN_BUDGETS)('accepts %d', (budget) => {
+    expect(parseSettings({ tokenBudget: budget }).tokenBudget).toBe(budget);
+  });
+
+  it.each([0, -1, 123_456, '200000', Number.NaN])('falls back to the default for %s', (budget) => {
+    expect(parseSettings({ tokenBudget: budget }).tokenBudget).toBe(200_000);
+  });
+
+  it('offers 50k, 100k, 200k, 500k and 1M', () => {
+    expect([...TOKEN_BUDGETS]).toEqual([50_000, 100_000, 200_000, 500_000, 1_000_000]);
+  });
+});
+
 describe('loadSettings / saveSettings (FR-W6, SEC-7)', () => {
   it('returns defaults when nothing is stored or storage is unavailable', () => {
     expect(loadSettings(memoryStorage())).toEqual(DEFAULT_SETTINGS);
@@ -75,13 +94,13 @@ describe('loadSettings / saveSettings (FR-W6, SEC-7)', () => {
 
   it('round-trips through a single storage key containing only settings fields', () => {
     const storage = memoryStorage();
-    const settings = { size: 's', opacity: 0.7, alwaysOnTop: false, motion: 'full', demoScript: 'core' } as const;
+    const settings = { size: 's', opacity: 0.7, alwaysOnTop: false, motion: 'full', demoScript: 'core', tokenBudget: 100_000 } as const;
     saveSettings(storage, { ...settings, extra: 'SECRET' } as typeof settings);
 
     expect([...storage.data.keys()]).toEqual([SETTINGS_KEY]);
     expect(storage.data.get(SETTINGS_KEY)).not.toContain('SECRET');
     expect(Object.keys(JSON.parse(storage.data.get(SETTINGS_KEY) ?? '{}')).sort()).toEqual(
-      ['alwaysOnTop', 'demoScript', 'motion', 'opacity', 'size'].sort(),
+      ['alwaysOnTop', 'demoScript', 'motion', 'opacity', 'size', 'tokenBudget'].sort(),
     );
     expect(loadSettings(storage)).toEqual(settings);
   });

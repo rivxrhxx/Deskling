@@ -15,6 +15,10 @@ export type SizePreset = keyof typeof SIZE_PRESETS;
 const SIZE_IDS = Object.keys(SIZE_PRESETS) as SizePreset[];
 
 export const BASE_WINDOW = { width: 320, height: 280 } as const;
+/** Token budget choices for the energy reading (FR-V6, ADR-016). */
+export const TOKEN_BUDGETS = [50_000, 100_000, 200_000, 500_000, 1_000_000] as const;
+export type TokenBudget = (typeof TOKEN_BUDGETS)[number];
+
 export const OPACITY_MIN = 0.3;
 export const OPACITY_MAX = 1;
 
@@ -24,6 +28,7 @@ export interface Settings {
   readonly alwaysOnTop: boolean;
   readonly motion: MotionSetting;
   readonly demoScript: DemoScriptId;
+  readonly tokenBudget: TokenBudget;
 }
 
 export const DEFAULT_SETTINGS: Settings = Object.freeze({
@@ -32,6 +37,7 @@ export const DEFAULT_SETTINGS: Settings = Object.freeze({
   alwaysOnTop: true,
   motion: 'system',
   demoScript: 'tour',
+  tokenBudget: 200_000,
 });
 
 type StorageLike = Pick<Storage, 'getItem' | 'setItem'>;
@@ -55,6 +61,9 @@ export function parseSettings(value: unknown): Settings {
     alwaysOnTop: typeof record.alwaysOnTop === 'boolean' ? record.alwaysOnTop : DEFAULT_SETTINGS.alwaysOnTop,
     motion: oneOf(MOTION_SETTINGS, record.motion, DEFAULT_SETTINGS.motion),
     demoScript: oneOf(DEMO_SCRIPT_IDS, record.demoScript, DEFAULT_SETTINGS.demoScript),
+    tokenBudget: (TOKEN_BUDGETS as readonly unknown[]).includes(record.tokenBudget)
+      ? (record.tokenBudget as TokenBudget)
+      : DEFAULT_SETTINGS.tokenBudget,
   };
 }
 

@@ -236,6 +236,7 @@ describe('App window settings (FR-W2, FR-W4–W6, FR-W8, FR-M2)', () => {
       alwaysOnTop: false,
       motion: 'reduced',
       demoScript: 'tour',
+      tokenBudget: 200_000,
     });
   });
 

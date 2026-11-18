@@ -82,7 +82,7 @@
 - [x] **T37** `normalizeAgentEvent`: v2 `usage.reported` 검증(`bad-usage`), v1 호환 — FR-V1
 - [x] **T38** 리듀서: 세션별 최신 사용량 스냅샷, 최근 목록 제외, 세션 전환 시 초기화 — FR-V1
 - [x] **T39** `src/core/mood.ts`: 에너지·화남 단계 순수 함수 — FR-V2, FR-V3
-- [ ] **T40** 설정: 토큰 예산(50k~1M, 기본 200k) — FR-V6
+- [x] **T40** 설정: 토큰 예산(50k~1M, 기본 200k) — FR-V6
 - [ ] **T41** visualSpec: 상태별 위치(desk/bed), 침대 포즈 이름 — FR-V7
 - [ ] **T42** 방 확장(400×260)과 침대, 기본 창 400×280, 위치 따라가는 hotspot — FR-V7, ADR-017
 - [ ] **T43** 침대 포즈(뒹굴/잠)와 걷기 전환 — FR-V7, FR-V8
