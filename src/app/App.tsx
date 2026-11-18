@@ -20,7 +20,7 @@ import { useReducedMotion } from './useReducedMotion';
 
 type StorageLike = Pick<Storage, 'getItem' | 'setItem'>;
 
-const DEMO_LABEL: Readonly<Record<DemoScriptId, string>> = { tour: '전체 상태', core: '기본 흐름' };
+const DEMO_LABEL: Readonly<Record<DemoScriptId, string>> = { tour: '전체 상태', core: '기본 흐름', life: '하루 일과' };
 
 /** Interactive elements and overlays never start a window drag (ADR-008). */
 const NO_DRAG = 'button, input, select, textarea, a, [role="dialog"], [data-no-drag]';
