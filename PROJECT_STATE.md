@@ -4,9 +4,13 @@ _마지막 갱신: 2026-11-18_
 
 ## 현재 단계
 
-- **M0–M8 완료.** vertical slice, MVP 화면, 독립 리뷰 반영(T34), 생활감(M7: 에너지·화남·침대·하루 일과 데모),
+- **M0–M9 완료.** vertical slice, MVP 화면, 독립 리뷰 반영(T34), 생활감(M7: 에너지·화남·침대·하루 일과 데모),
   키우기(M8: 완료한 작업 = 경험치, 아기→어린이→어른, 방 꾸미기 해금, 이름·쓰다듬기·간식)가 동작한다.
-- 이벤트 규격은 v2(`usage.reported` 추가, ADR-016). 방은 침대가 있는 400×260 디오라마(ADR-017).
+- **M9 미니룸(ADR-019~021):** 어두운 작업실을 밝은 아이소메트릭 픽셀 미니룸으로 교체했다. 헤르메스가 방을 걸어 다니며 대기 중 일상(샤워·밥·TV·책·창밖·스트레칭·물주기·낮잠·친구 초대)을 살고,
+  에이전트 상태가 필수 행동을 정한다(작업 → 책상, 승인 대기 → 방 앞에서 손 흔들기, 위임 → 친구 도우미, 오프라인 → 불 끄고 잠). 일상은 펫의 생활이며 에이전트에 대한 주장이 아니다(ADR-020).
+  창은 기본이 바탕화면에 박힌 항상 아래·Dock 없음·480×340이고 "위에 띄우기"로 바꾼다(ADR-021).
+  T64에서 독립 코드 리뷰(HIGH 1: 빠른 도구 전환 때 책상에 못 가고 맴돎 → 수정)와 장면별 시각 QA(가림·배지·포스터·밤 가장자리 수정)를 반영했다.
+- 이벤트 규격은 v2(`usage.reported` 추가, ADR-016). 방 모양은 ADR-019가 ADR-017을 대체했다(이전 400×260 디오라마).
 - 실제 에이전트(Hermes 등)와는 아직 연결되지 않았다. 앱은 결정적 데모 소스로만 동작하며 항상 DEMO 배지를 보인다.
 
 ## 환경 (2026-11-18 확인)
@@ -23,12 +27,18 @@ _마지막 갱신: 2026-11-18_
 
 | 명령 | 결과 |
 | --- | --- |
-| `npm run verify` (Node 24) | 통과 — typecheck, lint(경고 0), **545 tests / 25 files**, vite build, cargo fmt·clippy(`-D warnings`)·test (M8 완료 시점) |
+| `npm run verify` (Node 24) | 통과 — typecheck, lint(경고 0), **763 tests / 29 files**, vite build, cargo fmt·clippy(`-D warnings`)·test (M9 완료 시점, 2026-11-19) |
 | `npm run verify:fast` (Node 23.11) | 통과 — 334 tests (T34 이전 시점). Node 23은 EBADENGINE 경고만 남 |
-| `npm run build:app` | 통과 — `src-tauri/target/release/bundle/macos/Deskling.app` (9.6 MiB, arm64, 번들 ad-hoc 서명 + hardened runtime, `codesign --verify --deep --strict` 통과, 실행·렌더링 확인) |
+| `npm run build:app` | 통과 — `src-tauri/target/release/bundle/macos/Deskling.app` (9.7 MiB, arm64, 번들 ad-hoc 서명 + hardened runtime, `codesign --verify --deep --strict` 통과, M9 실행·렌더링·바탕화면 층 확인, 2026-11-19) |
 | `npm run tauri dev` | 실행됨 — 투명 창, layer 5(항상 위), M6 시점 11개 상태 네이티브 캡처, M7은 DOM 프로브 |
 
 ### 네이티브 확인 내역
+
+- **M9 (release 번들):** 창 layer −1(바탕화면 층, 다른 창 아래) + onscreen, 프로세스 type `UIElement`(Dock·⌘Tab 없음).
+  데모 투어 동안 창 캡처 9장: 말풍선은 항상 실제 상태, 헤르메스는 상태별 자리로 걸어감(오프라인 → 밤 + 침대, 승인 대기 → 방 앞 + 호박색 !, 위임 → 친구 도우미).
+  창 밖 영역 완전 투명(캡처 픽셀의 약 60%). README 이미지는 실제 `MiniRoom`/`App` 마크업+CSS의 WebKit 렌더링.
+
+이전 마일스톤:
 
 - 창 밖 영역 alpha 0(창 픽셀의 약 36% 완전 투명), 창 레벨 floating(항상 위).
 - 축소된 capability(창 권한 4개)로 실제 크기 변경 416×364, 항상 위 해제(layer 0) 확인 — 임시 기본값 변경 후 원복.
@@ -55,6 +65,10 @@ _마지막 갱신: 2026-11-18_
   dev 전용이며 `npm audit --omit=dev`는 0건. 4.0.7이 최신이라 패치 버전이 나오면 `overrides`로 올린다.
 - TypeScript는 typescript-eslint 호환 때문에 6.0.x 고정(ADR-002). npm 10.9는 Vitest 5 설치 시 arborist 버그가 있어 Node 24의 npm 11 사용(ADR-013).
 - DMG는 만들지 않는다(`--bundles app`). DMG 생성은 Finder AppleScript를 쓰기 때문.
+- **리뷰에서 받아들인 것(M9):** 데모 시나리오를 바꾸면 새 피드가 사실 없는 상태(offline)로 시작해, 그 순간 생활 엔진도 offline을 한 번 본다
+  (손님이 나가고 헤르메스가 하던 일상을 바꿀 수 있음). "사실만 반영" 원칙과 맞아 그대로 둔다.
+  헤르메스가 침대·샤워·소파 그룹을 드나들 때 스프라이트가 다시 마운트되어 이모트 흔들림이 처음부터 시작된다.
+  소파 옆을 걸어 지날 때 한순간 팔걸이가 다리 위에 그려질 수 있다(가구 하나에 깊이 하나). 짜증(annoyed)이면 작업 이모트 대신 땀 이모트가 보인다(DESIGN §3.2 우선순위).
 
 ## 다음 작업
 
