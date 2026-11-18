@@ -264,3 +264,37 @@ describe('reduceAgentState — ordering and sessions (FR-E5)', () => {
     expect(reduceAgentState(before, ev('agent.online', { session: 'b', seq: 1 })).visual).toBe('idle');
   });
 });
+
+describe('reduceAgentState — recent activity (FR-P2)', () => {
+  it('records accepted events newest first with protocol enums only', () => {
+    const state = run(
+      ev('agent.online', { at: 10 }),
+      ev('tool.started', { tool: 'terminal', at: 20 }),
+      ev('tool.finished', { tool: 'terminal', outcome: 'error', at: 30 }),
+    );
+    expect(state.recent).toEqual([
+      { id: 'e-3', seq: 3, at: 30, type: 'tool.finished', tool: 'terminal', outcome: 'error' },
+      { id: 'e-2', seq: 2, at: 20, type: 'tool.started', tool: 'terminal' },
+      { id: 'e-1', seq: 1, at: 10, type: 'agent.online' },
+    ]);
+  });
+
+  it(`keeps at most ${12} entries`, () => {
+    const events = [ev('agent.online')];
+    for (let i = 0; i < 20; i += 1) events.push(ev(i % 2 === 0 ? 'turn.started' : 'turn.succeeded'));
+    const state = run(...events);
+    expect(state.recent).toHaveLength(12);
+    expect(state.recent[0]?.seq).toBe(21);
+    expect(state.recent[11]?.seq).toBe(10);
+  });
+
+  it('does not record ignored events', () => {
+    const state = run(ev('agent.online', { seq: 4 }));
+    expect(reduceAgentState(state, ev('turn.started', { seq: 4 })).recent).toHaveLength(1);
+  });
+
+  it('keeps recent activity across a session change', () => {
+    const state = run(ev('agent.online', { session: 'a' }), ev('agent.online', { session: 'b', seq: 1 }));
+    expect(state.recent.map((entry) => entry.type)).toEqual(['agent.online', 'agent.online']);
+  });
+});

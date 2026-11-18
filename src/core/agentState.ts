@@ -33,6 +33,15 @@ export interface AgentViewState {
   readonly recent: readonly RecentEntry[];
 }
 
+export const RECENT_LIMIT = 12;
+
+function toRecentEntry(event: AgentEvent): RecentEntry {
+  const entry = { id: event.id, seq: event.seq, at: event.at, type: event.type };
+  if (event.type === 'tool.started') return { ...entry, tool: event.tool };
+  if (event.type === 'tool.finished') return { ...entry, tool: event.tool, outcome: event.outcome };
+  return entry;
+}
+
 const OFFLINE_FACTS: AgentFacts = Object.freeze({
   connection: 'offline',
   turnActive: false,
@@ -122,6 +131,6 @@ export function reduceAgentState(state: AgentViewState, event: AgentEvent): Agen
     sourceKind: event.source.kind,
     lastSeq: event.seq,
     updatedAt: event.at,
-    recent: state.recent,
+    recent: [toRecentEntry(event), ...state.recent].slice(0, RECENT_LIMIT),
   };
 }
