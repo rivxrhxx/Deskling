@@ -30,6 +30,10 @@
 | MVP-6 | 승인 대기는 호박색, 오류는 붉은 주황색 강조를 쓴다. | visualSpec 테스트 + 스크린샷 |
 | MVP-7 | 앱 어디에도 에이전트에게 명령·승인을 보내는 코드 경로가 없다. | 코드 리뷰 + capability 테스트 |
 | MVP-8 | `npm run build:app`이 macOS `.app` 번들을 만든다. | 명령 실행 로그 |
+| MVP-9 | 대기 중에는 침대에서 뒹굴고, 오프라인이면 불 꺼진 방에서 이불 덮고 잔다. 일이 시작되면 책상으로 간다. | Workshop·App 테스트 + 네이티브 DOM 프로브 |
+| MVP-10 | 보고된 토큰 사용량이 예산을 소모할수록 에너지 단계가 full → ok → low → empty로 바뀌고 장면 신호(전구·눈꺼풀·캔)가 달라진다. | mood·Workshop·App 테스트 |
+| MVP-11 | 컨텍스트가 찰수록 화남 단계가 calm → annoyed → angry → furious로 바뀌고 눈썹·핏줄·김으로 보인다. | mood·Workshop 테스트 |
+| MVP-12 | 숫자는 활동 패널에만 있고 장면에는 없다. 예산을 바꾸면 에너지가 다시 계산되고 저장된다. | ActivityPanel·App 테스트 |
 
 ## C. 보안 수용 기준 (항상)
 

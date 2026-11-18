@@ -42,7 +42,12 @@
 | FR-W3 | `src/app/App.test.tsx` | 빈 영역 pointerdown → startDragging, 캐릭터 → 패널 |
 | FR-W6, SEC-7 | `src/app/settings.test.ts` | 검증·폴백·저장 키 하나 |
 | FR-W1, SEC-5 | `src/config/tauriConfig.test.ts` | transparent/decorations/alwaysOnTop/shadow/macOSPrivateApi, 권한 목록 |
-| SEC-6 | `src/config/boundaries.test.ts` | ui에서 adapters·tauri import 시 린트 에러 |
+| SEC-6 | `src/config/boundaries.test.ts` | ui에서 adapters·tauri import 시 린트 에러, 동적 import·`__TAURI*` 금지 |
+| FR-V1 | `src/core/normalize.test.ts`, `src/core/agentState.test.ts` | v2 `usage.reported` 숫자만, `bad-usage`, 세션별 스냅샷, 최근 목록 제외 |
+| FR-V2, FR-V3 | `src/core/mood.test.ts` | 에너지·화남 단계 경계값 |
+| FR-V4 | `src/ui/workshop/Workshop.test.tsx` | 캔 수, 눈꺼풀, 눈썹 모양, 핏줄, 김, 잠잘 때 숨김, 텍스트 없음 |
+| FR-V5, FR-V6 | `src/ui/ActivityPanel.test.tsx`, `src/app/settings.test.ts`, `src/app/App.test.tsx` | 숫자·meter·보고 없음, 예산 선택·저장·재계산 |
+| FR-V7, FR-V8 | `src/ui/visualSpec.test.ts`, `src/ui/workshop/Workshop.test.tsx`, `src/app/App.test.tsx` | 위치(desk/bed), 침대 포즈, walker 재마운트, hotspot 위치 |
 
 ## 4. 명령
 
@@ -63,11 +68,12 @@ npm run build:app     # macOS 번들
 - [ ] 다른 앱 창을 클릭해도 Deskling이 위에 남는다 / 핀 버튼으로 끄고 켤 수 있다. (네이티브 조작 미확인, 로직은 App 테스트)
 - [ ] 벽·바닥 빈 곳을 끌면 창이 움직인다. (네이티브 조작 미확인, 로직은 App 테스트)
 - [x] 캐릭터 클릭 → 활동 패널 표시 — 실제 App 마크업 + CSS를 WebKit(Quick Look)으로 렌더링해 확인(`docs/images/panel-and-toolbar.png`).
+- [x] 생활감(M7): 네이티브 dev 앱의 실제 WKWebView DOM 프로브로 전체 투어 동안 위치(침대/책상)·에너지·화남 단계·캔 수·표시 개수가 규칙대로 바뀌고 JS 오류가 없음을 확인. 장면 이미지는 WebKit 렌더링(`docs/images/room-moods.png`, `docs/images/all-states.png`).
 - [x] DEMO 배지가 항상 보인다 — 투어 26장 캡처 전부에서 확인.
-- [x] 데모 투어가 11개 상태를 순서대로 보여주고, 각 상태의 포즈·아이콘·텍스트가 다르다(`docs/images/all-states.png`).
+- [x] 데모 투어가 11개 상태를 순서대로 보여주고, 각 상태의 포즈·아이콘·텍스트가 다르다(M6 네이티브 캡처, 현재 레이아웃은 `docs/images/all-states.png`).
 - [ ] 크기 S/M/L, 투명도 슬라이더가 실제 창에 적용된다. (네이티브 조작 미확인, 로직은 App 테스트)
 - [ ] 모션 "줄이기"에서 애니메이션이 멈추고 상태 구분은 유지된다. (CSS 규칙·속성은 테스트로 확인, 화면 미확인)
-- [x] release 번들(`npm run build:app`)이 엄격한 CSP 아래에서도 같은 장면을 렌더링한다(`docs/images/workshop-idle.png`).
+- [x] release 번들(`npm run build:app`)이 엄격한 CSP 아래에서도 같은 장면을 렌더링한다(M6 시점 캡처로 확인).
 
 네이티브 클릭·드래그 자동화는 이 개발 환경에서 computer-use 도구가 설정되지 않아 수행하지 못했다.
 

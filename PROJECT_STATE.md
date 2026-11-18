@@ -4,8 +4,8 @@ _마지막 갱신: 2026-11-18_
 
 ## 현재 단계
 
-- **M0–M6 완료.** vertical slice와 MVP 화면(11개 상태, 활동 패널, 창 설정, 드래그, reduced-motion, 데모 시나리오 선택)이 동작한다.
-- **T34 독립 리뷰 반영 완료.** 보안 리뷰(medium 1, low 4)와 정확성 리뷰(high 1, medium 1, low 6)를 T34a–T34h로 처리했다.
+- **M0–M7 완료.** vertical slice, MVP 화면, 독립 리뷰 반영(T34), 생활감(M7: 에너지·화남·침대·하루 일과 데모)이 동작한다.
+- 이벤트 규격은 v2(`usage.reported` 추가, ADR-016). 방은 침대가 있는 400×260 디오라마(ADR-017).
 - 실제 에이전트(Hermes 등)와는 아직 연결되지 않았다. 앱은 결정적 데모 소스로만 동작하며 항상 DEMO 배지를 보인다.
 
 ## 환경 (2026-11-18 확인)
@@ -22,10 +22,10 @@ _마지막 갱신: 2026-11-18_
 
 | 명령 | 결과 |
 | --- | --- |
-| `npm run verify` (Node 24) | 통과 — typecheck, lint(경고 0), **356 tests / 21 files**, vite build, cargo fmt·clippy(`-D warnings`)·test |
+| `npm run verify` (Node 24) | 통과 — typecheck, lint(경고 0), **465 tests / 22 files**, vite build, cargo fmt·clippy(`-D warnings`)·test (M7 완료 시점) |
 | `npm run verify:fast` (Node 23.11) | 통과 — 334 tests (T34 이전 시점). Node 23은 EBADENGINE 경고만 남 |
 | `npm run build:app` | 통과 — `src-tauri/target/release/bundle/macos/Deskling.app` (9.7 MiB, arm64, ad-hoc 서명) |
-| `npm run tauri dev` | 실행됨 — 투명 창, layer 5(항상 위), 11개 상태 캡처(`docs/images/all-states.png`) |
+| `npm run tauri dev` | 실행됨 — 투명 창, layer 5(항상 위), M6 시점 11개 상태 네이티브 캡처, M7은 DOM 프로브 |
 
 ### 네이티브 확인 내역
 
@@ -33,12 +33,14 @@ _마지막 갱신: 2026-11-18_
 - 축소된 capability(창 권한 4개)로 실제 크기 변경 416×364, 항상 위 해제(layer 0) 확인 — 임시 기본값 변경 후 원복.
 - release 번들이 엄격한 CSP에서 장면을 그대로 렌더링.
 - T34 수정 이후 dev 빌드의 실제 WKWebView DOM을 임시 프로브로 확인: 54초 동안 11개 상태 전부 순환, JS 오류 0, ErrorBoundary 대체 화면 0, 루트가 빈 적 0.
+- M7 이후 같은 방식의 DOM 프로브: 투어 동안 idle·offline은 침대, 나머지는 책상. 에너지 full→ok→low→empty, 화남 calm→annoyed→angry→furious,
+  빈 캔 0~3개, 잠잘 때 표시 0개, JS 오류 0. 장면 이미지는 실제 마크업+CSS의 WebKit 렌더링(`docs/images/*`).
 
 ### 확인하지 못한 것
 
 - 실제 마우스로 창 드래그, 핀 버튼 토글, S/M/L 버튼 클릭 — 이 환경에서 computer-use 도구가 설정되지 않아 수행 못 함(로직은 App 테스트로 검증).
-- T34 이후 최종 화면 캡처 — 세션 중간부터 macOS 화면 캡처가 모든 창에서 실패("could not create image from window")해 찍지 못했다.
-  위 DOM 프로브로 대신 확인했다.
+- M7 네이티브 창 캡처 — Deskling 창이 다른 디스플레이(x < 0)에 있어 window capture가 실패했다. 사용자의 창 위치는 건드리지 않고
+  DOM 프로브와 WebKit 렌더링으로 대신 확인했다.
 - `cargo audit` — 미설치로 실행하지 않음.
 
 ## 알려진 문제 / 메모
@@ -53,7 +55,7 @@ _마지막 갱신: 2026-11-18_
 
 ## 다음 작업
 
-1. Hermes Agent adapter ADR — 전송 방식, 위치(Rust/TS), 세션 교차 규칙(ADR-014), 인증.
-2. Rust → 프런트 `tauriBridge` 이벤트 소스 + 통합 테스트.
-3. 사람이 직접: `npm run tauri dev`로 드래그·핀·크기·모션 버튼을 눌러 TEST_PLAN §5의 남은 항목 확인.
+1. **키우기(육성) 기능** — 사용자 요청 "바탕화면에서 키우는 느낌". 무엇이 자라는지·저장 범위를 정한 뒤 ADR부터.
+2. Hermes Agent adapter ADR — 전송 방식, 위치(Rust/TS), 세션 교차 규칙(ADR-014), 인증. `usage.reported` 매핑 포함.
+3. 사람이 직접: `npm run tauri dev`로 드래그·핀·크기·모션 버튼, 예산 선택을 눌러 TEST_PLAN §5의 남은 항목 확인.
 4. 백로그: 메뉴 막대 아이콘, 창 위치 기억, 클릭 통과 모드, 전체 화면 Space 위 표시.
