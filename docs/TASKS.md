@@ -27,7 +27,7 @@
 - [x] **T07** `normalizeAgentEvent` 잘못된 입력 → 에러 코드 — EVENT_PROTOCOL §8
 - [x] **T08** 민감 필드(reasoning, prompt, args, path, command, env, apiKey, headers) 비전파 — SEC-1, SEC-2
 - [x] **T09** `createIngest` 성공 시 dispatch, 실패 시 코드만 보고 — FR-E2, SEC-3
-- [ ] **T10** 리듀서: 초기 offline, online/idle/turn/success/error — FR-E4, FR-E6
+- [x] **T10** 리듀서: 초기 offline, online/idle/turn/success/error — FR-E4, FR-E6
 - [ ] **T11** 리듀서: 도구 스택·승인·위임 우선순위 — EVENT_PROTOCOL §5
 - [ ] **T12** 리듀서: 같은 세션 seq 중복/역순 무시, 세션 전환 초기화 — FR-E5
 - [ ] **T13** 리듀서: 최근 활동 최대 12개 최신순 — FR-P2
