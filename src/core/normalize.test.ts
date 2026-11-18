@@ -171,3 +171,64 @@ describe('normalizeAgentEvent — invalid input (EVENT_PROTOCOL §8)', () => {
     expect(normalizeAgentEvent(hostile)).toEqual({ ok: false, error: 'not-object' });
   });
 });
+
+describe('normalizeAgentEvent — sensitive data never propagates (SEC-1, SEC-2)', () => {
+  const SECRET = 'TOPSECRET-7f3a';
+  const sensitive = {
+    reasoning: `${SECRET} chain of thought`,
+    chainOfThought: SECRET,
+    thinking: SECRET,
+    prompt: `${SECRET} full prompt`,
+    messages: [{ role: 'user', content: SECRET }],
+    content: SECRET,
+    args: { command: `rm -rf ${SECRET}` },
+    arguments: SECRET,
+    input: SECRET,
+    output: SECRET,
+    result: SECRET,
+    path: `/Users/me/${SECRET}.ts`,
+    filePath: `/Users/me/${SECRET}.ts`,
+    cwd: `/Users/me/${SECRET}`,
+    command: `curl -H "Authorization: Bearer ${SECRET}"`,
+    cmd: SECRET,
+    env: { OPENAI_API_KEY: SECRET },
+    apiKey: SECRET,
+    api_key: SECRET,
+    token: SECRET,
+    authorization: `Bearer ${SECRET}`,
+    headers: { Authorization: `Bearer ${SECRET}`, Cookie: SECRET },
+    diff: SECRET,
+  };
+
+  it.each(['agent.online', 'turn.started', 'approval.requested'] as const)('strips everything from %s', (type) => {
+    const event = expectOk({ ...base, ...sensitive, type });
+    const serialized = JSON.stringify(event);
+    expect(serialized).not.toContain(SECRET);
+    for (const key of Object.keys(sensitive)) {
+      expect(event).not.toHaveProperty(key);
+    }
+  });
+
+  it('strips everything from tool events', () => {
+    const event = expectOk({ ...base, ...sensitive, type: 'tool.finished', tool: 'terminal', outcome: 'error' });
+    expect(JSON.stringify(event)).not.toContain(SECRET);
+  });
+
+  it('strips sensitive data nested inside source', () => {
+    const event = expectOk({
+      ...base,
+      source: { ...base.source, token: SECRET, headers: { Authorization: SECRET } },
+      type: 'agent.idle',
+    });
+    expect(JSON.stringify(event)).not.toContain(SECRET);
+  });
+
+  it('cannot be tricked into prototype pollution via __proto__', () => {
+    const input: unknown = JSON.parse(
+      `{"__proto__":{"polluted":"${SECRET}"},"schema":"deskling.agent-event","version":1,"id":"e","seq":1,"at":1,"source":{"kind":"demo","session":"s"},"type":"agent.idle"}`,
+    );
+    const event = expectOk(input);
+    expect(JSON.stringify(event)).not.toContain(SECRET);
+    expect(({} as Record<string, unknown>).polluted).toBeUndefined();
+  });
+});
