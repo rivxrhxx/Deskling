@@ -94,9 +94,80 @@ describe('normalizeAgentEvent — valid input (FR-E1, FR-E3)', () => {
     expect(event).not.toHaveProperty('outcome');
   });
 
+  it('accepts the largest safe integer for seq and at', () => {
+    const event = expectOk({ ...base, seq: Number.MAX_SAFE_INTEGER, at: Number.MAX_SAFE_INTEGER, type: 'agent.idle' });
+    expect(event.seq).toBe(Number.MAX_SAFE_INTEGER);
+  });
+
   it('accepts objects without a prototype (e.g. parsed by a strict decoder)', () => {
     const input = Object.assign(Object.create(null) as Record<string, unknown>, { ...base, type: 'agent.idle' });
     input.source = Object.assign(Object.create(null) as Record<string, unknown>, base.source);
     expect(expectOk(input).type).toBe('agent.idle');
+  });
+});
+
+describe('normalizeAgentEvent — invalid input (EVENT_PROTOCOL §8)', () => {
+  const valid = { ...base, type: 'agent.idle' };
+
+  it.each<[string, unknown, string]>([
+    ['null', null, 'not-object'],
+    ['a number', 42, 'not-object'],
+    ['a string', '{"type":"agent.idle"}', 'not-object'],
+    ['an array', [valid], 'not-object'],
+    ['a class instance', new Date(0), 'not-object'],
+    ['a missing schema', { ...valid, schema: undefined }, 'bad-schema'],
+    ['a foreign schema', { ...valid, schema: 'other.event' }, 'bad-schema'],
+    ['a future version', { ...valid, version: 2 }, 'bad-version'],
+    ['a string version', { ...valid, version: '1' }, 'bad-version'],
+    ['an empty id', { ...valid, id: '' }, 'bad-id'],
+    ['a 65 character id', { ...valid, id: 'a'.repeat(65) }, 'bad-id'],
+    ['an id with spaces', { ...valid, id: 'evt 1' }, 'bad-id'],
+    ['an id shaped like a path', { ...valid, id: '/Users/me/.ssh/id_rsa' }, 'bad-id'],
+    ['a numeric id', { ...valid, id: 7 }, 'bad-id'],
+    ['a negative seq', { ...valid, seq: -1 }, 'bad-seq'],
+    ['a fractional seq', { ...valid, seq: 1.5 }, 'bad-seq'],
+    ['a string seq', { ...valid, seq: '1' }, 'bad-seq'],
+    ['an unsafe seq', { ...valid, seq: Number.MAX_SAFE_INTEGER + 1 }, 'bad-seq'],
+    ['a negative timestamp', { ...valid, at: -1 }, 'bad-timestamp'],
+    ['a NaN timestamp', { ...valid, at: Number.NaN }, 'bad-timestamp'],
+    ['an infinite timestamp', { ...valid, at: Number.POSITIVE_INFINITY }, 'bad-timestamp'],
+    ['a fractional timestamp', { ...valid, at: 1.5 }, 'bad-timestamp'],
+    ['an ISO string timestamp', { ...valid, at: '2026-01-01T00:00:00Z' }, 'bad-timestamp'],
+    ['a missing source', { ...valid, source: undefined }, 'bad-source'],
+    ['an array source', { ...valid, source: ['demo', 's'] }, 'bad-source'],
+    ['an unknown source kind', { ...valid, source: { kind: 'evil', session: 's-1' } }, 'bad-source'],
+    ['a source without session', { ...valid, source: { kind: 'demo' } }, 'bad-source'],
+    ['a session with spaces', { ...valid, source: { kind: 'demo', session: 'my session' } }, 'bad-source'],
+    ['a missing type', { ...valid, type: undefined }, 'bad-type'],
+    ['an unknown type', { ...valid, type: 'tool.exploded' }, 'bad-type'],
+    ['tool.started without tool', { ...valid, type: 'tool.started' }, 'bad-tool'],
+    ['tool.started with an unknown tool', { ...valid, type: 'tool.started', tool: 'shell' }, 'bad-tool'],
+    ['tool.finished without tool', { ...valid, type: 'tool.finished', outcome: 'ok' }, 'bad-tool'],
+    ['tool.finished without outcome', { ...valid, type: 'tool.finished', tool: 'code' }, 'bad-outcome'],
+    ['tool.finished with an unknown outcome', { ...valid, type: 'tool.finished', tool: 'code', outcome: 'maybe' }, 'bad-outcome'],
+  ])('rejects %s', (_label, input, error) => {
+    expect(normalizeAgentEvent(input)).toEqual({ ok: false, error });
+  });
+
+  it('rejects fields that are only inherited, not own properties', () => {
+    const inherited = Object.create({ ...valid }) as object;
+    expect(normalizeAgentEvent(inherited)).toEqual({ ok: false, error: 'not-object' });
+  });
+
+  it('returns only the error code, never part of the input (SEC-3)', () => {
+    const result = normalizeAgentEvent({ ...valid, id: 'sk-live secret value' });
+    expect(result).toEqual({ ok: false, error: 'bad-id' });
+    expect(JSON.stringify(result)).not.toContain('secret');
+  });
+
+  it('does not throw on hostile getters', () => {
+    const hostile = { ...valid };
+    Object.defineProperty(hostile, 'schema', {
+      enumerable: true,
+      get() {
+        throw new Error('boom');
+      },
+    });
+    expect(normalizeAgentEvent(hostile)).toEqual({ ok: false, error: 'not-object' });
   });
 });

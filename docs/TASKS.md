@@ -24,7 +24,7 @@
 ## M2 이벤트 코어
 
 - [x] **T06** `normalizeAgentEvent` 유효 이벤트 수용·화이트리스트 복사·동결 — FR-E1, FR-E3
-- [ ] **T07** `normalizeAgentEvent` 잘못된 입력 → 에러 코드 — EVENT_PROTOCOL §8
+- [x] **T07** `normalizeAgentEvent` 잘못된 입력 → 에러 코드 — EVENT_PROTOCOL §8
 - [ ] **T08** 민감 필드(reasoning, prompt, args, path, command, env, apiKey, headers) 비전파 — SEC-1, SEC-2
 - [ ] **T09** `createIngest` 성공 시 dispatch, 실패 시 코드만 보고 — FR-E2, SEC-3
 - [ ] **T10** 리듀서: 초기 offline, online/idle/turn/success/error — FR-E4, FR-E6
