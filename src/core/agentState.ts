@@ -133,6 +133,7 @@ function applyFacts(facts: AgentFacts, event: AgentEvent): AgentFacts {
     case 'delegation.finished':
       return { ...online, delegations: Math.max(0, online.delegations - 1) };
     case 'usage.reported':
+    case 'session.message':
       return online;
   }
 }

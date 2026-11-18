@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { EVENT_TYPES, TOOL_CATEGORIES } from './agentEvent';
+import {
+  AGENT_EVENT_VERSION,
+  AGENT_EVENT_VERSIONS,
+  EVENT_TYPES,
+  GUEST_KINDS,
+  RESIDENT_KINDS,
+  SOURCE_KINDS,
+  TOOL_CATEGORIES,
+} from './agentEvent';
 import { normalizeAgentEvent } from './normalize';
 
 const base = {
@@ -27,9 +35,12 @@ describe('normalizeAgentEvent — valid input (FR-E1, FR-E3)', () => {
     });
   });
 
-  it.each(EVENT_TYPES.filter((t) => !t.startsWith('tool.') && t !== 'usage.reported'))('accepts %s', (type) => {
-    expect(expectOk({ ...base, type })).toEqual({ ...base, type });
-  });
+  it.each(EVENT_TYPES.filter((t) => !t.startsWith('tool.') && t !== 'usage.reported' && t !== 'session.message'))(
+    'accepts %s',
+    (type) => {
+      expect(expectOk({ ...base, type })).toEqual({ ...base, type });
+    },
+  );
 
   it.each(TOOL_CATEGORIES)('accepts tool.started with tool=%s', (tool) => {
     expect(expectOk({ ...base, type: 'tool.started', tool })).toEqual({
@@ -120,7 +131,8 @@ describe('normalizeAgentEvent — invalid input (EVENT_PROTOCOL §8)', () => {
     ['a class instance', new Date(0), 'not-object'],
     ['a missing schema', { ...valid, schema: undefined }, 'bad-schema'],
     ['a foreign schema', { ...valid, schema: 'other.event' }, 'bad-schema'],
-    ['a future version', { ...valid, version: 3 }, 'bad-version'],
+    ['a future version', { ...valid, version: 4 }, 'bad-version'],
+    ['version 0', { ...valid, version: 0 }, 'bad-version'],
     ['a string version', { ...valid, version: '1' }, 'bad-version'],
     ['an empty id', { ...valid, id: '' }, 'bad-id'],
     ['a 65 character id', { ...valid, id: 'a'.repeat(65) }, 'bad-id'],
@@ -304,4 +316,115 @@ describe('normalizeAgentEvent — usage.reported (v2, FR-V1, ADR-016)', () => {
   it('ignores usage on other event types', () => {
     expect(expectOk({ ...v2, type: 'turn.started', usage: { tokens: { used: 1 } } })).not.toHaveProperty('usage');
   });
+});
+
+describe('normalizeAgentEvent — v3 session friends and messages (FR-MS1, FR-MS5, ADR-022, ADR-023)', () => {
+  const v3 = { ...base, version: 3 } as const;
+  const claude = { kind: 'claude-code', session: 'cc-1' } as const;
+  const codex = { kind: 'codex', session: 'cx-1' } as const;
+  const message = (extra: Record<string, unknown> = {}) => ({ ...v3, source: claude, type: 'session.message', ...extra });
+
+  it('accepts versions 1, 2 and 3, and the demo emits 3', () => {
+    expect(AGENT_EVENT_VERSIONS).toEqual([1, 2, 3]);
+    expect(AGENT_EVENT_VERSION).toBe(3);
+    for (const version of AGENT_EVENT_VERSIONS) {
+      expect(expectOk({ ...base, version, type: 'agent.idle' }).version).toBe(version);
+    }
+  });
+
+  it('splits the source kinds into residents (Hermes) and guests (session friends)', () => {
+    expect(RESIDENT_KINDS).toEqual(['demo', 'hermes', 'custom']);
+    expect(GUEST_KINDS).toEqual(['claude-code', 'codex']);
+    expect([...SOURCE_KINDS].sort()).toEqual([...RESIDENT_KINDS, ...GUEST_KINDS].sort());
+  });
+
+  it.each(GUEST_KINDS)('accepts the %s source kind in a v3 event', (kind) => {
+    expect(expectOk({ ...v3, source: { kind, session: 's-9' }, type: 'turn.started' }).source).toEqual({
+      kind,
+      session: 's-9',
+    });
+  });
+
+  it.each(GUEST_KINDS.flatMap((kind) => [1, 2].map((version) => [kind, version] as const)))(
+    'rejects the %s source kind in a v%d event as bad-source',
+    (kind, version) => {
+      expect(normalizeAgentEvent({ ...base, version, source: { kind, session: 's-9' }, type: 'agent.idle' })).toEqual({
+        ok: false,
+        error: 'bad-source',
+      });
+    },
+  );
+
+  it.each(RESIDENT_KINDS)('still accepts the %s source kind in a v3 event', (kind) => {
+    expect(expectOk({ ...v3, source: { kind, session: 'r-1' }, type: 'agent.online' }).source.kind).toBe(kind);
+  });
+
+  it('accepts session.message without a target', () => {
+    expect(expectOk(message())).toEqual({ ...v3, source: claude, type: 'session.message' });
+    expect(expectOk(message())).not.toHaveProperty('to');
+  });
+
+  it.each([codex, { kind: 'hermes', session: 'h-1' }, claude] as const)(
+    'accepts session.message to $kind:$session',
+    (to) => {
+      expect(expectOk(message({ to }))).toEqual({ ...v3, source: claude, type: 'session.message', to });
+    },
+  );
+
+  it.each([1, 2])('rejects session.message in a v%d event as bad-type', (version) => {
+    expect(
+      normalizeAgentEvent({ ...base, version, type: 'session.message', to: { kind: 'demo', session: 'd-2' } }),
+    ).toEqual({ ok: false, error: 'bad-type' });
+  });
+
+  it.each<[string, unknown]>([
+    ['null', null],
+    ['a string', 'codex:cx-1'],
+    ['an array', ['codex', 'cx-1']],
+    ['an object without kind', { session: 'cx-1' }],
+    ['an object without session', { kind: 'codex' }],
+    ['an unknown kind', { kind: 'evil', session: 'cx-1' }],
+    ['a session with spaces', { kind: 'codex', session: 'my session' }],
+    ['a session shaped like a path', { kind: 'codex', session: '/Users/me/project' }],
+    ['a 65 character session', { kind: 'codex', session: 'a'.repeat(65) }],
+    ['a class instance', new Date(0)],
+  ])('rejects session.message with %s as the target (bad-target)', (_label, to) => {
+    expect(normalizeAgentEvent(message({ to }))).toEqual({ ok: false, error: 'bad-target' });
+  });
+
+  it('does not report a bad target before a bad source', () => {
+    expect(normalizeAgentEvent(message({ source: { kind: 'evil', session: 's' }, to: null }))).toEqual({
+      ok: false,
+      error: 'bad-source',
+    });
+  });
+
+  it('returns a new frozen target with only kind and session', () => {
+    const to = { ...codex, token: 'TOPSECRET', body: 'TOPSECRET hello' };
+    const event = expectOk(message({ to }));
+    if (event.type !== 'session.message') throw new Error('wrong type');
+    expect(event.to).not.toBe(to);
+    expect(event.to).toEqual(codex);
+    expect(Object.keys(event.to ?? {}).sort()).toEqual(['kind', 'session']);
+    expect(Object.isFrozen(event)).toBe(true);
+    expect(Object.isFrozen(event.to)).toBe(true);
+    expect(JSON.stringify(event)).not.toContain('TOPSECRET');
+  });
+
+  it('drops message bodies, titles and every other unknown field', () => {
+    const event = expectOk(
+      message({ to: codex, body: 'TOPSECRET', title: 'TOPSECRET', text: 'TOPSECRET', length: 42, tool: 'code', usage: {} }),
+    );
+    expect(Object.keys(event).sort()).toEqual(['at', 'id', 'schema', 'seq', 'source', 'to', 'type', 'version']);
+    expect(JSON.stringify(event)).not.toContain('TOPSECRET');
+  });
+
+  it.each(['agent.online', 'turn.started', 'tool.started', 'usage.reported'] as const)(
+    'ignores to on %s, even a malformed one',
+    (type) => {
+      const extra = type === 'tool.started' ? { tool: 'code' } : type === 'usage.reported' ? { usage: { tokens: { used: 1 } } } : {};
+      expect(expectOk({ ...v3, type, ...extra, to: codex })).not.toHaveProperty('to');
+      expect(expectOk({ ...v3, type, ...extra, to: 'not a target' })).not.toHaveProperty('to');
+    },
+  );
 });

@@ -45,6 +45,8 @@ export function describeActivity(entry: RecentEntry): string {
       return '작업 실패';
     case 'usage.reported':
       return '사용량 보고';
+    case 'session.message':
+      return '메시지 보냄';
   }
 }
 

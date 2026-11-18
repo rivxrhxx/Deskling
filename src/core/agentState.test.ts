@@ -379,6 +379,16 @@ describe('reduceAgentState — usage snapshot (FR-V1, ADR-016)', () => {
   });
 });
 
+describe('reduceAgentState — session messages (ADR-023)', () => {
+  it('only proves the session is online: activity, approvals and outcome stay as they were', () => {
+    const before = run(ev('agent.online'), ev('turn.started'), ev('tool.started', { tool: 'terminal' }));
+    const after = reduceAgentState(before, ev('session.message'));
+    expect(after.facts).toEqual(before.facts);
+    expect(after.visual).toBe('terminal');
+    expect(run(ev('session.message')).facts.connection).toBe('online');
+  });
+});
+
 describe('reduceAgentState — completed turns for growth (FR-G1, ADR-018)', () => {
   it('starts at zero', () => {
     expect(initialAgentState.completedTurns).toBe(0);
