@@ -25,7 +25,7 @@ _마지막 갱신: 2026-11-18_
 | --- | --- |
 | `npm run verify` (Node 24) | 통과 — typecheck, lint(경고 0), **545 tests / 25 files**, vite build, cargo fmt·clippy(`-D warnings`)·test (M8 완료 시점) |
 | `npm run verify:fast` (Node 23.11) | 통과 — 334 tests (T34 이전 시점). Node 23은 EBADENGINE 경고만 남 |
-| `npm run build:app` | 통과 — `src-tauri/target/release/bundle/macos/Deskling.app` (9.7 MiB, arm64, ad-hoc 서명) |
+| `npm run build:app` | 통과 — `src-tauri/target/release/bundle/macos/Deskling.app` (9.6 MiB, arm64, 번들 ad-hoc 서명 + hardened runtime, `codesign --verify --deep --strict` 통과, 실행·렌더링 확인) |
 | `npm run tauri dev` | 실행됨 — 투명 창, layer 5(항상 위), M6 시점 11개 상태 네이티브 캡처, M7은 DOM 프로브 |
 
 ### 네이티브 확인 내역
