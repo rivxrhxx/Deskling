@@ -84,9 +84,22 @@ const spots = {
   door: { at: { x: 8, y: 0.6 }, face: 'front-left' },
   /** Beyond the door, outside the room: characters here are not drawn. */
   outside: { at: { x: 8, y: -0.6 }, face: 'back-right' },
+  // Session friends' floor cushions (ADR-022), off Hermes' walks and clear of each other on screen.
+  /** Front, left of where Hermes waves: nothing stands in front of it. */
+  'guest-1': { at: { x: 4.4, y: 8.5 }, face: 'front-right' },
+  /** By the door, right of the plant's leaves. */
+  'guest-2': { at: { x: 8.4, y: 2.4 }, face: 'front-left' },
+  /** Front left, past the TV stand's corner so the walk from the hub clears it. */
+  'guest-3': { at: { x: 2.6, y: 8.5 }, face: 'front-right' },
+  /** Right of the hub, between the walks to the door and to the plant; Hermes watering it stands in front. */
+  'guest-4': { at: { x: 6.2, y: 3 }, face: 'front-left' },
 } as const satisfies Record<string, Spot>;
 export type SpotId = keyof typeof spots;
 export const SPOTS: Readonly<Record<SpotId, Spot>> = spots;
+
+/** Seats for session friends, taken lowest first (FR-MS2). */
+export const GUEST_SEATS = ['guest-1', 'guest-2', 'guest-3', 'guest-4'] as const satisfies readonly SpotId[];
+export type GuestSeat = (typeof GUEST_SEATS)[number];
 
 /** Every walk goes through this open middle of the room. */
 export const HUB: Tile = { x: 4.2, y: 3.6 };

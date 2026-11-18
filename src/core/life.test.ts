@@ -1,11 +1,24 @@
 import { describe, expect, it } from 'vitest';
 import type { VisualState } from './agentEvent';
 import { VISUAL_STATES } from './agentEvent';
-import type { Activity, IdleActivity, LifeInput, LifeState } from './life';
-import { IDLE_ACTIVITIES, IDLE_DURATION, REQUIRED, initialLife, positionAt, stepLife, walkSpeed } from './life';
+import type { Activity, ConversationInput, GuestInput, IdleActivity, LifeInput, LifeState } from './life';
+import {
+  CHAT_MS,
+  IDLE_ACTIVITIES,
+  IDLE_DURATION,
+  IDLE_SPOT,
+  REQUIRED,
+  guestViewsAt,
+  hermesChatAt,
+  hermesFaceOverride,
+  initialLife,
+  positionAt,
+  stepLife,
+  walkSpeed,
+} from './life';
 import type { EnergyLevel } from './mood';
-import type { Tile } from './room';
-import { HUB, SPOTS, pathBetween, pathLength } from './room';
+import type { SpotId, Tile } from './room';
+import { GUEST_SEATS, HUB, SPOTS, pathBetween, pathLength, segmentHitsRect } from './room';
 
 const T0 = 1_000_000;
 
@@ -308,5 +321,311 @@ describe('friends (FR-R4)', () => {
     let state = stepLife(initialLife(5, T0), input('coding', T0, { energy: 'empty' }));
     state = stepLife(state, input('coding', T0 + 100, { energy: 'empty', invite: true }));
     expect(state.friendLeaveAt).toBe(state.friend!.arriveAt + IDLE_DURATION['host-friend']);
+  });
+});
+
+const claude = (n: number, visual: VisualState = 'idle'): GuestInput => ({ key: `claude-code:s${n}`, kind: 'claude-code', ordinal: n, visual });
+const codex = (n: number, visual: VisualState = 'idle'): GuestInput => ({ key: `codex:s${n}`, kind: 'codex', ordinal: n, visual });
+const guestOf = (state: LifeState, key: string) => state.guests.find((g) => g.key === key);
+/** Long enough for anyone to walk in from outside and sit down. */
+const SETTLED = 20_000;
+
+describe('session friends (FR-MS2, FR-MS3, ADR-022)', () => {
+  it('a new session friend walks in through the door and sits in the first seat', () => {
+    let state = stepLife(initialLife(1, T0), input('idle', T0, { guests: [claude(1)] }));
+    expect(state.guests).toHaveLength(1);
+    const guest = state.guests[0]!;
+    expect(guest).toMatchObject({ key: 'claude-code:s1', kind: 'claude-code', ordinal: 1, visual: 'idle', seat: 'guest-1', spot: 'guest-1', phase: 'arriving' });
+    expect(guest.path).toEqual(pathBetween(SPOTS.outside.at, SPOTS['guest-1'].at));
+    expect(guest.path).toContainEqual(SPOTS.door.at);
+    expect(guest.arriveAt).toBeCloseTo(T0 + (pathLength(guest.path) / 1.8) * 1000, 6);
+    expect(positionAt(guest, T0 + 1_000).walking).toBe(true);
+    state = stepLife(state, input('idle', guest.arriveAt, { guests: [claude(1)] }));
+    expect(state.guests[0]).toMatchObject({ phase: 'seated' });
+    expect(positionAt(state.guests[0]!, guest.arriveAt)).toEqual({ at: SPOTS['guest-1'].at, walking: false, face: SPOTS['guest-1'].face });
+  });
+
+  it('seats at most four friends; the fifth comes in when a seat frees up', () => {
+    const five = [claude(1), claude(2), codex(1), claude(3), codex(2)];
+    let state = stepLife(initialLife(1, T0), input('coding', T0, { guests: five }));
+    expect(state.guests.map((g) => [g.key, g.seat])).toEqual([
+      ['claude-code:s1', 'guest-1'],
+      ['claude-code:s2', 'guest-2'],
+      ['codex:s1', 'guest-3'],
+      ['claude-code:s3', 'guest-4'],
+    ]);
+    const later = T0 + SETTLED;
+    state = stepLife(state, input('coding', later, { guests: five }));
+    expect(state.guests.map((g) => g.phase)).toEqual(['seated', 'seated', 'seated', 'seated']);
+
+    const withoutSecond = five.filter((g) => g.key !== 'claude-code:s2');
+    state = stepLife(state, input('coding', later + 300, { guests: withoutSecond }));
+    const leaving = guestOf(state, 'claude-code:s2')!;
+    expect(leaving).toMatchObject({ phase: 'leaving', spot: 'outside', seat: 'guest-2' });
+    // The seat is still taken while its friend walks out.
+    expect(guestOf(state, 'codex:s2')).toBeUndefined();
+
+    state = stepLife(state, input('coding', leaving.arriveAt, { guests: withoutSecond }));
+    expect(guestOf(state, 'claude-code:s2')).toBeUndefined();
+    expect(guestOf(state, 'codex:s2')).toMatchObject({ seat: 'guest-2', phase: 'arriving' });
+  });
+
+  it('a friend whose session is gone walks out through the door, then its seat is free again', () => {
+    let state = stepLife(initialLife(1, T0), input('idle', T0, { guests: [claude(1)] }));
+    const later = T0 + SETTLED;
+    state = stepLife(state, input('idle', later, { guests: [claude(1)] }));
+    state = stepLife(state, input('idle', later, { guests: [] }));
+    const leaving = state.guests[0]!;
+    expect(leaving).toMatchObject({ activity: 'leave', phase: 'leaving', spot: 'outside', seat: 'guest-1' });
+    expect(leaving.path).toEqual(pathBetween(SPOTS['guest-1'].at, SPOTS.outside.at));
+    expect(leaving.arriveAt).toBeCloseTo(later + (pathLength(leaving.path) / 1.8) * 1000, 6);
+    state = stepLife(state, input('idle', leaving.arriveAt - 1, { guests: [] }));
+    expect(state.guests).toHaveLength(1);
+    state = stepLife(state, input('idle', leaving.arriveAt, { guests: [] }));
+    expect(state.guests).toEqual([]);
+    state = stepLife(state, input('idle', leaving.arriveAt + 300, { guests: [codex(1)] }));
+    expect(state.guests[0]).toMatchObject({ key: 'codex:s1', seat: 'guest-1' });
+  });
+
+  it('a friend whose session ends while coming in turns back the way it came', () => {
+    let state = stepLife(initialLife(1, T0), input('idle', T0, { guests: [claude(1)] }));
+    const now = T0 + 500;
+    const here = positionAt(state.guests[0]!, now).at;
+    state = stepLife(state, input('idle', now, { guests: [] }));
+    const leaving = state.guests[0]!;
+    expect(leaving).toMatchObject({ phase: 'leaving', spot: 'outside' });
+    expect(leaving.path[0]).toEqual(here);
+    expect(leaving.path.at(-1)).toEqual(SPOTS.outside.at);
+    expect(leaving.path).not.toContainEqual(HUB);
+  });
+
+  it('a friend on its way out whose session is back returns to its seat', () => {
+    let state = stepLife(initialLife(1, T0), input('idle', T0, { guests: [claude(1)] }));
+    state = stepLife(state, input('idle', T0 + SETTLED, { guests: [] }));
+    state = stepLife(state, input('idle', T0 + SETTLED + 1_000, { guests: [claude(1, 'coding')] }));
+    expect(state.guests).toHaveLength(1);
+    expect(state.guests[0]).toMatchObject({ phase: 'arriving', spot: 'guest-1', seat: 'guest-1', visual: 'coding' });
+    expect(state.guests[0]!.path.at(-1)).toEqual(SPOTS['guest-1'].at);
+  });
+
+  it('with reduced motion friends appear in their seats and are gone at once', () => {
+    let state = stepLife(initialLife(1, T0), input('idle', T0, { guests: [claude(1)], reducedMotion: true }));
+    expect(state.guests[0]).toMatchObject({ phase: 'seated', arriveAt: T0 });
+    expect(positionAt(state.guests[0]!, T0)).toMatchObject({ at: SPOTS['guest-1'].at, walking: false });
+    state = stepLife(state, input('idle', T0 + 1_000, { guests: [], reducedMotion: true }));
+    expect(state.guests).toEqual([]);
+  });
+
+  it('a friend walking in is seated at once when motion becomes reduced', () => {
+    let state = stepLife(initialLife(1, T0), input('idle', T0, { guests: [claude(1)] }));
+    state = stepLife(state, input('idle', T0 + 1_000, { guests: [claude(1)], reducedMotion: true }));
+    expect(state.guests[0]).toMatchObject({ phase: 'seated', path: [SPOTS['guest-1'].at] });
+  });
+
+  it("a friend shows only its own session's state and has no routine of its own", () => {
+    let state = stepLife(initialLife(1, T0), input('idle', T0, { guests: [claude(1), codex(1)] }));
+    state = stepLife(state, input('idle', T0 + SETTLED, { guests: [claude(1, 'coding'), codex(1, 'waiting-approval')] }));
+    expect(state.guests.map((g) => g.visual)).toEqual(['coding', 'waiting-approval']);
+    const seated = state.guests;
+    for (let now = T0 + SETTLED; now <= T0 + 5 * 60_000; now += 1_000) {
+      state = stepLife(state, input('idle', now, { guests: [claude(1, 'coding'), codex(1, 'waiting-approval')] }));
+    }
+    expect(state.guests.map((g) => [g.spot, g.path, g.arriveAt, g.phase])).toEqual(seated.map((g) => [g.seat, g.path, g.arriveAt, 'seated']));
+  });
+
+  it("friends do not change Hermes' own life (no extra randomness, no new routine)", () => {
+    const plain = simulate(11, [{ from: T0, visual: 'idle' }], T0 + 5 * 60_000);
+    let state = initialLife(11, T0);
+    const withGuests: LifeState[] = [];
+    for (let now = T0; now <= T0 + 5 * 60_000; now += 250) {
+      state = stepLife(state, input('idle', now, { guests: [claude(1), codex(1)] }));
+      withGuests.push(state);
+    }
+    expect(withGuests.map((s) => [s.hermes, s.rng, s.until])).toEqual(plain.map((s) => [s.hermes, s.rng, s.until]));
+  });
+
+  it("Hermes' spots and walks stay clear of the guest seats", () => {
+    const hermesSpots = new Set<SpotId>([...Object.values(IDLE_SPOT), ...Object.values(REQUIRED).flatMap((r) => (r ? [r.spot] : []))]);
+    for (const seat of GUEST_SEATS) {
+      expect(hermesSpots.has(seat)).toBe(false);
+      const at = SPOTS[seat].at;
+      // A tiny footprint around the cushion: no walk from the hub to one of Hermes' spots crosses it.
+      const cushion = { x0: at.x - 0.3, y0: at.y - 0.3, x1: at.x + 0.3, y1: at.y + 0.3 };
+      for (const spot of hermesSpots) {
+        const where = SPOTS[spot].at;
+        expect(Math.hypot(where.x - at.x, where.y - at.y), `${seat} vs ${spot}`).toBeGreaterThanOrEqual(0.8);
+        expect(segmentHitsRect(HUB, where, cushion), `walk to ${spot} crosses ${seat}`).toBe(false);
+      }
+    }
+  });
+});
+
+describe('conversations (FR-MS5, ADR-023)', () => {
+  const RESIDENT = 'hermes:main';
+  const A = claude(1);
+  const B = codex(1);
+  const room = (visual: VisualState, now: number, conversations: readonly ConversationInput[], extra: Partial<LifeInput> = {}) =>
+    input(visual, now, { guests: [A, B], residentKey: RESIDENT, conversations, ...extra });
+  /** Both friends seated, Hermes at work, and an empty conversation list already seen. */
+  const settled = (visual: VisualState = 'coding') => {
+    const state = stepLife(initialLife(1, T0), room(visual, T0, []));
+    return stepLife(state, room(visual, T0 + SETTLED, []));
+  };
+  const NOW = T0 + SETTLED + 1_000;
+
+  it('two friends in the room talk for 4 s, then it ends', () => {
+    const said = [{ key: 1, from: A.key, to: B.key }];
+    let state = stepLife(settled(), room('coding', NOW, said));
+    expect(state.chats).toEqual([{ a: A.key, b: B.key, kind: 'talk', until: NOW + CHAT_MS.talk }]);
+    expect(state.lastConversation).toBe(1);
+    expect(CHAT_MS.talk).toBe(4_000);
+    state = stepLife(state, room('coding', NOW + 3_999, said));
+    expect(state.chats).toHaveLength(1);
+    state = stepLife(state, room('coding', NOW + 4_000, said));
+    expect(state.chats).toEqual([]);
+  });
+
+  it('a friend and an awake Hermes talk', () => {
+    const state = stepLife(settled(), room('coding', NOW, [{ key: 1, from: A.key, to: RESIDENT }]));
+    expect(state.chats).toEqual([{ a: A.key, b: RESIDENT, kind: 'talk', until: NOW + 4_000 }]);
+    const back = stepLife(settled(), room('coding', NOW, [{ key: 1, from: RESIDENT, to: B.key }]));
+    expect(back.chats).toEqual([{ a: RESIDENT, b: B.key, kind: 'talk', until: NOW + 4_000 }]);
+  });
+
+  it.each([
+    ['nobody in particular', null],
+    ['a session not in the room', 'codex:gone'],
+  ])('a message to %s is a letter for 3 s', (_, to) => {
+    let state = stepLife(settled(), room('coding', NOW, [{ key: 1, from: A.key, to }]));
+    expect(state.chats).toEqual([{ a: A.key, b: null, kind: 'letter', until: NOW + CHAT_MS.letter }]);
+    expect(CHAT_MS.letter).toBe(3_000);
+    state = stepLife(state, room('coding', NOW + 3_000, [{ key: 1, from: A.key, to }]));
+    expect(state.chats).toEqual([]);
+  });
+
+  it('a message to Hermes while he sleeps is a letter, and Hermes asleep sends nothing', () => {
+    let state = stepLife(settled('offline'), room('offline', NOW, [{ key: 1, from: A.key, to: RESIDENT }]));
+    expect(state.hermes.activity).toBe('sleep');
+    expect(state.chats).toEqual([{ a: A.key, b: null, kind: 'letter', until: NOW + 3_000 }]);
+    state = stepLife(settled('offline'), room('offline', NOW, [{ key: 1, from: RESIDENT, to: A.key }]));
+    expect(state.chats).toEqual([]);
+  });
+
+  it('ignores a message from a session that is not in the room, but marks it handled', () => {
+    const state = stepLife(settled(), room('coding', NOW, [{ key: 1, from: 'codex:gone', to: A.key }]));
+    expect(state.chats).toEqual([]);
+    expect(state.lastConversation).toBe(1);
+  });
+
+  it('a friend still walking in is not in the room yet', () => {
+    let state = stepLife(initialLife(1, T0), room('coding', T0, []));
+    state = stepLife(state, room('coding', T0 + 300, [{ key: 1, from: A.key, to: B.key }]));
+    expect(state.chats).toEqual([]);
+  });
+
+  it('does not replay messages sent before it started watching', () => {
+    const history = [
+      { key: 5, from: A.key, to: B.key },
+      { key: 4, from: B.key, to: A.key },
+    ];
+    let state = stepLife(initialLife(1, T0), room('coding', T0 + SETTLED, history, { reducedMotion: true }));
+    expect(state.chats).toEqual([]);
+    expect(state.lastConversation).toBe(5);
+    state = stepLife(state, room('coding', NOW, [{ key: 6, from: B.key, to: A.key }, ...history], { reducedMotion: true }));
+    expect(state.chats).toEqual([{ a: B.key, b: A.key, kind: 'talk', until: NOW + 4_000 }]);
+  });
+
+  it('shows the first message ever when it started watching an empty list', () => {
+    const state = stepLife(settled(), room('coding', NOW, [{ key: 0, from: A.key, to: B.key }]));
+    expect(state.chats).toHaveLength(1);
+  });
+
+  it('handles several new messages oldest first (the input lists them newest first)', () => {
+    const state = stepLife(settled(), room('coding', NOW, [
+      { key: 3, from: B.key, to: null },
+      { key: 2, from: A.key, to: B.key },
+    ]));
+    expect(state.chats.map((c) => c.kind)).toEqual(['talk', 'letter']);
+    expect(state.lastConversation).toBe(3);
+  });
+
+  it('a talk ends when one of them leaves the room', () => {
+    let state = stepLife(settled(), room('coding', NOW, [{ key: 1, from: A.key, to: B.key }]));
+    state = stepLife(state, input('coding', NOW + 1_000, { guests: [A], residentKey: RESIDENT, conversations: [{ key: 1, from: A.key, to: B.key }] }));
+    expect(state.chats).toEqual([]);
+  });
+
+  it('is deterministic and leaves the idle randomness alone', () => {
+    const run = () => stepLife(settled('idle'), room('idle', NOW, [{ key: 1, from: A.key, to: RESIDENT }]));
+    const quiet = stepLife(settled('idle'), room('idle', NOW, []));
+    expect(run()).toEqual(run());
+    expect([run().hermes, run().rng, run().until]).toEqual([quiet.hermes, quiet.rng, quiet.until]);
+  });
+});
+
+describe('guest views', () => {
+  const RESIDENT = 'hermes:main';
+  const A = claude(1);
+  const B = codex(1);
+  const seated = (conversations: readonly ConversationInput[]) => {
+    let state = stepLife(initialLife(1, T0), input('coding', T0, { guests: [A, B], residentKey: RESIDENT, conversations: [], reducedMotion: true }));
+    state = stepLife(state, input('coding', T0 + 1_000, { guests: [A, B], residentKey: RESIDENT, conversations, reducedMotion: true }));
+    return state;
+  };
+  const NOW = T0 + 1_000;
+
+  it('shows each friend in its seat with its own state', () => {
+    const state = stepLife(initialLife(1, T0), input('idle', T0, { guests: [A, codex(1, 'coding')] }));
+    const walking = guestViewsAt(state, T0 + 1_000);
+    expect(walking.map((v) => [v.key, v.phase, v.walking])).toEqual([
+      [A.key, 'arriving', true],
+      [B.key, 'arriving', true],
+    ]);
+    const later = guestViewsAt(state, T0 + SETTLED);
+    expect(later).toEqual([
+      { key: A.key, kind: 'claude-code', ordinal: 1, visual: 'idle', phase: 'seated', at: SPOTS['guest-1'].at, walking: false, face: SPOTS['guest-1'].face, chat: null },
+      { key: B.key, kind: 'codex', ordinal: 1, visual: 'coding', phase: 'seated', at: SPOTS['guest-2'].at, walking: false, face: SPOTS['guest-2'].face, chat: null },
+    ]);
+  });
+
+  it('talking friends turn to each other; the talk shows on both', () => {
+    const state = seated([{ key: 1, from: A.key, to: B.key }]);
+    const views = guestViewsAt(state, NOW);
+    // On screen guest-2 (by the door) is up and to the right of guest-1 (front), so guest-1 turns back-right.
+    expect(views.map((v) => [v.chat, v.face])).toEqual([
+      ['talk', 'back-right'],
+      ['talk', 'front-left'],
+    ]);
+    expect(guestViewsAt(state, NOW + 4_000).map((v) => [v.chat, v.face])).toEqual([
+      [null, SPOTS['guest-1'].face],
+      [null, SPOTS['guest-2'].face],
+    ]);
+    expect(hermesChatAt(state, NOW, RESIDENT)).toBeNull();
+    expect(hermesFaceOverride(state, NOW, RESIDENT)).toBeNull();
+  });
+
+  it('a letter shows over its sender only', () => {
+    const state = seated([{ key: 1, from: B.key, to: null }]);
+    expect(guestViewsAt(state, NOW).map((v) => v.chat)).toEqual([null, 'letter']);
+    expect(guestViewsAt(state, NOW).map((v) => v.face)).toEqual([SPOTS['guest-1'].face, SPOTS['guest-2'].face]);
+  });
+
+  it('Hermes and a friend turn to each other while they talk', () => {
+    const state = seated([{ key: 1, from: A.key, to: RESIDENT }]);
+    expect(positionAt(state.hermes, NOW)).toMatchObject({ at: SPOTS.desk.at, walking: false, face: 'back-right' });
+    expect(hermesChatAt(state, NOW, RESIDENT)).toBe('talk');
+    // The desk is up and to the right of guest-1 on screen.
+    expect(hermesFaceOverride(state, NOW, RESIDENT)).toBe('front-left');
+    expect(guestViewsAt(state, NOW)[0]).toMatchObject({ chat: 'talk', face: 'back-right' });
+    expect(hermesChatAt(state, NOW + 4_000, RESIDENT)).toBeNull();
+    expect(hermesFaceOverride(state, NOW + 4_000, RESIDENT)).toBeNull();
+    expect(hermesChatAt(state, NOW, null)).toBeNull();
+  });
+
+  it('a letter from Hermes shows over Hermes', () => {
+    const state = seated([{ key: 1, from: RESIDENT, to: null }]);
+    expect(hermesChatAt(state, NOW, RESIDENT)).toBe('letter');
+    expect(hermesFaceOverride(state, NOW, RESIDENT)).toBeNull();
+    expect(guestViewsAt(state, NOW).map((v) => v.chat)).toEqual([null, null]);
   });
 });

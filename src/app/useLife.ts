@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { VisualState } from '../core/agentEvent';
-import type { Activity, LifeInput, LifeState } from '../core/life';
-import { initialLife, positionAt, stepLife } from '../core/life';
+import type { Activity, Chat, ConversationInput, GuestInput, GuestView, LifeInput, LifeState } from '../core/life';
+import { guestViewsAt, hermesChatAt, hermesFaceOverride, initialLife, positionAt, stepLife } from '../core/life';
 import type { EnergyLevel } from '../core/mood';
 import type { Facing, Tile } from '../core/room';
 import type { FriendView } from '../ui/miniroom/MiniRoom';
@@ -19,6 +19,12 @@ export interface UseLifeOptions {
   readonly seed?: number;
   /** Engine clock (ms). Monotonic by default so a system clock change can't stall the routine. Injected in tests. */
   readonly now?: () => number;
+  /** Session friends present, in arrival order (ADR-022). Picked up on the next tick. */
+  readonly guests?: readonly GuestInput[];
+  /** Messages between sessions, newest first (ADR-023). Picked up on the next tick. */
+  readonly conversations?: readonly ConversationInput[];
+  /** The session that drives Hermes, as conversations address him. */
+  readonly residentKey?: string | null;
 }
 
 export interface HermesView {
@@ -29,8 +35,12 @@ export interface HermesView {
 }
 
 export interface LifeView {
+  /** While Hermes talks with a friend his `face` already points at them. */
   readonly hermes: HermesView;
   readonly friend: FriendView | null;
+  readonly guests: readonly GuestView[];
+  /** Hermes' part in a conversation: talking, or a letter he sent. */
+  readonly hermesChat: Chat['kind'] | null;
   /** 0/1 animation frame; always 0 with reduced motion. */
   readonly frame: number;
   /** Asks a friend over (no-op while offline or when someone is already visiting). */
@@ -49,24 +59,33 @@ const monotonic = () => performance.now();
  * Drives Hermes' life in the room (FR-R2–R6). The engine is pure; this hook only supplies time,
  * the agent's visual state and the invite button. Agent facts apply at once, not on the next tick.
  */
-export function useLife({ visual, energy, reducedMotion, seed, now = monotonic }: UseLifeOptions): LifeView {
-  const input = useRef({ visual, energy, reducedMotion, now });
+export function useLife({
+  visual,
+  energy,
+  reducedMotion,
+  seed,
+  now = monotonic,
+  guests,
+  conversations,
+  residentKey = null,
+}: UseLifeOptions): LifeView {
+  const input = useRef({ visual, energy, reducedMotion, now, guests, conversations, residentKey });
   // Declared first so it runs before the step below sees the new input.
   useLayoutEffect(() => {
-    input.current = { visual, energy, reducedMotion, now };
+    input.current = { visual, energy, reducedMotion, now, guests, conversations, residentKey };
   });
 
   const [clocked, setClocked] = useState<Clocked>(() => {
     const at = now();
-    const life = stepLife(initialLife(seed ?? Date.now(), at), { now: at, visual, energy, reducedMotion });
+    const life = stepLife(initialLife(seed ?? Date.now(), at), { now: at, visual, energy, reducedMotion, guests, conversations, residentKey });
     return { life, at, frame: 0 };
   });
 
   const advance = useCallback((extra: Partial<LifeInput> = {}, flip = false) => {
-    const current = input.current;
-    const at = current.now();
+    const { now: clock, ...current } = input.current;
+    const at = clock();
     setClocked((prev) => ({
-      life: stepLife(prev.life, { now: at, visual: current.visual, energy: current.energy, reducedMotion: current.reducedMotion, ...extra }),
+      life: stepLife(prev.life, { ...current, now: at, ...extra }),
       at,
       frame: current.reducedMotion ? 0 : flip ? 1 - prev.frame : prev.frame,
     }));
@@ -85,7 +104,8 @@ export function useLife({ visual, energy, reducedMotion, seed, now = monotonic }
   const invite = useCallback(() => advance({ invite: true }), [advance]);
 
   const { life, at, frame } = clocked;
-  const hermes = { activity: life.hermes.activity, ...positionAt(life.hermes, at) };
+  const place = positionAt(life.hermes, at);
+  const hermes = { activity: life.hermes.activity, ...place, face: hermesFaceOverride(life, at, residentKey) ?? place.face };
   const friend = life.friend ? { activity: life.friend.activity, look: life.friend.look, ...positionAt(life.friend, at) } : null;
-  return { hermes, friend, frame, invite };
+  return { hermes, friend, guests: guestViewsAt(life, at), hermesChat: hermesChatAt(life, at, residentKey), frame, invite };
 }

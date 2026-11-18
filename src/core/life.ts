@@ -1,7 +1,7 @@
 import type { VisualState } from './agentEvent';
 import type { EnergyLevel } from './mood';
-import type { Facing, SpotId, Tile } from './room';
-import { SPOTS, pathBetween, pathLength, sameTile } from './room';
+import type { Facing, GuestSeat, SpotId, Tile } from './room';
+import { GUEST_SEATS, SPOTS, pathBetween, pathLength, sameTile, toScreen } from './room';
 
 /**
  * Hermes' life in the mini room (ADR-020). A pure, deterministic state machine.
@@ -121,6 +121,43 @@ export interface FriendState extends ActorState {
   readonly look: number;
 }
 
+export type GuestKind = 'claude-code' | 'codex';
+
+/** A session friend present in the room (ADR-022) and the visual state of its own session. */
+export interface GuestInput {
+  readonly key: string;
+  readonly kind: GuestKind;
+  readonly ordinal: number;
+  readonly visual: VisualState;
+}
+
+/** The fact that session `from` sent a message, to `to` or to someone unknown (ADR-023). Keys increase and are not negative. */
+export interface ConversationInput {
+  readonly key: number;
+  readonly from: string;
+  readonly to: string | null;
+}
+
+/** A session friend: walks in to its seat, shows its session's state there, walks out when the session is gone. */
+export interface GuestActor extends ActorState {
+  readonly activity: 'visit' | 'leave';
+  readonly key: string;
+  readonly kind: GuestKind;
+  readonly ordinal: number;
+  readonly visual: VisualState;
+  /** Held until the friend has walked out, so nobody else sits there meanwhile. */
+  readonly seat: GuestSeat;
+  readonly phase: 'arriving' | 'seated' | 'leaving';
+}
+
+/** A conversation emote on show. `a`/`b` are session keys (Hermes is addressed by the resident key); a letter has no `b`. */
+export interface Chat {
+  readonly a: string;
+  readonly b: string | null;
+  readonly kind: 'talk' | 'letter';
+  readonly until: number;
+}
+
 export interface LifeState {
   readonly hermes: HermesState;
   readonly friend: FriendState | null;
@@ -129,6 +166,11 @@ export interface LifeState {
   readonly until: number | null;
   /** Seeded PRNG state (mulberry32). */
   readonly rng: number;
+  /** Session friends in the room, in arrival order. */
+  readonly guests: readonly GuestActor[];
+  readonly chats: readonly Chat[];
+  /** The newest conversation key handled; -Infinity until conversations first arrive (what came before is not replayed). */
+  readonly lastConversation: number;
 }
 
 export interface LifeInput {
@@ -138,10 +180,20 @@ export interface LifeInput {
   /** A one-off "친구 초대" from the user. */
   readonly invite?: boolean;
   readonly reducedMotion?: boolean;
+  /** Session friends present, in arrival order. Beyond the seats they wait, outside the state. */
+  readonly guests?: readonly GuestInput[];
+  /** Messages between sessions, newest first. */
+  readonly conversations?: readonly ConversationInput[];
+  /** The session that drives Hermes. */
+  readonly residentKey?: string | null;
 }
 
 export const FRIEND_LOOKS = 2;
 const VISIT_MS = IDLE_DURATION['host-friend'];
+const GUEST_SPEED = 1.8;
+/** How long a conversation emote shows (ms). Staging timed by the engine clock, not a fact (ADR-023). */
+export const CHAT_MS = { talk: 4_000, letter: 3_000 } as const;
+const UNSEEN = Number.NEGATIVE_INFINITY;
 
 function random(state: number): [number, number] {
   const next = (state + 0x6d2b79f5) >>> 0;
@@ -158,6 +210,9 @@ export function initialLife(seed: number, now: number): LifeState {
     friendLeaveAt: null,
     until: null,
     rng: seed >>> 0,
+    guests: [],
+    chats: [],
+    lastConversation: UNSEEN,
   };
 }
 
@@ -240,6 +295,35 @@ function pickIdle(
   }
   return [options[options.length - 1] as IdleActivity, next];
 }
+
+/** Session friends take the lowest free seat, show their own session's state, and walk out when it is gone (FR-MS2, FR-MS3). */
+function stepGuests(guests: readonly GuestActor[], present: readonly GuestInput[], now: number, reduced: boolean): GuestActor[] {
+  const byKey = new Map(present.map((g) => [g.key, g]));
+  const next: GuestActor[] = [];
+  for (const current of guests) {
+    let guest = reduced ? arrived(current, now) : current;
+    const wanted = byKey.get(guest.key);
+    if (wanted && guest.phase === 'leaving') {
+      // Back before it was out of the door: its seat is still its own.
+      guest = { ...guest, activity: 'visit', spot: guest.seat, phase: 'arriving', ...walkTo(walked(guest, now), guest.seat, now, GUEST_SPEED, reduced) };
+    } else if (!wanted && guest.phase !== 'leaving') {
+      guest = { ...guest, activity: 'leave', spot: 'outside', phase: 'leaving', ...walkTo(walked(guest, now), 'outside', now, GUEST_SPEED, reduced) };
+    }
+    if (guest.phase === 'leaving' && now >= guest.arriveAt) continue;
+    if (guest.phase === 'arriving' && now >= guest.arriveAt) guest = { ...guest, phase: 'seated' };
+    next.push(wanted ? { ...guest, visual: wanted.visual } : guest);
+  }
+  for (const { key, kind, ordinal, visual } of present) {
+    if (next.some((g) => g.key === key)) continue;
+    const seat = GUEST_SEATS.find((s) => !next.some((g) => g.seat === s));
+    if (!seat) break;
+    const walk = walkTo([SPOTS.outside.at], seat, now, GUEST_SPEED, reduced);
+    next.push({ key, kind, ordinal, visual, activity: 'visit', spot: seat, seat, phase: walk.arriveAt <= now ? 'seated' : 'arriving', ...walk });
+  }
+  return next;
+}
+
+const asleep = (hermes: HermesState) => hermes.activity === 'sleep' || hermes.activity === 'nap';
 
 export function stepLife(state: LifeState, input: LifeInput): LifeState {
   const { now, visual, energy, invite = false, reducedMotion = false } = input;
@@ -325,5 +409,88 @@ export function stepLife(state: LifeState, input: LifeInput): LifeState {
     friend = null;
   }
 
-  return { hermes, friend, friendLeaveAt, until, rng };
+  // 3. Session friends and their conversations (ADR-022, ADR-023). No randomness: Hermes' own life is untouched.
+  const guests = stepGuests(state.guests, input.guests ?? [], now, reducedMotion);
+  const resident = input.residentKey ?? null;
+  const inRoom = (key: string) =>
+    guests.some((g) => g.key === key && g.phase === 'seated') || (key === resident && !asleep(hermes));
+  const chats = state.chats.filter((c) => c.until > now && inRoom(c.a) && (c.b === null || inRoom(c.b)));
+  let { lastConversation } = state;
+  if (input.conversations) {
+    if (lastConversation !== UNSEEN) {
+      const fresh = input.conversations.filter((c) => c.key > lastConversation).sort((x, y) => x.key - y.key);
+      for (const { from, to } of fresh) {
+        if (to !== null && to !== from && inRoom(from) && inRoom(to)) chats.push({ a: from, b: to, kind: 'talk', until: now + CHAT_MS.talk });
+        else if (inRoom(from)) chats.push({ a: from, b: null, kind: 'letter', until: now + CHAT_MS.letter });
+      }
+    }
+    // The first list seen is history: only mark it handled (-1 so a first message keyed 0 still shows).
+    lastConversation = input.conversations.reduce((max, c) => Math.max(max, c.key), Math.max(lastConversation, -1));
+  }
+
+  return { hermes, friend, friendLeaveAt, until, rng, guests, chats, lastConversation };
+}
+
+export interface GuestView {
+  readonly key: string;
+  readonly kind: GuestKind;
+  readonly ordinal: number;
+  readonly visual: VisualState;
+  readonly phase: GuestActor['phase'];
+  readonly at: Tile;
+  readonly walking: boolean;
+  readonly face: Facing;
+  readonly chat: Chat['kind'] | null;
+}
+
+/** Which way to face to look at `to`, by the on-screen direction. */
+function faceToward(from: Tile, to: Tile): Facing {
+  const a = toScreen(from);
+  const b = toScreen(to);
+  if (b.y >= a.y) return b.x >= a.x ? 'front-right' : 'front-left';
+  return b.x >= a.x ? 'back-right' : 'back-left';
+}
+
+/** The newest chat on show at `now` that `key` takes part in (a letter only over its sender). */
+const chatOf = (state: LifeState, key: string, now: number) =>
+  state.chats.findLast((c) => c.until > now && (c.a === key || c.b === key)) ?? null;
+
+/** A chat partner's position: a guest, or else the resident (only guests and the resident ever chat). */
+function partnerAt(state: LifeState, key: string, now: number): Tile {
+  return positionAt(state.guests.find((g) => g.key === key) ?? state.hermes, now).at;
+}
+
+/** Session friends as drawn at `now`. A seated friend who is talking turns to its partner. */
+export function guestViewsAt(state: LifeState, now: number): GuestView[] {
+  return state.guests.map((guest) => {
+    const { at, walking, face } = positionAt(guest, now);
+    const phase = guest.phase === 'arriving' && now >= guest.arriveAt ? 'seated' : guest.phase;
+    const chat = chatOf(state, guest.key, now);
+    const partner = chat?.kind === 'talk' ? (chat.a === guest.key ? chat.b : chat.a) : null;
+    return {
+      key: guest.key,
+      kind: guest.kind,
+      ordinal: guest.ordinal,
+      visual: guest.visual,
+      phase,
+      at,
+      walking,
+      face: partner !== null && phase === 'seated' ? faceToward(at, partnerAt(state, partner, now)) : face,
+      chat: chat?.kind ?? null,
+    };
+  });
+}
+
+/** Hermes' part in a conversation at `now`: talking, or a letter he sent. */
+export function hermesChatAt(state: LifeState, now: number, residentKey: string | null): Chat['kind'] | null {
+  return residentKey === null ? null : (chatOf(state, residentKey, now)?.kind ?? null);
+}
+
+/** While Hermes talks with a friend and is not walking he faces them; null leaves his own facing (positionAt) as it is. */
+export function hermesFaceOverride(state: LifeState, now: number, residentKey: string | null): Facing | null {
+  const chat = residentKey === null ? null : chatOf(state, residentKey, now);
+  if (chat?.kind !== 'talk') return null;
+  const here = positionAt(state.hermes, now);
+  const partner = state.guests.find((g) => g.key === (chat.a === residentKey ? chat.b : chat.a));
+  return partner && !here.walking ? faceToward(here.at, positionAt(partner, now).at) : null;
 }

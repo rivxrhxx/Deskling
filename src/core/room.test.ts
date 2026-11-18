@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { SpotId } from './room';
-import { FURNITURE, GRID, HUB, SPOTS, depthOf, pathBetween, pathLength, segmentHitsRect, toScreen } from './room';
+import { FURNITURE, GRID, GUEST_SEATS, HUB, SPOTS, depthOf, pathBetween, pathLength, segmentHitsRect, toScreen } from './room';
 
 describe('isometric projection (FR-R1, ADR-019)', () => {
   it.each([
@@ -61,6 +61,31 @@ describe('room layout', () => {
       }
     },
   );
+});
+
+describe('guest seats (FR-MS2, ADR-022)', () => {
+  it('has four floor-cushion seats for session friends', () => {
+    expect(GUEST_SEATS).toEqual(['guest-1', 'guest-2', 'guest-3', 'guest-4']);
+  });
+
+  it.each(GUEST_SEATS)('%s is on open floor, off the hub, facing into the room', (id) => {
+    const seat = SPOTS[id];
+    expect(['front-right', 'front-left']).toContain(seat.face);
+    expect(seat.furniture).toBeUndefined();
+    for (const [name, item] of Object.entries(FURNITURE)) {
+      const inside = seat.at.x > item.x0 && seat.at.x < item.x1 && seat.at.y > item.y0 && seat.at.y < item.y1;
+      expect(inside, `${id} inside ${name}`).toBe(false);
+    }
+    expect(Math.hypot(seat.at.x - HUB.x, seat.at.y - HUB.y)).toBeGreaterThanOrEqual(0.8);
+  });
+
+  it.each(GUEST_SEATS)('%s keeps at least 0.8 tiles from every other spot and seat', (id) => {
+    const seat = SPOTS[id].at;
+    for (const [other, spot] of Object.entries(SPOTS)) {
+      if (other === id) continue;
+      expect(Math.hypot(seat.x - spot.at.x, seat.y - spot.at.y), `${id} vs ${other}`).toBeGreaterThanOrEqual(0.8);
+    }
+  });
 });
 
 describe('pathBetween', () => {
