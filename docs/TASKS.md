@@ -16,7 +16,7 @@
   - 검증: `src/config/boundaries.test.ts` (ui→tauri/adapters, core→react 금지)
 - [x] **T03** Tauri 2 스캐폴딩(`src-tauri`), `scripts/with-cargo.mjs`, `npm run rust:check`
   - 검증: `npm run rust:check`
-- [ ] **T04** 오버레이 창 설정(투명·무테·항상 위·그림자 없음·macOSPrivateApi) + 최소 capability — FR-W1, SEC-5
+- [x] **T04** 오버레이 창 설정(투명·무테·항상 위·그림자 없음·macOSPrivateApi) + 최소 capability — FR-W1, SEC-5
   - 검증: `src/config/tauriConfig.test.ts`
 - [ ] **T05** `verify:fast`, `verify`, `build:app` 스크립트 구성
   - 검증: `npm run verify:fast`, `npm run verify`
