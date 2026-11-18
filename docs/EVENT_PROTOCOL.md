@@ -1,4 +1,4 @@
-# EVENT_PROTOCOL — AgentEvent v2
+# EVENT_PROTOCOL — AgentEvent v3
 
 Deskling이 이해하는 유일한 입력 형식. provider(Hermes Agent 등)에 의존하지 않는다.
 코드상의 진실 공급원은 `src/core/agentEvent.ts`이며, 이 문서와 항상 같은 커밋에서 바뀐다.
@@ -28,18 +28,19 @@ Deskling이 이해하는 유일한 입력 형식. provider(Hermes Agent 등)에 
 | 필드 | 타입 | 규칙 |
 | --- | --- | --- |
 | `schema` | string | 정확히 `"deskling.agent-event"` |
-| `version` | number | `1` 또는 `2`. `usage.reported`는 `2`에서만 허용 |
+| `version` | number | `1`, `2`, `3`. `usage.reported`는 `2` 이상, `session.message`와 `claude-code`·`codex` 종류는 `3`에서만 허용 |
 | `id` | string | `^[A-Za-z0-9._:-]{1,64}$` |
 | `seq` | integer | `0` 이상 safe integer. 세션 안에서 단조 증가 |
 | `at` | integer | Unix epoch 밀리초, `0` 이상 `8.64e15` 이하 정수 (JavaScript Date가 표현할 수 있는 범위) |
-| `source.kind` | string | `"demo"` \| `"hermes"` \| `"custom"` |
+| `source.kind` | string | `"demo"` \| `"hermes"` \| `"custom"` \| `"claude-code"`(v3) \| `"codex"`(v3) — §3.2 |
 | `source.session` | string | `^[A-Za-z0-9._:-]{1,64}$` — 내용 없는 불투명 세션 ID |
 | `type` | string | §3의 이벤트 타입 |
 | `tool` | string | `tool.*` 이벤트에서 필수. `"code"` \| `"browser"` \| `"terminal"` \| `"file"` |
 | `outcome` | string | `tool.finished`에서 필수. `"ok"` \| `"error"` |
 | `usage` | object | `usage.reported`에서 필수. §3.1 |
+| `to` | object | `session.message`에서 선택. `{ kind, session }` — `source`와 같은 규칙. 없으면 상대를 모름 |
 
-`tool`, `outcome`은 해당 타입이 아닌 이벤트에 있으면 무시한다(출력에 복사하지 않음).
+`tool`, `outcome`, `usage`, `to`는 해당 타입이 아닌 이벤트에 있으면 무시한다(출력에 복사하지 않음).
 
 ## 3. 이벤트 타입
 
@@ -58,6 +59,15 @@ Deskling이 이해하는 유일한 입력 형식. provider(Hermes Agent 등)에 
 | `turn.succeeded` | 턴이 성공으로 끝남 | — |
 | `turn.failed` | 턴이 실패로 끝남 | — |
 | `usage.reported` | 사용량 보고(v2) — 활동이 아니라 계측값 | `usage` |
+| `session.message` | 이 세션이 다른 세션에 메시지를 보냄(v3, ADR-023). 본문·제목 없음 | `to`(선택) |
+
+### 3.2 세션 종류와 캐릭터 (v3, ADR-022)
+
+| `source.kind` | 캐릭터 | 비고 |
+| --- | --- | --- |
+| `hermes`, `demo`, `custom` | 집주인 헤르메스 | 이 종류 중 가장 최근에 이벤트를 받은 세션이 헤르메스를 움직인다 |
+| `claude-code` | Claude 친구 | 세션마다 한 명, 같은 종류 안에서 번호(1, 2, …) |
+| `codex` | Codex 친구 | 세션마다 한 명 |
 
 ### 3.1 `usage.reported` (v2)
 
@@ -136,14 +146,14 @@ Deskling이 이해하는 유일한 입력 형식. provider(Hermes Agent 등)에 
 | 에너지 | `1 − tokens.used / 예산` (0~1로 자름) | `full` ≥ 0.6, `ok` ≥ 0.3, `low` ≥ 0.1, `empty` < 0.1, 보고 없음 `unknown` |
 | 화남 | `context.used / context.limit` (0~1로 자름) | `calm` < 0.5, `annoyed` < 0.75, `angry` < 0.9, `furious` ≥ 0.9, 보고 없음 `unknown` |
 
-## 6. 순서와 중복
+## 6. 순서와 중복 (v3: 세션별, ADR-022)
 
-- 리듀서는 마지막으로 수용한 `(source.session, seq)`를 기억한다.
+- 리듀서는 세션 키 `${source.kind}:${source.session}`마다 커서(`lastSeq`)·사실·사용량을 따로 기억한다.
 - 같은 세션에서 `seq <= lastSeq`인 이벤트는 무시한다(상태·최근 목록 모두 변화 없음).
-- 다른 `session` 값의 이벤트가 오면 새 세션으로 보고 수용하며, 이전 세션의 사실(턴·도구·승인·위임·결과)을 초기화한다.
-  최근 활동 목록은 유지한다.
-- **한계(ADR-014):** 리듀서는 마지막 세션 하나의 커서만 기억한다. 두 세션의 이벤트가 번갈아 오면 전환마다 사실이 초기화된다.
-  adapter는 한 번에 한 세션만 내보내야 하며, Hermes adapter ADR에서 이 규칙을 확정한다.
+- 한 세션의 이벤트는 다른 세션의 사실을 바꾸지 않는다. 세션이 번갈아 와도 초기화되지 않는다.
+- `agent.offline`을 받은 세션은 방에서 나간다. 늦게 오는 이벤트를 무시하기 위해 최근에 끝난 세션의 커서를 64개까지 기억한다.
+  끝난 세션 키로 `seq`가 더 큰 이벤트가 오면 새로 들어온 것으로 본다.
+- 최근 활동 목록은 모든 세션을 합쳐 최신순 12개이며, 각 항목에 세션 키가 붙는다.
 
 ## 7. 금지 데이터
 
@@ -161,7 +171,9 @@ adapter는 이런 데이터를 애초에 읽지 않는 것을 원칙으로 한�
 
 정규화 실패는 다음 코드 중 하나를 반환한다. 코드 외의 정보(입력값, 필드 내용)는 반환·로그하지 않는다.
 
-`not-object`, `bad-schema`, `bad-version`, `bad-id`, `bad-seq`, `bad-timestamp`, `bad-source`, `bad-type`, `bad-tool`, `bad-outcome`, `bad-usage`
+`not-object`, `bad-schema`, `bad-version`, `bad-id`, `bad-seq`, `bad-timestamp`, `bad-source`, `bad-type`, `bad-tool`, `bad-outcome`, `bad-usage`, `bad-target`
+
+(`bad-target`: `session.message`의 `to`가 있는데 `source`와 같은 규칙을 어김.)
 
 ## 9. Adapter 계약
 
@@ -171,6 +183,7 @@ adapter는 이런 데이터를 애초에 읽지 않는 것을 원칙으로 한�
 4. 턴이 끝난 뒤 에이전트가 대기 상태가 되면 `agent.idle`을 보낸다.
 5. 민감 데이터를 이벤트 객체에 넣지 않는다. 넣더라도 core가 버리지만, 그것에 의존하지 않는다.
 6. 에이전트에게 아무것도 보내지 않는다(관찰 전용).
+7. Claude Code 훅 매핑은 `docs/integrations/CLAUDE_CODE.md`(ADR-024).
 
 ## 10. 버전 관리
 

@@ -113,6 +113,23 @@
 - [x] **T63** App 통합: 일상 엔진 구동(틱·reduced-motion), 친구 초대, 기존 작업실 제거, visualSpec·DESIGN 정리
 - [x] **T64** 화면 검증(WebKit·네이티브), 문서·상태, verify·build, push
 
+## M10 세션 친구들 (ADR-022, ADR-023) — 데모로 먼저
+
+- [x] **T65** ADR-022/023/024, EVENT_PROTOCOL v3, REQUIREMENTS FR-MS*·FR-CC*, TASKS
+- [ ] **T66** core: AgentEvent v3(종류 `claude-code`·`codex`, `session.message` + `to`, `bad-target`) 정규화 — FR-MS1, FR-MS5
+- [ ] **T67** core: `roomState` 리듀서 — 세션별 커서·사실·사용량, 집주인/친구 구분, 번호, 끝난 세션 기억, 대화 목록, 합친 최근 활동 — FR-MS1, FR-MS4, FR-MS6
+- [ ] **T68** core: 생활 엔진의 세션 친구 — 손님 자리 4개, 들어오기/나가기, 자기 상태, 대화(돌아보기·편지), 동네 친구·초대 제거 — FR-MS2, FR-MS3, FR-MS5, FR-R4
+- [ ] **T69** ui: Claude·Codex 친구 원본 스프라이트(세션 번호별 색), 말풍선·편지 이모트 — FR-MS1, FR-MS5
+- [ ] **T70** ui/app: 미니룸에 친구들, 패널 세션 목록·알림 줄, 친구 초대 버튼 제거, 데모 "방 친구들" — FR-MS2, FR-MS3, FR-MS6, FR-MS7
+- [ ] **T71** 화면 검증·문서·verify·build·push
+
+## M11 Claude Code 실제 연결 (ADR-024)
+
+- [ ] **T72** 훅 스크립트 `integrations/claude-code/deskling-hook.mjs` + 매핑 문서 — FR-CC1
+- [ ] **T73** Rust 소켓 브리지 + capability(이벤트 수신) — FR-CC2
+- [ ] **T74** TS adapter `src/adapters/claudeCode/` + platform 수신 + 실제/데모 전환 — FR-CC3, FR-CC4, FR-CC6
+- [ ] **T75** 설치/제거 스크립트(백업), 사용자 동의 후 설치, 실제 세션으로 네이티브 검증 — FR-CC5
+
 ## 백로그 (vertical slice 이후, 각각 ADR 먼저)
 
 - [ ] Hermes Agent adapter: 전송 방식·위치 결정 ADR

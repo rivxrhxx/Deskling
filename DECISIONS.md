@@ -83,7 +83,7 @@
 - **결정:** 프로젝트 기준은 Node 24 LTS(`.node-version` = 24, `engines.node` = `^22.13.0 || >=24`)다. 의존성을 구버전으로 낮추지 않는다. 검증은 Node 24에서 하고, 기본 셸의 Node 23에서도 `verify:fast`가 동작하는지 따로 확인한다.
 - **결과:** Node 23에서는 `npm install` 시 EBADENGINE 경고가 난다. 사용자에게 Node 24를 PATH에 올리기를 권장한다(`brew link --overwrite node@24` 등). 셸 설정은 이 저장소에서 바꾸지 않는다.
 
-## ADR-014 단일 (session, seq) 커서 — 세션 교차는 Hermes adapter ADR에서 결정 — 채택 (2026-11-18)
+## ADR-014 단일 (session, seq) 커서 — 세션 교차는 Hermes adapter ADR에서 결정 — 채택 (2026-11-18), ADR-022로 대체(세션별 커서)
 
 - **맥락:** 독립 리뷰(T34)에서 지적: 리듀서는 마지막 세션 하나의 `(session, seq)`만 기억한다. 재연결·버퍼링으로 두 세션의 이벤트가 번갈아 오면, 전환할 때마다 사실이 초기화되고 이미 본 `seq`가 다시 수용된다.
 - **결정:** v1 리듀서는 그대로 둔다(데모·단일 세션에서는 정확). 대신 Hermes adapter ADR에서 다음 중 하나를 반드시 정한다: (a) adapter가 한 번에 한 세션만 내보내도록 보장, (b) 리듀서가 떠난 세션의 이벤트를 무시, (c) 세션별 커서 맵.
@@ -174,3 +174,58 @@
 - **구현 메모(검증으로 확인):** 창을 처음부터 `alwaysOnBottom: true`(BelowNormal 레벨)로 만들면 macOS가 창을 화면에 올리지 않아
   WebKit이 그리기를 멈췄다(CGWindowList onscreen 없음, 캡처 100% 투명). 그래서 창은 보통 레벨로 만들고
   앱이 시작 직후 `setAlwaysOnBottom(true)`로 내린다. 이렇게 하면 layer −1, onscreen, 정상 렌더링을 확인했다.
+
+## ADR-022 세션마다 한 캐릭터: 헤르메스(집주인) + 세션 친구들 — 채택 (2026-11-19), ADR-014 대체, ADR-020의 동네 친구 제거
+
+- **맥락:** 사용자 요청 — 헤르메스와 Claude를 같이 돌리면 Claude 친구가 들어오고, Codex까지 돌리면 Codex 친구도 들어온다. "세션 분리가 친구들"이다.
+  같은 종류라도 세션마다 따로(Claude 세션 2개 → Claude 친구 2명). 무작위 "동네 친구"와 "친구 초대"는 없앤다.
+- **결정:**
+  1. 이벤트는 `source.kind`로 캐릭터 종류를, `source.session`으로 개인을 정한다. 세션 키 = `${kind}:${session}`.
+     - `hermes`·`demo`·`custom` = **집주인 헤르메스**. 이 종류의 세션 중 가장 최근에 이벤트를 받은 세션이 헤르메스를 움직인다(기존 단일 세션 동작과 같음).
+     - `claude-code`·`codex` = **세션 친구**. 세션 하나가 친구 한 명이다. 같은 종류 안에서 번호를 붙인다(지금 방에 있는 같은 종류 세션이 쓰지 않는 가장 작은 양의 정수 → "Claude 1", "Claude 2").
+  2. 리듀서는 **세션별 커서·사실·사용량**을 따로 가진다(ADR-014의 (c) 세션별 커서 맵). 한 세션의 이벤트는 다른 세션을 바꾸지 않는다.
+     끝난 세션(`agent.offline`)은 방에서 나가고, 늦게 온 이벤트를 무시하기 위해 최근 끝난 세션의 커서를 64개까지 기억한다.
+  3. 친구는 세션의 첫 이벤트로 문을 열고 들어와 자기 자리(노트북이 있는 손님 자리, 최대 4명)에 앉고, `agent.offline`이면 문으로 나간다.
+     5번째부터는 방에 그리지 않고 패널에만 보인다. 자리에서 자기 세션의 시각 상태를 그대로 보인다(작업 → 노트북 타이핑, 승인 대기 → 일어나 손 흔들기,
+     성공 → 점프, 오류 → 머리 감싸기, 생각 → 고민, 대기 → 편히 앉음, 위임 → 화살표).
+  4. 친구의 행동은 **자기 세션의 사실만** 반영한다. 친구는 일상(샤워·밥 등)을 하지 않는다 — 그건 집주인의 생활이다(ADR-020 유지).
+     헤르메스의 대기 일상은 친구가 앉은 자리는 고르지 않는다.
+  5. 위임(`delegation.*`) 때 오는 도우미는 하위 작업을 그리는 표시이므로 유지한다. 무작위 손님 방문과 "친구 초대" 버튼은 없앤다.
+  6. 패널은 방에 있는 세션 목록(헤르메스, Claude 1, Codex 1 … + 상태)과, 세션 이름이 붙은 최근 활동을 보여준다. 상태 말풍선은 헤르메스의 상태이고,
+     친구 중 승인 대기·오류가 있으면 말풍선 아래 작은 알림 줄을 덧붙인다.
+  7. 성장 경험치는 지금처럼 모든 세션의 `turn.succeeded`를 센다(친구가 해낸 일도 방의 경험).
+- **결과:** EVENT_PROTOCOL v3(§3.2 종류, §6 세션별 순서). App의 피드는 방 전체 상태(RoomViewState)를 다룬다.
+
+## ADR-023 세션 사이 대화 `session.message` — 채택 (2026-11-19)
+
+- **맥락:** 사용자 요청 — 세션끼리 서로 대화 나누는 것도 표현. 규칙: 사실만, 내용은 절대 없음.
+- **결정:**
+  1. v3 이벤트 `session.message`: 이 세션이 다른 세션(또는 알 수 없는 상대)에게 메시지를 보냈다는 **사실**. 선택 필드 `to: { kind, session }`. 본문·제목·길이는 없다.
+  2. 장면: 보낸 쪽과 받는 쪽이 둘 다 방에 있고 깨어 있으면 4초 동안 서로를 향해 돌아보고 말풍선 이모트(점 세 개, 내용 없음)를 주고받는다.
+     받는 쪽을 모르거나 방에 없으면 보낸 쪽 머리 위에 편지 이모트가 3초 뜬다. 이 표시 시간은 사실이 아니라 연출이며 엔진 시계로만 잰다.
+  3. 패널 최근 활동: "Claude 1 → Codex 1 메시지" / "Claude 1 메시지 보냄".
+- **결과:** 대화는 실제 메시지 이벤트가 있을 때만 보인다. 혼자 노는 친구들끼리의 잡담은 만들지 않는다(추측 금지).
+
+## ADR-024 Claude Code 실제 연결: 훅 → Unix 소켓 → Rust → webview — 채택 (2026-11-19)
+
+- **맥락:** 사용자 선택 — 데모로 검증한 뒤 Claude Code 세션을 실제로 연결한다. Codex·Hermes 실제 연결은 다음 단계.
+- **결정:**
+  1. **훅 스크립트** `integrations/claude-code/deskling-hook.mjs`(의존성 없음). Claude Code 훅이 stdin으로 주는 JSON에서 아래만 뽑아
+     **훅 레코드**를 만든다. 프롬프트·도구 입력·결과·경로·명령·transcript는 읽어서 버리고 절대 보내지 않는다.
+     표준출력·표준에러에 아무것도 쓰지 않고(훅 출력이 Claude Code 컨텍스트에 들어갈 수 있음), 항상 exit 0, 300ms 안에 끝낸다. Deskling이 꺼져 있으면 조용히 끝낸다.
+  2. **훅 레코드 v1** (한 연결에 한 줄 JSON, 1KB 이하):
+     `{"v":1,"agent":"claude-code","session":"<[A-Za-z0-9._:-]{1,64}>","event":"<아래>","tool":"<선택>","ok":<선택>,"at":<ms 정수>}`
+     - `event`: `session-start` | `session-end` | `prompt` | `tool-start` | `tool-end` | `approval` | `stop` | `stop-failure` | `subagent-stop`
+     - `tool`(tool-start/tool-end만): `code` | `browser` | `terminal` | `file` | `delegate` | `message` — 도구 이름을 범주로 바꾼 값. 범주 밖 도구는 레코드를 보내지 않는다.
+     - `ok`(tool-end만): boolean.
+  3. **전송:** Unix 도메인 소켓 `~/Library/Application Support/com.deskling.desktop/agent-events.sock`(디렉터리 0700, 소켓 0600).
+     브라우저가 닿을 수 있는 localhost 포트는 쓰지 않는다. 테스트용으로 `DESKLING_SOCKET` 환경변수로 경로를 바꿀 수 있다.
+  4. **Rust 브리지:** 소켓을 듣고, 레코드를 serde 엄격 타입(`deny_unknown_fields`, enum, 세션 정규식, 크기·속도 제한)으로 검증해
+     통과한 것만 **다시 직렬화해서** Tauri 이벤트 `deskling://hook-record`로 webview에 보낸다. 원문 바이트는 넘기지 않는다. 실패는 코드만 센다.
+  5. **TS adapter** `src/adapters/claudeCode/`: 훅 레코드 → AgentEvent v3(kind `claude-code`)로 번역하는 순수 함수 + 세션별 seq·승인 대기·위임 상태.
+     `src/platform/`만 Tauri 이벤트를 듣는다(ADR-008 경계). webview는 번역된 이벤트를 다시 정규화한다(이중 검증).
+  6. capability에 이벤트 수신 권한(`core:event:allow-listen`, `core:event:allow-unlisten`)만 추가한다(ADR-015 갱신).
+  7. 패널에 "실제 / 데모" 전환. 실제 모드에서는 DEMO 배지가 없고, 연결된 세션이 없으면 헤르메스는 잔다.
+  8. 사용자의 `~/.claude/settings.json`에 훅을 넣는 것은 **사용자가 동의할 때만**(설치 스크립트가 백업을 만들고, 제거 명령도 제공).
+  9. Claude Code의 토큰·컨텍스트 수치는 transcript(대화 내용 파일)를 읽어야 하므로 가져오지 않는다. Claude 친구의 에너지·화남은 unknown.
+- **결과:** 앱은 여전히 관찰만 한다(소켓은 받기 전용). 훅 매핑은 `docs/integrations/CLAUDE_CODE.md`에 둔다.
