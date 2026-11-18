@@ -17,6 +17,7 @@ import { Workshop } from '../ui/workshop/Workshop';
 import type { Settings } from './settings';
 import { TOKEN_BUDGETS, loadSettings, parseSettings, saveSettings, windowSizeFor } from './settings';
 import { useAgentFeed } from './useAgentFeed';
+import { usePet } from './usePet';
 import { useReducedMotion } from './useReducedMotion';
 
 type StorageLike = Pick<Storage, 'getItem' | 'setItem'>;
@@ -83,6 +84,8 @@ export function App({ source: providedSource, controls: providedControls, storag
   const reducedMotion = useReducedMotion(settings.motion);
   // Energy and anger: fixed readings of reported numbers against the user's budget (ADR-016).
   const vitals = deriveVitals(view.usage, settings.tokenBudget);
+  // The desktop pet grows from completed tasks; demo and real agents keep separate profiles (ADR-018).
+  const pet = usePet({ mode: source.mode, completedTurns: view.completedTurns, feedKey: source, storage });
 
   const [panelOpen, setPanelOpen] = useState(false);
   const hotspotRef = useRef<HTMLButtonElement>(null);
@@ -114,7 +117,14 @@ export function App({ source: providedSource, controls: providedControls, storag
       <div className="stage" onMouseDown={startDrag}>
         {source.mode === 'demo' && <DemoBadge />}
         <StatusBubble state={view.visual} />
-        <Workshop state={view.visual} energy={vitals.energy.level} anger={vitals.anger.level} />
+        <Workshop
+          state={view.visual}
+          energy={vitals.energy.level}
+          anger={vitals.anger.level}
+          stage={pet.stage}
+          decor={pet.decor}
+          reaction={pet.reaction}
+        />
         <CharacterHotspot
           expanded={panelOpen}
           onActivate={togglePanel}
@@ -125,6 +135,15 @@ export function App({ source: providedSource, controls: providedControls, storag
           <ActivityPanel
             entries={view.recent}
             onClose={closePanel}
+            pet={{
+              name: pet.profile.name,
+              hearts: pet.hearts,
+              snacksLeft: pet.snacksLeft,
+              demo: source.mode === 'demo',
+              onPet: () => void pet.pet(),
+              onFeed: () => void pet.feed(),
+              onRename: pet.rename,
+            }}
             vitals={vitals}
             budget={{
               value: settings.tokenBudget,

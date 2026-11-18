@@ -47,6 +47,9 @@
 | FR-V2, FR-V3 | `src/core/mood.test.ts` | 에너지·화남 단계 경계값 |
 | FR-V4 | `src/ui/workshop/Workshop.test.tsx` | 캔 수, 눈꺼풀, 눈썹 모양, 핏줄, 김, 잠잘 때 숨김, 텍스트 없음 |
 | FR-V5, FR-V6 | `src/ui/ActivityPanel.test.tsx`, `src/app/settings.test.ts`, `src/app/App.test.tsx` | 숫자·meter·보고 없음, 예산 선택·저장·재계산 |
+| FR-G1, FR-G6 | `src/core/agentState.test.ts`, `src/app/pet.test.ts`, `src/app/usePet.test.tsx`, `src/app/App.test.tsx` | completedTurns, 증가분만 경험치, demo/live 분리, 저장·재시작 |
+| FR-G2, FR-G3 | `src/core/growth.test.ts`, `src/ui/workshop/Workshop.test.tsx` | 단계·해금 경계값, 크기·목도리·배지, 소품 |
+| FR-G4, FR-G5 | `src/core/growth.test.ts`, `src/app/usePet.test.tsx`, `src/ui/ActivityPanel.test.tsx`, `src/app/App.test.tsx` | 쿨다운·하루 간식·상한, 하트·간식 반응, 이름 정리, 에이전트 상태 불변 |
 | FR-V7, FR-V8 | `src/ui/visualSpec.test.ts`, `src/ui/workshop/Workshop.test.tsx`, `src/app/App.test.tsx` | 위치(desk/bed), 침대 포즈, walker 재마운트, hotspot 위치 |
 
 ## 4. 명령

@@ -1,4 +1,4 @@
-import { act, render, screen } from '@testing-library/react';
+import { act, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createDemoSource } from '../adapters/demo/demoSource';
 import { DEMO_SCRIPTS } from '../adapters/demo/scripts';
@@ -162,7 +162,7 @@ describe('App activity panel (FR-P1, FR-P3)', () => {
     expect(hotspot).toHaveAttribute('aria-expanded', 'true');
     expect(dialog).toHaveTextContent('작업 시작');
     expect(dialog).toHaveTextContent('에이전트 연결됨');
-    expect(screen.getByText('DEMO')).toBeVisible();
+    expect(screen.getByRole('note', { name: /데모 모드/ })).toBeVisible();
 
     await user.keyboard('{Escape}');
     expect(screen.queryByRole('dialog')).toBeNull();
@@ -426,5 +426,78 @@ describe('App vitals: usage → energy/anger → scene and panel (FR-V2–V6)', 
 
     expect(scene()).toHaveAttribute('data-energy', 'full');
     expect(JSON.parse(storage.data.get('deskling.settings.v1') ?? '{}')).toMatchObject({ tokenBudget: 1_000_000 });
+  });
+});
+
+describe('App growing the desktop pet (FR-G1–G6, ADR-018)', () => {
+  const scene = () => screen.getByRole('img', { name: /미니어처 작업실/ });
+  const stage = () => scene().querySelector('[data-part="growth"]')?.getAttribute('data-stage');
+
+  function completeTurns(live: ReturnType<typeof manualSource>, count: number, startSeq = 1) {
+    let seq = startSeq;
+    for (let i = 0; i < count; i += 1) {
+      live.emit(raw(seq++, 'turn.started'));
+      live.emit(raw(seq++, 'turn.succeeded'));
+    }
+    return seq;
+  }
+
+  it('grows from completed tasks and saves the live profile', () => {
+    const live = manualSource('live');
+    const storage = fakeStorage();
+    render(<App source={live.source} controls={fakeControls()} storage={storage} />);
+    expect(stage()).toBe('baby');
+
+    completeTurns(live, 5);
+
+    expect(stage()).toBe('kid');
+    expect(scene().querySelector('[data-part="decor-poster"]')).not.toBeNull();
+    expect(scene().querySelector('[data-part="decor-desk-plant"]')).not.toBeNull();
+    const book = JSON.parse(storage.data.get('deskling.pet.v1') ?? '{}');
+    expect(book.live.xp).toBe(5);
+    expect(book.demo.xp).toBe(0);
+  });
+
+  it('remembers growth across restarts', () => {
+    const storage = fakeStorage();
+    storage.data.set('deskling.pet.v1', JSON.stringify({ live: { name: '콩이', xp: 30 } }));
+    render(<App source={manualSource('live').source} controls={fakeControls()} storage={storage} />);
+    expect(stage()).toBe('adult');
+    expect(scene().querySelector('[data-part="decor-trophy"]')).not.toBeNull();
+  });
+
+  it('lets the user name, pet and feed the pet without touching the agent state', async () => {
+    const { fireEvent } = await import('@testing-library/react');
+    vi.useFakeTimers();
+    const live = manualSource('live');
+    const storage = fakeStorage();
+    render(<App source={live.source} controls={fakeControls()} storage={storage} />);
+    live.emit(raw(1, 'turn.started'));
+    live.emit({ ...raw(2, 'usage.reported'), version: 2, usage: { tokens: { used: 150_000 } } });
+    fireEvent.click(screen.getByRole('button', { name: '최근 활동 보기' }));
+
+    const nameField = screen.getByRole('textbox', { name: '이름' });
+    fireEvent.change(nameField, { target: { value: '콩이' } });
+    fireEvent.keyDown(nameField, { key: 'Enter' });
+    expect(JSON.parse(storage.data.get('deskling.pet.v1') ?? '{}').live.name).toBe('콩이');
+
+    fireEvent.click(screen.getByRole('button', { name: '쓰다듬기' }));
+    expect(scene().querySelector('[data-part="reaction-hearts"]')).not.toBeNull();
+    expect(scene()).toHaveAttribute('data-state', 'thinking');
+    expect(scene()).toHaveAttribute('data-energy', 'low');
+
+    act(() => vi.advanceTimersByTime(2200));
+    expect(scene().querySelector('[data-part="reaction-hearts"]')).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: '간식 주기, 오늘 3개 남음' }));
+    expect(scene().querySelector('[data-part="reaction-snack"]')).not.toBeNull();
+    expect(screen.getByRole('img', { name: '애정도 하트 5개 중 1개' })).toBeInTheDocument();
+  });
+
+  it('marks the demo profile as DEMO in the pet card', async () => {
+    const { fireEvent } = await import('@testing-library/react');
+    render(<App source={manualSource('demo').source} controls={fakeControls()} storage={fakeStorage()} />);
+    fireEvent.click(screen.getByRole('button', { name: '최근 활동 보기' }));
+    expect(within(screen.getByRole('group', { name: '펫' })).getByText('DEMO')).toBeInTheDocument();
   });
 });

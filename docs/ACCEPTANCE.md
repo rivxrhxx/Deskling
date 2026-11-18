@@ -34,10 +34,14 @@
 | MVP-10 | 보고된 토큰 사용량이 예산을 소모할수록 에너지 단계가 full → ok → low → empty로 바뀌고 장면 신호(전구·눈꺼풀·캔)가 달라진다. | mood·Workshop·App 테스트 |
 | MVP-11 | 컨텍스트가 찰수록 화남 단계가 calm → annoyed → angry → furious로 바뀌고 눈썹·핏줄·김으로 보인다. | mood·Workshop 테스트 |
 | MVP-12 | 숫자는 활동 패널에만 있고 장면에는 없다. 예산을 바꾸면 에너지가 다시 계산되고 저장된다. | ActivityPanel·App 테스트 |
+| MVP-13 | 완료한 작업 수만큼 경험치가 쌓이고 앱을 다시 켜도 유지되며, 5개에 어린이·25개에 어른이 된다. | growth·usePet·App 테스트 + 네이티브 DOM 프로브(xp 0→1) |
+| MVP-14 | 경험치에 따라 포스터·화분·줄 조명·러그·책장·트로피가 하나씩 생긴다. | growth·Workshop·App 테스트 |
+| MVP-15 | 이름을 짓고, 쓰다듬기·간식으로 하트 반응과 애정도 상승을 볼 수 있다. 에이전트 상태·에너지·화남은 바뀌지 않는다. | usePet·ActivityPanel·App 테스트 |
+| MVP-16 | 데모로 자란 펫과 실제 에이전트 펫은 따로 저장되고, 데모 펫에는 DEMO 표시가 붙는다. | pet·usePet·App 테스트 |
 
 ## C. 보안 수용 기준 (항상)
 
 - 정규화 결과에는 EVENT_PROTOCOL §2 필드만 존재한다.
 - 검증 실패 로그 문자열에 입력값이 포함되지 않는다.
-- localStorage에는 `deskling.settings.v1` 키 하나만 쓰고, 그 값은 설정 스키마만 담는다.
+- localStorage에는 `deskling.settings.v1`(설정 스키마)과 `deskling.pet.v1`(숫자와 사용자 이름) 두 키만 쓴다(ADR-018).
 - Tauri capability에 셸·파일시스템·HTTP 권한이 없다.

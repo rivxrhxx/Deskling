@@ -67,6 +67,12 @@ Deskling은 Tauri 2 셸 안에서 React 프런트엔드가 동작하는 데스�
 ### 3.3.1 피드 수명
 `useAgentFeed`는 소스를 layout effect에서 시작하고(첫 이벤트가 그려지기 전에 적용), cleanup 이후 같은 소스가 늦게 보낸 원시 입력은 정규화하지 않고 버린다. 소스가 바뀌면 상태는 초기값에서 다시 시작한다.
 
+### 3.3.2 분위기와 키우기 (ADR-016, ADR-018)
+- `src/core/mood.ts`: 사용량 스냅샷 + 예산 → 에너지·화남 단계(순수).
+- `src/core/growth.ts`: 경험치 → 성장 단계·해금 소품, 쓰다듬기·간식 규칙, 이름 정리(순수).
+- `src/app/pet.ts`: demo/live 펫 프로필 저장(`deskling.pet.v1`). `src/app/usePet.ts`: `completedTurns` 증가분 → 경험치, 돌보기, 반응 타이머.
+- 돌보기는 펫 프로필만 바꾼다. 에이전트로 가는 경로는 여전히 없다.
+
 ### 3.4 `src/core/ingest.ts`
 `createIngest(dispatch, onReject)` — 원시 입력을 정규화해 성공하면 dispatch, 실패하면 에러 코드만 onReject로 넘긴다.
 
