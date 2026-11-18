@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { cleanup, render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import { VISUAL_STATES } from '../../core/agentEvent';
 import type { Activity } from '../../core/life';
@@ -192,6 +192,17 @@ describe('MiniRoom (FR-R1, ADR-019)', () => {
     const svg = room({ stage });
     expect(svg.querySelector('[data-part="hermes"]')).toHaveAttribute('data-stage', stage);
     expect(svg.querySelector('[data-part="hermes"] [data-part="sprite"]')?.getAttribute('transform') ?? '').toContain(`scale(${scale}`);
+  });
+
+  it('pins the adult star badge on his chest only when the chest is visible (FR-G2)', () => {
+    const badge = (props: Partial<MiniRoomProps>) => room(props).querySelector('[data-part="star-badge"]');
+    expect(badge({ stage: 'adult', state: 'idle', hermes: hermesAt('stretch', 'stretch') })).not.toBeNull();
+    cleanup();
+    expect(badge({ stage: 'adult', state: 'coding', hermes: hermesAt('type-code') })).toBeNull();
+    cleanup();
+    expect(badge({ stage: 'adult', state: 'idle', hermes: hermesAt('read', 'bookshelf') })).toBeNull();
+    cleanup();
+    expect(badge({ stage: 'kid', state: 'idle', hermes: hermesAt('stretch', 'stretch') })).toBeNull();
   });
 
   it.each(['poster', 'desk-plant', 'string-lights', 'bedside-rug', 'more-books', 'trophy'] as const)('adds the unlocked %s', (id) => {

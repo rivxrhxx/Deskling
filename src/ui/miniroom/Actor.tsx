@@ -20,6 +20,9 @@ export interface ActorView {
 const STAGE_SCALE: Readonly<Record<GrowthStage, number>> = { baby: 2, kid: 2.25, adult: 2.5 };
 const FRIEND_SCALE = 2.4;
 
+/** Poses that show Hermes' chest, where the adult star badge sits (not his back, not behind a book). */
+const CHEST_VISIBLE = new Set(['front', 'front-walk-a', 'front-walk-b', 'sit-front', 'wave', 'arms-up', 'water']);
+
 export interface ActorProps {
   readonly who: Who;
   readonly view: ActorView;
@@ -64,7 +67,7 @@ export function Actor({ who, view, frame, stage = 'adult', energy = 'unknown', a
     >
       <ellipse cx={x + 6 * scale} cy={feet.y} rx={5 * scale} ry={1.6 * scale} fill="#3b2a20" opacity={pose.seated || anchor ? 0 : 0.18} />
       <PixelSprite part="sprite" map={map} palette={palette} x={x} y={y} scale={scale} flip={pose.flip} />
-      {isHermes && stage === 'adult' && pose.name !== 'sleep' && pose.name !== 'shower' && (
+      {isHermes && stage === 'adult' && CHEST_VISIBLE.has(pose.name) && (
         <path
           data-part="star-badge"
           d={`M${x + 6 * scale} ${y + 9.4 * scale} l1 2 2.2 .3 -1.6 1.5 .4 2.2 -2 -1.1 -2 1.1 .4 -2.2 -1.6 -1.5 2.2 -.3z`}

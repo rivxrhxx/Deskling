@@ -367,8 +367,9 @@ function Decor({ decor }: { decor: readonly DecorId[] }) {
     <>
       {has('poster') && (
         <g data-part="decor-poster">
-          <polygon points={pts([[1.2, 0, 60], [2.2, 0, 60], [2.2, 0, 96], [1.2, 0, 96]])} fill="#ffffff" stroke={INK} />
-          <g transform={planeY(0, 1.25, 2.15, 92, 30)}>
+          {/* Below the pattern band, where the string-light bulbs hang. */}
+          <polygon points={pts([[1.2, 0, 56], [2.2, 0, 56], [2.2, 0, 92], [1.2, 0, 92]])} fill="#ffffff" stroke={INK} />
+          <g transform={planeY(0, 1.25, 2.15, 88, 30)}>
             <rect width="30" height="30" fill="#bfe6ff" />
             <circle cx="20" cy="9" r="5" fill="#f2d27a" />
             <path d="M0 30 L10 14 L17 22 L22 16 L30 30 Z" fill="#72e3bd" />
@@ -517,7 +518,7 @@ export function MiniRoom({
         <polygon
           data-part="night"
           className="night"
-          points={pts([[0, 0, WALL_H], [GRID, 0, WALL_H], [GRID, 0, 0], [GRID, GRID, 0], [GRID, GRID, -10], [0, GRID, -10], [0, GRID, WALL_H]])}
+          points={pts([[0, 0, WALL_H], [GRID, 0, WALL_H], [GRID, 0, -10], [GRID, GRID, -10], [0, GRID, -10], [0, GRID, WALL_H]])}
           fill="#1b2140"
           opacity="0.5"
         />

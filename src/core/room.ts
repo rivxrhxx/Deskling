@@ -68,16 +68,19 @@ const spots = {
   desk: { at: { x: 2, y: 1.55 }, face: 'back-right' },
   helper: { at: { x: 3.35, y: 1.5 }, face: 'back-right' },
   celebrate: { at: { x: 2.6, y: 2.6 }, face: 'front-right' },
-  fridge: { at: { x: 4.05, y: 1.35 }, face: 'back-right' },
+  fridge: { at: { x: 3.95, y: 1.4 }, face: 'back-right' },
   shower: { at: { x: 5.75, y: 0.75 }, face: 'front-left', furniture: 'shower' },
   table: { at: { x: 5.7, y: 4.2 }, face: 'front-left' },
   sofa: { at: { x: 0.5, y: 5.7 }, face: 'front-right', furniture: 'sofa' },
   'sofa-2': { at: { x: 0.5, y: 7.05 }, face: 'front-right', furniture: 'sofa' },
-  bookshelf: { at: { x: 1.3, y: 4.6 }, face: 'back-left' },
+  /** Beside the shelf rather than straight in front of it: the TV stand would hide Hermes there. */
+  bookshelf: { at: { x: 2.4, y: 4.2 }, face: 'back-left' },
   window: { at: { x: 0.9, y: 3.6 }, face: 'back-left' },
-  plant: { at: { x: 7.7, y: 3.9 }, face: 'front-right' },
+  /** Left of the pot, so the watering can is not hidden behind the leaves. */
+  plant: { at: { x: 7.7, y: 4.5 }, face: 'front-right' },
   front: { at: { x: 5.4, y: 7.4 }, face: 'front-left' },
-  stretch: { at: { x: 3.9, y: 6.9 }, face: 'front-right' },
+  /** Right of the TV, so the set does not stand behind Hermes' head. */
+  stretch: { at: { x: 4.9, y: 6.4 }, face: 'front-right' },
   door: { at: { x: 8, y: 0.6 }, face: 'front-left' },
   /** Beyond the door, outside the room: characters here are not drawn. */
   outside: { at: { x: 8, y: -0.6 }, face: 'back-right' },
