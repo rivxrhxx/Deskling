@@ -188,3 +188,61 @@ describe('Workshop mood: energy and anger cues (FR-V4, DESIGN §4.1)', () => {
     expect((svg.textContent ?? '').replace(title, '').trim()).toBe('');
   });
 });
+
+describe('Workshop growth: stages, decorations and care reactions (FR-G2–G4, DESIGN §4.2)', () => {
+  const growth = () => scene().querySelector('[data-part="growth"]');
+  const count = (selector: string) => scene().querySelectorAll(selector).length;
+  const DECOR = ['poster', 'desk-plant', 'string-lights', 'bedside-rug', 'more-books', 'trophy'] as const;
+
+  it('shows the grown-up look by default', () => {
+    render(<Workshop state="coding" />);
+    expect(growth()).toHaveAttribute('data-stage', 'adult');
+    expect(count('[data-part="star-badge"]')).toBe(1);
+  });
+
+  it.each([
+    ['baby', 0.8, 0],
+    ['kid', 0.9, 0],
+    ['adult', 1, 1],
+  ] as const)('%s is drawn at %sx with %d star badge', (stage, scale, badges) => {
+    render(<Workshop state="coding" stage={stage} />);
+    expect(growth()).toHaveAttribute('data-stage', stage);
+    expect(growth()?.getAttribute('transform') ?? '').toContain(`scale(${scale})`);
+    expect(count('[data-part="star-badge"]')).toBe(badges);
+  });
+
+  it('grows in bed too', () => {
+    render(<Workshop state="idle" stage="baby" />);
+    expect(growth()).toHaveAttribute('data-stage', 'baby');
+    expect(growth()?.closest('.walker--bed')).not.toBeNull();
+  });
+
+  it('adds no decorations by default', () => {
+    render(<Workshop state="idle" />);
+    expect(count('[data-part^="decor-"]')).toBe(0);
+  });
+
+  it.each(DECOR)('draws the unlocked %s', (id) => {
+    render(<Workshop state="idle" decor={[id]} />);
+    expect(count(`[data-part="decor-${id}"]`)).toBe(1);
+    expect(count('[data-part^="decor-"]')).toBe(1);
+  });
+
+  it('shows floating hearts after petting and a cookie after a snack', () => {
+    const { rerender } = render(<Workshop state="coding" reaction={{ kind: 'hearts', id: 1 }} />);
+    expect(count('[data-part="reaction-hearts"] [data-part="heart"]')).toBe(3);
+    rerender(<Workshop state="idle" reaction={{ kind: 'snack', id: 2 }} />);
+    expect(count('[data-part="reaction-snack"]')).toBe(1);
+    expect(count('[data-part="reaction-hearts"]')).toBe(0);
+    rerender(<Workshop state="idle" reaction={null} />);
+    expect(count('[data-part^="reaction-"]')).toBe(0);
+  });
+
+  it('still draws no text glyphs with every growth element on', () => {
+    render(<Workshop state="success" stage="adult" decor={[...DECOR]} reaction={{ kind: 'hearts', id: 3 }} />);
+    const svg = scene();
+    expect(svg.querySelectorAll('text, tspan, foreignObject')).toHaveLength(0);
+    const title = svg.querySelector('title')?.textContent ?? '';
+    expect((svg.textContent ?? '').replace(title, '').trim()).toBe('');
+  });
+});

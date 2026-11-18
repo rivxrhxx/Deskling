@@ -1,5 +1,7 @@
+import type { ReactNode } from 'react';
 import { useId } from 'react';
 import type { VisualState } from '../../core/agentEvent';
+import type { DecorId, GrowthStage } from '../../core/growth';
 import type { AngerLevel, EnergyLevel } from '../../core/mood';
 import type { PoseId } from '../visualSpec';
 import { VISUAL_SPEC } from '../visualSpec';
@@ -7,6 +9,9 @@ import type { BedPoseId } from './BedCharacter';
 import { BedCharacter } from './BedCharacter';
 import type { DeskPoseId } from './Character';
 import { Character } from './Character';
+import { DeskDecor, RoomDecorBack } from './Decor';
+import type { CareReaction } from './Reaction';
+import { Reaction } from './Reaction';
 import { Helper } from './Helper';
 import { MonitorScreen } from './MonitorScreen';
 
@@ -19,6 +24,40 @@ const isBedPose = (pose: PoseId): pose is BedPoseId => pose === 'lounging' || po
 const CANS: Readonly<Record<EnergyLevel, number>> = { unknown: 0, full: 0, ok: 1, low: 2, empty: 3 };
 const CAN_X = [177, 182.5, 188] as const;
 
+/** Growth stage size (DESIGN §4.2). Applied with an SVG transform attribute so CSS walk animations never fight it. */
+const STAGE_SCALE: Readonly<Record<GrowthStage, number>> = { baby: 0.8, kid: 0.9, adult: 1 };
+
+function Growth({
+  stage,
+  origin,
+  children,
+}: {
+  stage: GrowthStage;
+  origin: readonly [number, number];
+  children: ReactNode;
+}) {
+  const [ox, oy] = origin;
+  const s = STAGE_SCALE[stage];
+  return (
+    <g
+      data-part="growth"
+      data-stage={stage}
+      className={`growth growth--${stage}`}
+      transform={`translate(${ox} ${oy}) scale(${s}) translate(${-ox} ${-oy})`}
+    >
+      {children}
+    </g>
+  );
+}
+
+const StarBadge = ({ x, y }: { x: number; y: number }) => (
+  <path
+    data-part="star-badge"
+    d={`M${x} ${y - 2.4} l0.75 1.55 1.7 0.24 -1.23 1.2 0.29 1.7 -1.51 -0.8 -1.51 0.8 0.29 -1.7 -1.23 -1.2 1.7 -0.24 z`}
+    fill="#f2d27a"
+  />
+);
+
 /**
  * A miniature night-time room we peek into (docs/DESIGN.md §3): a bed on the left, a work corner on the right.
  * Hand-written SVG primitives only. Everything outside the diorama is transparent so the desktop shows through.
@@ -29,9 +68,22 @@ export interface WorkshopProps {
   readonly energy?: EnergyLevel;
   /** Context-fill anger (ADR-016). `unknown` draws nothing. */
   readonly anger?: AngerLevel;
+  /** Growth stage from completed tasks (ADR-018). */
+  readonly stage?: GrowthStage;
+  /** Unlocked room decorations (ADR-018). */
+  readonly decor?: readonly DecorId[];
+  /** A care reaction to play (hearts, snack). */
+  readonly reaction?: CareReaction | null;
 }
 
-export function Workshop({ state, energy = 'unknown', anger = 'unknown' }: WorkshopProps) {
+export function Workshop({
+  state,
+  energy = 'unknown',
+  anger = 'unknown',
+  stage = 'adult',
+  decor = [],
+  reaction = null,
+}: WorkshopProps) {
   const spec = VISUAL_SPEC[state];
   const uid = useId().replace(/[^a-zA-Z0-9_-]/g, '');
   const id = (name: string) => `dl-${uid}-${name}`;
@@ -108,6 +160,8 @@ export function Workshop({ state, energy = 'unknown', anger = 'unknown' }: Works
         <path d="M87 71 V113 M59 92 H115" stroke="#2a3047" strokeWidth="1.5" />
       </g>
 
+      <RoomDecorBack decor={decor} />
+
       {/* Rest corner */}
       <g data-part="bed">
         <rect x="38" y="146" width="9" height="50" rx="3" fill="#2a2f45" />
@@ -124,7 +178,11 @@ export function Workshop({ state, energy = 'unknown', anger = 'unknown' }: Works
       {/* The walker is keyed by place: it re-mounts (and plays the walk-in) only when the character changes place. */}
       {isBedPose(spec.pose) && (
         <g key="bed" className="walker walker--bed">
-          <BedCharacter key={spec.pose} pose={spec.pose} skinGradientId={id('skin')} energy={energy} anger={anger} />
+          <Growth stage={stage} origin={[90, 176]}>
+            <BedCharacter key={spec.pose} pose={spec.pose} skinGradientId={id('skin')} energy={energy} anger={anger} />
+            {stage === 'adult' && spec.pose === 'lounging' && <StarBadge x={97.5} y={167} />}
+          </Growth>
+          {reaction && <Reaction key={reaction.id} reaction={reaction} x={82} y={124} />}
         </g>
       )}
 
@@ -188,6 +246,8 @@ export function Workshop({ state, energy = 'unknown', anger = 'unknown' }: Works
           </g>
         ))}
 
+        <DeskDecor decor={decor} />
+
         <g data-part="mug">
           <path className="steam" d="M246 134 q-2 -3 0 -6 M250 134 q2 -3 0 -6" stroke="#c9cfe4" strokeWidth="1" fill="none" strokeLinecap="round" />
           <rect x="244" y="138" width="9" height="12" rx="1.5" fill="#4b5373" />
@@ -213,13 +273,17 @@ export function Workshop({ state, energy = 'unknown', anger = 'unknown' }: Works
 
         {!isBedPose(spec.pose) && (
           <g key="desk" className="walker walker--desk">
-            <Character
-              key={spec.pose}
-              pose={spec.pose as DeskPoseId}
-              skinGradientId={id('skin')}
-              energy={energy}
-              anger={anger}
-            />
+            <Growth stage={stage} origin={[105, 172]}>
+              <Character
+                key={spec.pose}
+                pose={spec.pose as DeskPoseId}
+                skinGradientId={id('skin')}
+                energy={energy}
+                anger={anger}
+              />
+              {stage === 'adult' && <StarBadge x={113} y={158} />}
+            </Growth>
+            {reaction && <Reaction key={reaction.id} reaction={reaction} x={106} y={98} />}
           </g>
         )}
 
