@@ -280,3 +280,39 @@ describe('App window dragging (FR-W3, ADR-008)', () => {
     expect(controls.startDragging).not.toHaveBeenCalled();
   });
 });
+
+describe('App demo scenario (FR-D2, FR-D3)', () => {
+  it('plays the stored demo scenario when no source is given', () => {
+    vi.useFakeTimers();
+    render(<App controls={fakeControls()} storage={fakeStorage({ demoScript: 'core' })} />);
+    expect(sceneState()).toBe('idle');
+    act(() => vi.advanceTimersByTime(DEMO_SCRIPTS.core.steps[0]!.dwellMs));
+    expect(sceneState()).toBe('thinking');
+  });
+
+  it('starts the tour from offline by default', () => {
+    vi.useFakeTimers();
+    render(<App controls={fakeControls()} storage={fakeStorage()} />);
+    expect(sceneState()).toBe('offline');
+  });
+
+  it('switches scenario from the panel, restarts the feed and remembers the choice', async () => {
+    const { fireEvent } = await import('@testing-library/react');
+    const storage = fakeStorage();
+    render(<App controls={fakeControls()} storage={storage} />);
+
+    fireEvent.click(screen.getByRole('button', { name: '최근 활동 보기' }));
+    fireEvent.click(screen.getByRole('button', { name: '기본 흐름' }));
+
+    expect(sceneState()).toBe('idle');
+    expect(JSON.parse(storage.data.get('deskling.settings.v1') ?? '{}')).toMatchObject({ demoScript: 'core' });
+    expect(screen.getByRole('button', { name: '기본 흐름' })).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('offers no scenario picker for a live source', async () => {
+    const { fireEvent } = await import('@testing-library/react');
+    render(<App source={manualSource('live').source} controls={fakeControls()} storage={fakeStorage()} />);
+    fireEvent.click(screen.getByRole('button', { name: '최근 활동 보기' }));
+    expect(screen.queryByRole('group', { name: '데모 시나리오' })).toBeNull();
+  });
+});

@@ -92,3 +92,31 @@ describe('ActivityPanel (FR-P1–P4)', () => {
     expect(screen.getByRole('listitem').querySelector('time')?.textContent).toMatch(/^\d{2}:\d{2}:\d{2}$/);
   });
 });
+
+describe('ActivityPanel demo scenario picker (FR-D3)', () => {
+  const options = [
+    { value: 'tour', label: '전체 상태', selected: true },
+    { value: 'core', label: '기본 흐름', selected: false },
+  ];
+
+  it('is hidden unless demo options are given', () => {
+    render(<ActivityPanel entries={entries} onClose={vi.fn()} formatTime={formatTime} />);
+    expect(screen.queryByRole('group', { name: '데모 시나리오' })).toBeNull();
+  });
+
+  it('shows the scenarios with the current one pressed and reports a selection', async () => {
+    const onSelect = vi.fn();
+    render(
+      <ActivityPanel
+        entries={entries}
+        onClose={vi.fn()}
+        formatTime={formatTime}
+        demo={{ options, onSelect }}
+      />,
+    );
+    const group = screen.getByRole('group', { name: '데모 시나리오' });
+    expect(within(group).getByRole('button', { name: '전체 상태' })).toHaveAttribute('aria-pressed', 'true');
+    await userEvent.click(within(group).getByRole('button', { name: '기본 흐름' }));
+    expect(onSelect).toHaveBeenCalledWith('core');
+  });
+});

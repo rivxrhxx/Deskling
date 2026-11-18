@@ -1,6 +1,8 @@
 import type { CSSProperties, MouseEvent } from 'react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createDemoSource } from '../adapters/demo/demoSource';
+import type { DemoScriptId } from '../adapters/demo/scripts';
+import { DEMO_SCRIPT_IDS, DEMO_SCRIPTS } from '../adapters/demo/scripts';
 import type { AgentEventSource } from '../adapters/types';
 import type { WindowControls } from '../platform/windowControls';
 import { createWindowControls } from '../platform/windowControls';
@@ -16,6 +18,8 @@ import { useAgentFeed } from './useAgentFeed';
 import { useReducedMotion } from './useReducedMotion';
 
 type StorageLike = Pick<Storage, 'getItem' | 'setItem'>;
+
+const DEMO_LABEL: Readonly<Record<DemoScriptId, string>> = { tour: '전체 상태', core: '기본 흐름' };
 
 /** Interactive elements and overlays never start a window drag (ADR-008). */
 const NO_DRAG = 'button, input, select, textarea, a, [role="dialog"], [data-no-drag]';
@@ -39,15 +43,20 @@ function browserStorage(): StorageLike | null {
 
 export function App({ source: providedSource, controls: providedControls, storage: providedStorage }: AppProps) {
   const [defaults] = useState(() => ({
-    source: providedSource ? null : createDemoSource(),
     controls: providedControls ? null : createWindowControls(),
     storage: providedStorage === undefined ? browserStorage() : null,
   }));
-  const source = providedSource ?? (defaults.source as AgentEventSource);
   const controls = providedControls ?? (defaults.controls as WindowControls);
   const storage = providedStorage === undefined ? defaults.storage : providedStorage;
 
   const [settings, setSettings] = useState<Settings>(() => loadSettings(storage));
+
+  // Without a real adapter, the chosen deterministic demo script is the source (ADR-005).
+  const demoSource = useMemo(
+    () => (providedSource ? null : createDemoSource({ script: DEMO_SCRIPTS[settings.demoScript] })),
+    [providedSource, settings.demoScript],
+  );
+  const source = providedSource ?? (demoSource as AgentEventSource);
   const updateSettings = useCallback(
     (patch: Partial<Settings>) => {
       const next = parseSettings({ ...settings, ...patch });
@@ -102,7 +111,24 @@ export function App({ source: providedSource, controls: providedControls, storag
         <StatusBubble state={view.visual} />
         <Workshop state={view.visual} />
         <CharacterHotspot expanded={panelOpen} onActivate={togglePanel} buttonRef={hotspotRef} />
-        {panelOpen && <ActivityPanel entries={view.recent} onClose={closePanel} />}
+        {panelOpen && (
+          <ActivityPanel
+            entries={view.recent}
+            onClose={closePanel}
+            demo={
+              source.mode === 'demo' && !providedSource
+                ? {
+                    options: DEMO_SCRIPT_IDS.map((id) => ({
+                      value: id,
+                      label: DEMO_LABEL[id],
+                      selected: id === settings.demoScript,
+                    })),
+                    onSelect: (value) => updateSettings({ demoScript: value as DemoScriptId }),
+                  }
+                : undefined
+            }
+          />
+        )}
         <WindowToolbar values={settings} onChange={updateSettings} onClose={() => void controls.close()} />
       </div>
     </section>

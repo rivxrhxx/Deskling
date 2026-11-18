@@ -318,3 +318,31 @@ body {
   accent-color: var(--tone-violet);
   cursor: pointer;
 }
+
+.activity-panel__demo {
+  display: flex;
+  gap: 0.3rem;
+  padding: 0.3rem 0.9rem 0.5rem;
+}
+
+.chip {
+  padding: 0.15rem 0.6rem;
+  border-radius: 1rem;
+  border: 1px solid var(--glass-edge);
+  background: transparent;
+  color: var(--text-dim);
+  font: inherit;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.chip[aria-pressed='true'] {
+  color: #ddd4ff;
+  border-color: var(--tone-violet);
+  background: rgba(164, 141, 240, 0.14);
+}
+
+.chip:focus-visible {
+  outline: 2px solid var(--tone-violet);
+  outline-offset: 1px;
+}
