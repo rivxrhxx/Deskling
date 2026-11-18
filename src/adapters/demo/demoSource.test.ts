@@ -88,12 +88,29 @@ describe('createDemoSource (FR-D1, FR-D4)', () => {
     expect(() => stop()).not.toThrow();
   });
 
-  it('continues seq when the same source is restarted (e.g. React StrictMode)', () => {
+  it('resumes instead of replaying the first step when restarted (React StrictMode, review T34f)', () => {
     const { events, emit } = collect();
     const source = createDemoSource({ script, now });
     source.start(emit)();
     source.start(emit);
-    expect(events.map((e) => e.seq)).toEqual([1, 2]);
+    expect(events.map((e) => e.type)).toEqual(['agent.online']);
+    advance(100);
+    expect(events.map((e) => e.seq)).toEqual([1, 2, 3]);
+    expect(events.map((e) => e.type)).toEqual(['agent.online', 'turn.started', 'tool.started']);
+  });
+
+  it('stops in the middle of a step without emitting the rest or scheduling a timer (review T34f)', () => {
+    const events: Raw[] = [];
+    let stop: () => void = () => undefined;
+    stop = createDemoSource({ script, now }).start((raw) => {
+      events.push(raw as Raw);
+      if ((raw as Raw).type === 'turn.started') stop();
+    });
+    advance(100);
+    expect(events.map((e) => e.type)).toEqual(['agent.online', 'turn.started']);
+    expect(vi.getTimerCount()).toBe(0);
+    advance(10_000);
+    expect(events).toHaveLength(2);
   });
 
   it('is deterministic: two sources produce identical timelines', () => {

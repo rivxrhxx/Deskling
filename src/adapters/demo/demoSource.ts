@@ -22,7 +22,8 @@ export interface DemoSourceOptions {
 /**
  * Plays a demo script on a fixed schedule and loops forever (FR-D1, FR-D4).
  * Each step's events are emitted together, then the player waits `dwellMs`.
- * `seq` belongs to the source instance, so a stop/start cycle never replays old sequence numbers.
+ * Playback position (`seq`, step index) belongs to the source instance: a stop/start cycle — such as
+ * React StrictMode's double effect — resumes after the current step instead of replaying it.
  */
 export function createDemoSource({
   script = DEMO_SCRIPTS.tour,
@@ -30,11 +31,13 @@ export function createDemoSource({
   now = () => Date.now(),
 }: DemoSourceOptions = {}): AgentEventSource {
   let seq = 0;
+  let index = 0;
+  let started = false;
+  let lastDwellMs = 0;
 
   return {
     mode: 'demo',
     start(emit) {
-      let index = 0;
       let handle: unknown = null;
       let stopped = false;
 
@@ -43,14 +46,23 @@ export function createDemoSource({
         if (stopped || !step) return;
         const at = now();
         for (const spec of step.events) {
+          // stop() may be called from inside emit(); honour it immediately.
+          if (stopped) return;
           seq += 1;
           emit(demoEvent(spec, { session: script.session, seq, at }));
         }
+        if (stopped) return;
         index = (index + 1) % script.steps.length;
+        lastDwellMs = step.dwellMs;
         handle = scheduler.setTimeout(runStep, step.dwellMs);
       };
 
-      runStep();
+      if (started) {
+        handle = scheduler.setTimeout(runStep, lastDwellMs);
+      } else {
+        started = true;
+        runStep();
+      }
 
       return () => {
         if (stopped) return;
