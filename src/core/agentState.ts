@@ -46,6 +46,8 @@ export interface AgentViewState {
   /** How many entries have ever been recorded; the source of RecentEntry keys. */
   readonly entryCount: number;
   readonly usage: UsageSnapshot;
+  /** Accepted turn.succeeded events in this feed, across sessions — the source of growth XP (ADR-018). */
+  readonly completedTurns: number;
 }
 
 export const RECENT_LIMIT = 12;
@@ -76,6 +78,7 @@ export const initialAgentState: AgentViewState = Object.freeze({
   recent: Object.freeze([]),
   entryCount: 0,
   usage: NO_USAGE,
+  completedTurns: 0,
 });
 
 /** EVENT_PROTOCOL §5 — the first matching rule wins. */
@@ -151,6 +154,7 @@ export function reduceAgentState(state: AgentViewState, event: AgentEvent): Agen
     sourceKind: event.source.kind,
     lastSeq: event.seq,
     updatedAt: event.at,
+    completedTurns: state.completedTurns + (event.type === 'turn.succeeded' ? 1 : 0),
   };
 
   // Usage reports are measurements, not activity: they update the snapshot but never the recent list.

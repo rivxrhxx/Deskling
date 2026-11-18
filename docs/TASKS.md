@@ -94,7 +94,7 @@
 ## M8 키우기 (ADR-018)
 
 - [x] **T49** ADR-018, REQUIREMENTS FR-G*·SEC-7, EVENT_PROTOCOL §4, DESIGN §4.2 문서화
-- [ ] **T50** 리듀서: `completedTurns` (수용된 `turn.succeeded` 수, 세션 전환에도 유지) — FR-G1
+- [x] **T50** 리듀서: `completedTurns` (수용된 `turn.succeeded` 수, 세션 전환에도 유지) — FR-G1
 - [ ] **T51** `src/core/growth.ts`: 성장 단계, 해금 소품, 쓰다듬기·간식 규칙, 이름 정리 — FR-G2~G5
 - [ ] **T52** `src/app/pet.ts`: 프로필(demo/live) 검증·로드·저장, 키 하나 — FR-G1, FR-G6, SEC-7
 - [ ] **T53** `usePet`: 완료 작업 증가분 → 경험치, 돌보기 동작, 반응 타이머 — FR-G1, FR-G4

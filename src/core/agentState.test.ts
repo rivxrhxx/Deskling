@@ -378,3 +378,34 @@ describe('reduceAgentState — usage snapshot (FR-V1, ADR-016)', () => {
     expect(reduceAgentState(state, usage({ tokens: { used: 1 } }, { seq: 4 })).usage.tokens).toEqual({ used: 9 });
   });
 });
+
+describe('reduceAgentState — completed turns for growth (FR-G1, ADR-018)', () => {
+  it('starts at zero', () => {
+    expect(initialAgentState.completedTurns).toBe(0);
+  });
+
+  it('counts accepted turn.succeeded events only', () => {
+    const state = run(
+      ev('turn.started'),
+      ev('turn.succeeded'),
+      ev('turn.started'),
+      ev('turn.failed'),
+      ev('turn.started'),
+      ev('tool.started', { tool: 'code' }),
+      ev('tool.finished', { tool: 'code', outcome: 'ok' }),
+      ev('turn.succeeded'),
+    );
+    expect(state.completedTurns).toBe(2);
+  });
+
+  it('does not count duplicates or stale events', () => {
+    const state = run(ev('turn.succeeded', { seq: 3 }));
+    expect(reduceAgentState(state, ev('turn.succeeded', { seq: 3 })).completedTurns).toBe(1);
+    expect(reduceAgentState(state, ev('turn.succeeded', { seq: 2 })).completedTurns).toBe(1);
+  });
+
+  it('keeps counting across session changes', () => {
+    const state = run(ev('turn.succeeded', { session: 'a' }), ev('turn.succeeded', { session: 'b', seq: 1 }));
+    expect(state.completedTurns).toBe(2);
+  });
+});
