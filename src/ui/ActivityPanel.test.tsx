@@ -7,27 +7,27 @@ import { ActivityPanel } from './ActivityPanel';
 import { describeActivity } from './activityText';
 
 const entries: RecentEntry[] = [
-  { id: 'e-3', seq: 3, at: 3000, type: 'tool.finished', tool: 'terminal', outcome: 'error' },
-  { id: 'e-2', seq: 2, at: 2000, type: 'tool.started', tool: 'terminal' },
-  { id: 'e-1', seq: 1, at: 1000, type: 'turn.started' },
+  { key: 3, seq: 3, at: 3000, type: 'tool.finished', tool: 'terminal', outcome: 'error' },
+  { key: 2, seq: 2, at: 2000, type: 'tool.started', tool: 'terminal' },
+  { key: 1, seq: 1, at: 1000, type: 'turn.started' },
 ];
 
 const formatTime = (at: number) => `t${at}`;
 
 describe('describeActivity (FR-P4)', () => {
   it.each([...EVENT_TYPES])('has fixed copy for %s', (type) => {
-    const entry = { id: 'x', seq: 1, at: 0, type, tool: 'code', outcome: 'ok' } as RecentEntry;
+    const entry = { key: 1, seq: 1, at: 0, type, tool: 'code', outcome: 'ok' } as RecentEntry;
     expect(describeActivity(entry).trim()).not.toBe('');
   });
 
   it.each([...TOOL_CATEGORIES])('names the %s tool category', (tool) => {
-    const started = describeActivity({ id: 'x', seq: 1, at: 0, type: 'tool.started', tool });
-    const failed = describeActivity({ id: 'x', seq: 1, at: 0, type: 'tool.finished', tool, outcome: 'error' });
+    const started = describeActivity({ key: 1, seq: 1, at: 0, type: 'tool.started', tool });
+    const failed = describeActivity({ key: 1, seq: 1, at: 0, type: 'tool.finished', tool, outcome: 'error' });
     expect(started).not.toBe(failed);
   });
 
   it('ignores anything that is not a protocol enum', () => {
-    const sneaky = { id: 'x', seq: 1, at: 0, type: 'turn.started', note: 'SECRET' } as unknown as RecentEntry;
+    const sneaky = { key: 1, seq: 1, at: 0, type: 'turn.started', note: 'SECRET' } as unknown as RecentEntry;
     expect(describeActivity(sneaky)).not.toContain('SECRET');
   });
 });
@@ -47,7 +47,7 @@ describe('ActivityPanel (FR-P1–P4)', () => {
   it('marks failures and approvals so they stand out beyond colour', () => {
     render(
       <ActivityPanel
-        entries={[...entries, { id: 'e-0', seq: 0, at: 0, type: 'approval.requested' }]}
+        entries={[...entries, { key: 0, seq: 0, at: 0, type: 'approval.requested' }]}
         onClose={vi.fn()}
         formatTime={formatTime}
       />,

@@ -273,9 +273,9 @@ describe('reduceAgentState — recent activity (FR-P2)', () => {
       ev('tool.finished', { tool: 'terminal', outcome: 'error', at: 30 }),
     );
     expect(state.recent).toEqual([
-      { id: 'e-3', seq: 3, at: 30, type: 'tool.finished', tool: 'terminal', outcome: 'error' },
-      { id: 'e-2', seq: 2, at: 20, type: 'tool.started', tool: 'terminal' },
-      { id: 'e-1', seq: 1, at: 10, type: 'agent.online' },
+      { key: 3, seq: 3, at: 30, type: 'tool.finished', tool: 'terminal', outcome: 'error' },
+      { key: 2, seq: 2, at: 20, type: 'tool.started', tool: 'terminal' },
+      { key: 1, seq: 1, at: 10, type: 'agent.online' },
     ]);
   });
 
@@ -296,5 +296,29 @@ describe('reduceAgentState — recent activity (FR-P2)', () => {
   it('keeps recent activity across a session change', () => {
     const state = run(ev('agent.online', { session: 'a' }), ev('agent.online', { session: 'b', seq: 1 }));
     expect(state.recent.map((entry) => entry.type)).toEqual(['agent.online', 'agent.online']);
+  });
+});
+
+describe('reduceAgentState — recent entry identity (review T34d)', () => {
+  it('never stores the provider event id', () => {
+    const state = run(ev('agent.online'), ev('turn.started'));
+    for (const entry of state.recent) {
+      expect(entry).not.toHaveProperty('id');
+    }
+  });
+
+  it('gives every entry a unique key even when sessions reuse seq numbers', () => {
+    const state = run(
+      ev('agent.online', { session: 'a', seq: 5 }),
+      ev('agent.online', { session: 'b', seq: 1 }),
+      ev('agent.online', { session: 'a', seq: 5 }),
+    );
+    const keys = state.recent.map((entry) => entry.key);
+    expect(new Set(keys).size).toBe(3);
+  });
+
+  it('does not advance the key counter for ignored events', () => {
+    const state = run(ev('agent.online', { seq: 1 }), ev('turn.started', { seq: 1 }), ev('turn.started', { seq: 2 }));
+    expect(state.recent.map((entry) => entry.key)).toEqual([2, 1]);
   });
 });

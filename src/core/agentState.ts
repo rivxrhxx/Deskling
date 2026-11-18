@@ -12,9 +12,13 @@ export interface AgentFacts {
   readonly lastOutcome: 'success' | 'error' | null;
 }
 
-/** One line in the activity panel. Only protocol enums — never free text (FR-P4). */
+/**
+ * One line in the activity panel. Only protocol enums — never free text (FR-P4).
+ * The provider's event id is deliberately not kept; `key` is assigned by the reducer and is unique
+ * for the lifetime of the view, even when sessions reuse ids or seq numbers.
+ */
 export interface RecentEntry {
-  readonly id: string;
+  readonly key: number;
   readonly seq: number;
   readonly at: number;
   readonly type: AgentEventType;
@@ -31,12 +35,14 @@ export interface AgentViewState {
   readonly updatedAt: number | null;
   /** Newest first. */
   readonly recent: readonly RecentEntry[];
+  /** How many entries have ever been recorded; the source of RecentEntry keys. */
+  readonly entryCount: number;
 }
 
 export const RECENT_LIMIT = 12;
 
-function toRecentEntry(event: AgentEvent): RecentEntry {
-  const entry = { id: event.id, seq: event.seq, at: event.at, type: event.type };
+function toRecentEntry(event: AgentEvent, key: number): RecentEntry {
+  const entry = { key, seq: event.seq, at: event.at, type: event.type };
   if (event.type === 'tool.started') return { ...entry, tool: event.tool };
   if (event.type === 'tool.finished') return { ...entry, tool: event.tool, outcome: event.outcome };
   return entry;
@@ -59,6 +65,7 @@ export const initialAgentState: AgentViewState = Object.freeze({
   lastSeq: null,
   updatedAt: null,
   recent: Object.freeze([]),
+  entryCount: 0,
 });
 
 /** EVENT_PROTOCOL §5 — the first matching rule wins. */
@@ -131,6 +138,7 @@ export function reduceAgentState(state: AgentViewState, event: AgentEvent): Agen
     sourceKind: event.source.kind,
     lastSeq: event.seq,
     updatedAt: event.at,
-    recent: [toRecentEntry(event), ...state.recent].slice(0, RECENT_LIMIT),
+    recent: [toRecentEntry(event, state.entryCount + 1), ...state.recent].slice(0, RECENT_LIMIT),
+    entryCount: state.entryCount + 1,
   };
 }

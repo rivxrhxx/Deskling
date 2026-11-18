@@ -52,7 +52,7 @@ export function ActivityPanel({ entries, onClose, formatTime = formatClock, demo
           {entries.map((entry) => {
             const kind = activityKind(entry);
             return (
-              <li key={`${entry.id}-${entry.seq}`} className="activity-panel__item" data-kind={kind}>
+              <li key={entry.key} className="activity-panel__item" data-kind={kind}>
                 <time dateTime={new Date(entry.at).toISOString()}>{formatTime(entry.at)}</time>
                 {kind === 'error' && <StateIcon icon="alert" className="activity-panel__mark" />}
                 {kind === 'attention' && <StateIcon icon="hand" className="activity-panel__mark" />}
