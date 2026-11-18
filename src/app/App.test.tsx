@@ -246,3 +246,37 @@ describe('App window settings (FR-W2, FR-W4–W6, FR-W8, FR-M2)', () => {
     expect(controls.close).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('App window dragging (FR-W3, ADR-008)', () => {
+  it('starts a native drag from empty scene areas with the primary button', async () => {
+    const { fireEvent } = await import('@testing-library/react');
+    const controls = fakeControls();
+    render(<App source={manualSource().source} controls={controls} storage={fakeStorage()} />);
+    fireEvent.mouseDown(screen.getByRole('img', { name: /미니어처 작업실/ }), { button: 0 });
+    expect(controls.startDragging).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not drag on secondary clicks', async () => {
+    const { fireEvent } = await import('@testing-library/react');
+    const controls = fakeControls();
+    render(<App source={manualSource().source} controls={controls} storage={fakeStorage()} />);
+    fireEvent.mouseDown(screen.getByRole('img', { name: /미니어처 작업실/ }), { button: 2 });
+    expect(controls.startDragging).not.toHaveBeenCalled();
+  });
+
+  it('does not drag from the character, the toolbar or the panel', async () => {
+    const { fireEvent } = await import('@testing-library/react');
+    const { default: userEvent } = await import('@testing-library/user-event');
+    const controls = fakeControls();
+    render(<App source={manualSource().source} controls={controls} storage={fakeStorage()} />);
+
+    const hotspot = screen.getByRole('button', { name: '최근 활동 보기' });
+    fireEvent.mouseDown(hotspot, { button: 0 });
+    fireEvent.mouseDown(screen.getByRole('slider', { name: '불투명도' }), { button: 0 });
+    fireEvent.mouseDown(screen.getByRole('toolbar', { name: '창 설정' }), { button: 0 });
+    await userEvent.click(hotspot);
+    fireEvent.mouseDown(screen.getByRole('dialog', { name: '최근 활동' }), { button: 0 });
+
+    expect(controls.startDragging).not.toHaveBeenCalled();
+  });
+});

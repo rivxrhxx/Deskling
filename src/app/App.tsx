@@ -1,4 +1,4 @@
-import type { CSSProperties } from 'react';
+import type { CSSProperties, MouseEvent } from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createDemoSource } from '../adapters/demo/demoSource';
 import type { AgentEventSource } from '../adapters/types';
@@ -16,6 +16,9 @@ import { useAgentFeed } from './useAgentFeed';
 import { useReducedMotion } from './useReducedMotion';
 
 type StorageLike = Pick<Storage, 'getItem' | 'setItem'>;
+
+/** Interactive elements and overlays never start a window drag (ADR-008). */
+const NO_DRAG = 'button, input, select, textarea, a, [role="dialog"], [data-no-drag]';
 
 export interface AppProps {
   /** Event source. Defaults to the deterministic demo tour until a real adapter exists. */
@@ -75,6 +78,15 @@ export function App({ source: providedSource, controls: providedControls, storag
     hotspotRef.current?.focus();
   }, []);
 
+  const startDrag = useCallback(
+    (event: MouseEvent<HTMLDivElement>) => {
+      if (event.button !== 0) return;
+      if (event.target instanceof Element && event.target.closest(NO_DRAG)) return;
+      void controls.startDragging();
+    },
+    [controls],
+  );
+
   const style = { '--scene-opacity': String(settings.opacity) } as CSSProperties;
 
   return (
@@ -85,7 +97,7 @@ export function App({ source: providedSource, controls: providedControls, storag
       data-motion={reducedMotion ? 'reduced' : 'full'}
       style={style}
     >
-      <div className="stage">
+      <div className="stage" onMouseDown={startDrag}>
         {source.mode === 'demo' && <DemoBadge />}
         <StatusBubble state={view.visual} />
         <Workshop state={view.visual} />
