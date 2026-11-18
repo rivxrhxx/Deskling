@@ -27,13 +27,16 @@ export interface SessionView {
   readonly usage: UsageSnapshot;
 }
 
-/** A recent-activity line with its session. `toKey` only on `session.message` (null = unknown receiver). */
+/** A recent-activity line with its session. `toKey` and `receiver` only on `session.message`. */
 export interface RoomEntry extends RecentEntry {
   readonly sessionKey: SessionKey;
   readonly kind: SourceKind;
   /** The session's ordinal when the entry was recorded. */
   readonly ordinal: number;
+  /** null = the sender did not say who it wrote to. */
   readonly toKey?: SessionKey | null;
+  /** The receiver as it was in the room when the message was recorded; null when unknown, absent or the sender itself. */
+  readonly receiver?: Pick<SessionView, 'kind' | 'ordinal'> | null;
 }
 
 /** One `session.message` (ADR-023). `key` is assigned by the reducer and strictly increases. */
@@ -127,7 +130,7 @@ function advance(view: SessionView | undefined, event: AgentEvent): Pick<Session
   return { facts: next.facts, visual: next.visual, usage: next.usage };
 }
 
-function toEntry(event: AgentEvent, key: number, view: SessionView): RoomEntry {
+function toEntry(event: AgentEvent, key: number, view: SessionView, sessions: RoomViewState['sessions']): RoomEntry {
   const entry = {
     key,
     seq: event.seq,
@@ -142,8 +145,11 @@ function toEntry(event: AgentEvent, key: number, view: SessionView): RoomEntry {
       return { ...entry, tool: event.tool };
     case 'tool.finished':
       return { ...entry, tool: event.tool, outcome: event.outcome };
-    case 'session.message':
-      return { ...entry, toKey: event.to ? sessionKey(event.to) : null };
+    case 'session.message': {
+      const toKey = event.to ? sessionKey(event.to) : null;
+      const to = toKey === null || toKey === view.key ? undefined : sessions[toKey];
+      return { ...entry, toKey, receiver: to ? { kind: to.kind, ordinal: to.ordinal } : null };
+    }
     default:
       return entry;
   }
@@ -196,7 +202,7 @@ export function reduceRoom(state: RoomViewState, event: AgentEvent): RoomViewSta
     residentKey,
     guestKeys,
     recent: recorded
-      ? [toEntry(event, state.entryCount + 1, view), ...state.recent].slice(0, RECENT_LIMIT)
+      ? [toEntry(event, state.entryCount + 1, view, state.sessions), ...state.recent].slice(0, RECENT_LIMIT)
       : state.recent,
     entryCount: state.entryCount + (recorded ? 1 : 0),
     completedTurns: state.completedTurns + (event.type === 'turn.succeeded' ? 1 : 0),

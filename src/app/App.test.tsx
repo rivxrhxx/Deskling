@@ -396,21 +396,181 @@ describe('App: Hermes lives in the room (FR-R2–R6, FR-V7)', () => {
     expect(hotspot.style.getPropertyValue('--hy')).toBe(String(desk.y));
   });
 
-  it('invites a friend over from the panel', async () => {
+  it('has nobody over at random and no invite button (ADR-022 §5)', async () => {
     const { fireEvent } = await import('@testing-library/react');
     vi.useFakeTimers();
     const live = manualSource('live');
     render(<App source={live.source} controls={fakeControls()} storage={fakeStorage()} />);
-    fireEvent.click(screen.getByRole('button', { name: '최근 활동 보기' }));
-    expect(screen.getByRole('button', { name: '친구 초대' })).toHaveAttribute('aria-disabled', 'true');
-
     live.emit(raw(1, 'agent.online'));
-    const invite = screen.getByRole('button', { name: '친구 초대' });
-    if (invite.getAttribute('aria-disabled') !== 'true') fireEvent.click(invite);
-    act(() => vi.advanceTimersByTime(4_000));
+    act(() => vi.advanceTimersByTime(5 * 60_000));
+    expect(scene().querySelector('[data-part="friend"], [data-part="guest"]')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: '최근 활동 보기' }));
+    expect(screen.queryByRole('button', { name: '친구 초대' })).toBeNull();
+  });
+});
 
-    expect(scene().querySelector('[data-part="friend"]')).not.toBeNull();
-    expect(scene()).toHaveAttribute('data-state', 'idle');
+describe('App: session friends (FR-MS1–MS7, ADR-022, ADR-023)', () => {
+  const scene = () => screen.getByRole('img', { name: /헤르메스의 방/ });
+  const guests = () => [...scene().querySelectorAll('[data-part="guest"]')];
+  const guestOf = (kind: string, ordinal: number) => scene().querySelector(`[data-part="guest"][data-session-kind="${kind}"][data-ordinal="${ordinal}"]`);
+  const attention = () => document.querySelector('[data-part="attention-line"]');
+  const HERMES = { kind: 'hermes', session: 'h' };
+  const claude = (session: string) => ({ kind: 'claude-code', session });
+  const codex = (session: string) => ({ kind: 'codex', session });
+  const seqs = new Map<string, number>();
+  /** A v3 event from a given session, each session counting its own seq. */
+  const from = (source: { kind: string; session: string }, type: string, extra: Record<string, unknown> = {}) => {
+    const key = `${source.kind}:${source.session}`;
+    const seq = (seqs.get(key) ?? 0) + 1;
+    seqs.set(key, seq);
+    return { ...raw(seq, type, extra), version: 3, id: `${key}-${seq}`, source };
+  };
+
+  beforeEach(() => {
+    seqs.clear();
+    vi.useFakeTimers();
+  });
+
+  it('a Claude Code session walks in as a friend and works at its laptop', () => {
+    const live = manualSource('live');
+    render(<App source={live.source} controls={fakeControls()} storage={fakeStorage()} />);
+    live.emit(from(claude('a'), 'agent.online'));
+    live.emit(from(claude('a'), 'tool.started', { tool: 'code' }));
+    act(() => vi.advanceTimersByTime(300));
+    // Still outside the door: not drawn yet, but the door is open for it.
+    expect(guests()).toHaveLength(0);
+    expect(scene().querySelector('[data-part="door"]')).toHaveAttribute('data-open', 'true');
+    act(() => vi.advanceTimersByTime(1_200));
+    expect(guestOf('claude-code', 1)).toHaveAttribute('data-walking', 'true');
+    act(() => vi.advanceTimersByTime(12_000));
+    expect(guestOf('claude-code', 1)).toHaveAttribute('data-walking', 'false');
+    expect(guestOf('claude-code', 1)).toHaveAttribute('data-visual', 'coding');
+    expect(scene().querySelector('[data-part="guest-laptop"]')).toHaveAttribute('data-open', 'true');
+    // Hermes' own state is untouched: no resident session yet, so he sleeps.
+    expect(scene()).toHaveAttribute('data-state', 'offline');
+    expect(statusText()).toBe(VISUAL_SPEC.offline.label);
+  });
+
+  it('a friend leaves through the door when its session ends', () => {
+    const live = manualSource('live');
+    render(<App source={live.source} controls={fakeControls()} storage={fakeStorage()} />);
+    live.emit(from(codex('x'), 'agent.online'));
+    act(() => vi.advanceTimersByTime(12_000));
+    expect(guests()).toHaveLength(1);
+    live.emit(from(codex('x'), 'agent.offline'));
+    act(() => vi.advanceTimersByTime(600));
+    expect(guestOf('codex', 1)).toHaveAttribute('data-walking', 'true');
+    act(() => vi.advanceTimersByTime(12_000));
+    expect(guests()).toHaveLength(0);
+  });
+
+  it('keeps the bubble on Hermes and names a friend who needs the user in the attention line', () => {
+    const live = manualSource('live');
+    render(<App source={live.source} controls={fakeControls()} storage={fakeStorage()} />);
+    live.emit(from(HERMES, 'turn.started'));
+    live.emit(from(claude('a'), 'agent.online'));
+    live.emit(from(claude('b'), 'agent.online'));
+    expect(attention()).toBeEmptyDOMElement();
+
+    live.emit(from(claude('b'), 'turn.failed'));
+    expect(attention()).toHaveTextContent('Claude 2 · 오류');
+    live.emit(from(claude('a'), 'approval.requested'));
+    expect(attention()).toHaveTextContent('Claude 1 · 승인 대기 중+1');
+    expect(attention()?.querySelector('[data-tone="amber"]')).not.toBeNull();
+    expect(statusText()).toBe(VISUAL_SPEC.thinking.label);
+    expect(screen.getAllByRole('status')).toHaveLength(1);
+  });
+
+  it('two friends who message each other turn to talk; a message to nobody in the room is a letter', () => {
+    const live = manualSource('live');
+    render(<App source={live.source} controls={fakeControls()} storage={fakeStorage()} />);
+    live.emit(from(HERMES, 'turn.started'));
+    live.emit(from(claude('a'), 'agent.online'));
+    live.emit(from(codex('x'), 'agent.online'));
+    act(() => vi.advanceTimersByTime(12_000));
+
+    live.emit(from(claude('a'), 'session.message', { to: codex('x') }));
+    act(() => vi.advanceTimersByTime(600));
+    expect(guestOf('claude-code', 1)).toHaveAttribute('data-chat', 'talk');
+    expect(guestOf('codex', 1)).toHaveAttribute('data-chat', 'talk');
+    act(() => vi.advanceTimersByTime(4_000));
+    expect(guests().map((g) => g.getAttribute('data-chat'))).toEqual([null, null]);
+
+    live.emit(from(codex('x'), 'session.message', { to: HERMES }));
+    act(() => vi.advanceTimersByTime(600));
+    expect(scene().querySelector('[data-part="hermes"]')).toHaveAttribute('data-chat', 'talk');
+
+    act(() => vi.advanceTimersByTime(4_000));
+    live.emit(from(codex('x'), 'session.message'));
+    act(() => vi.advanceTimersByTime(600));
+    expect(guestOf('codex', 1)).toHaveAttribute('data-chat', 'letter');
+  });
+
+  it('lists who is in the room and names sessions in the recent activity', async () => {
+    const { fireEvent } = await import('@testing-library/react');
+    const live = manualSource('live');
+    render(<App source={live.source} controls={fakeControls()} storage={fakeStorage()} />);
+    live.emit(from(HERMES, 'turn.started'));
+    for (const session of ['a', 'b', 'c', 'd', 'e']) live.emit(from(claude(session), 'agent.online'));
+    live.emit(from(claude('a'), 'tool.started', { tool: 'code' }));
+    live.emit(from(claude('b'), 'session.message', { to: HERMES }));
+    live.emit(from(claude('c'), 'session.message'));
+    fireEvent.click(screen.getByRole('button', { name: '최근 활동 보기' }));
+
+    const sessions = within(screen.getByRole('group', { name: '방에 있는 세션' })).getAllByRole('listitem');
+    expect(sessions.map((row) => row.textContent)).toEqual([
+      '헤르메스생각 중',
+      'Claude 1코딩 중',
+      'Claude 2대기 중',
+      'Claude 3대기 중',
+      'Claude 4대기 중',
+      'Claude 5대기 중(자리 없음)',
+    ]);
+    const recent = within(screen.getByRole('list', { name: '최근 활동 목록' }));
+    expect(recent.getByText('Claude 3 메시지 보냄')).toBeInTheDocument();
+    expect(recent.getByText('Claude 2 → 헤르메스 메시지')).toBeInTheDocument();
+    expect(recent.getByText('Claude 1 · 코드 편집 시작')).toBeInTheDocument();
+    expect(recent.getByText('헤르메스 · 작업 시작')).toBeInTheDocument();
+  });
+
+  it('draws at most four friends; the fifth waits in the panel only', () => {
+    const live = manualSource('live');
+    render(<App source={live.source} controls={fakeControls()} storage={fakeStorage()} />);
+    for (const session of ['a', 'b', 'c', 'd', 'e']) live.emit(from(claude(session), 'agent.online'));
+    act(() => vi.advanceTimersByTime(12_000));
+    expect(guests().map((g) => g.getAttribute('data-ordinal')).sort()).toEqual(['1', '2', '3', '4']);
+  });
+
+  it("grows the pet from friends' finished work too (ADR-022 §7)", () => {
+    const live = manualSource('live');
+    render(<App source={live.source} controls={fakeControls()} storage={fakeStorage()} />);
+    for (let i = 0; i < 5; i += 1) {
+      live.emit(from(codex('x'), 'turn.started'));
+      live.emit(from(codex('x'), 'turn.succeeded'));
+    }
+    expect(scene().querySelector('[data-part="hermes"]')).toHaveAttribute('data-stage', 'kid');
+  });
+
+  it('plays the "방 친구들" demo: Hermes works while friends come in (FR-MS7)', async () => {
+    const { fireEvent } = await import('@testing-library/react');
+    const storage = fakeStorage();
+    render(<App controls={fakeControls()} storage={storage} />);
+    fireEvent.click(screen.getByRole('button', { name: '최근 활동 보기' }));
+    fireEvent.click(screen.getByRole('button', { name: '방 친구들' }));
+    expect(screen.getByRole('button', { name: '방 친구들' })).toHaveAttribute('aria-pressed', 'true');
+    expect(sceneState()).toBe('coding');
+    expect(screen.getByRole('note', { name: /데모 모드/ })).toBeVisible();
+
+    // Step by step, so the room re-renders between beats as it does in real time.
+    for (const step of DEMO_SCRIPTS.friends.steps.slice(0, 5)) {
+      for (let elapsed = 0; elapsed < step.dwellMs; elapsed += 500) act(() => vi.advanceTimersByTime(500));
+    }
+    expect(guests().map((g) => `${g.getAttribute('data-session-kind')} ${g.getAttribute('data-ordinal')}`).sort()).toEqual([
+      'claude-code 1',
+      'claude-code 2',
+      'codex 1',
+    ]);
+    expect(JSON.parse(storage.data.get('deskling.settings.v1') ?? '{}')).toMatchObject({ demoScript: 'friends' });
   });
 });
 

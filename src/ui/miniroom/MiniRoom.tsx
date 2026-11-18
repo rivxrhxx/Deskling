@@ -2,14 +2,16 @@ import type { ReactNode } from 'react';
 import { memo, useId } from 'react';
 import type { VisualState } from '../../core/agentEvent';
 import type { DecorId, GrowthStage } from '../../core/growth';
+import type { GuestView } from '../../core/life';
 import type { AngerLevel, EnergyLevel } from '../../core/mood';
 import type { Footprint, Tile } from '../../core/room';
-import { FURNITURE, GRID } from '../../core/room';
+import { FURNITURE, GRID, SPOTS, isOutside } from '../../core/room';
+import type { Tone } from '../visualSpec';
 import { VISUAL_SPEC } from '../visualSpec';
 import type { ActorView } from './Actor';
-import { Actor } from './Actor';
+import { Actor, CUSHION_H, GuestActor } from './Actor';
 import { STAGE_SCALE } from './pose';
-import type { CareReaction } from './emote';
+import type { CareReaction, ChatEmote } from './emote';
 import { IsoBox } from './IsoBox';
 import { planeX, planeY, pt, pts } from './isoMath';
 import { MonitorScreen } from './MonitorScreen';
@@ -19,8 +21,9 @@ import { MonitorScreen } from './MonitorScreen';
  * The parent drives positions and frames from the life engine; this component only draws.
  */
 
+/** The delegation helper (FR-R4). */
 export interface FriendView extends ActorView {
-  readonly activity: 'visit' | 'help' | 'leave';
+  readonly activity: 'help' | 'leave';
   readonly look: number;
 }
 
@@ -28,6 +31,10 @@ export interface MiniRoomProps {
   readonly state: VisualState;
   readonly hermes: ActorView;
   readonly friend?: FriendView | null;
+  /** Session friends (ADR-022), as the life engine places them. */
+  readonly guests?: readonly GuestView[];
+  /** Hermes' part in a conversation (ADR-023). */
+  readonly hermesChat?: ChatEmote | null;
   readonly frame: number;
   readonly energy?: EnergyLevel;
   readonly anger?: AngerLevel;
@@ -352,6 +359,61 @@ function HelperDesk() {
   );
 }
 
+/* ---------- Session friends' seats (ADR-022) ------------------------------------------------------ */
+
+/** The laptop's screen light, by its friend's state tone (DESIGN §2 tones). */
+const SCREEN_LIGHT: Readonly<Record<Tone, string>> = {
+  dim: '#5c6280',
+  cool: '#6cc7f2',
+  violet: '#a48df0',
+  amber: '#f4b04a',
+  ember: '#ff6a3d',
+  mint: '#72e3bd',
+};
+
+/**
+ * A floor cushion with a laptop in front of it, on the side the seat faces. The friend faces the viewer,
+ * so we see the back of the lid; its screen light spills over the lid's edges in the tone of the friend's state.
+ * The lid is shut while its friend is walking in or out.
+ */
+function GuestSeatView({ guest, occupant }: { guest: GuestView; occupant?: ReactNode }) {
+  const { at, face } = SPOTS[guest.seat];
+  const open = guest.phase === 'seated';
+  const tone = VISUAL_SPEC[guest.visual].tone;
+  const light = SCREEN_LIGHT[tone];
+  // Facing front-right the laptop lies towards +x, facing front-left towards +y.
+  const alongX = face === 'front-right' || face === 'back-right';
+  const near = 0.26;
+  const far = 0.6;
+  const half = 0.23;
+  const base = alongX
+    ? { x0: at.x + near, x1: at.x + far, y0: at.y - half, y1: at.y + half }
+    : { x0: at.x - half, x1: at.x + half, y0: at.y + near, y1: at.y + far };
+  const lid = alongX ? { ...base, x0: base.x1 - 0.06 } : { ...base, y0: base.y1 - 0.06 };
+  return (
+    <g data-part="guest-seat">
+      <IsoBox part="guest-cushion" x0={at.x - 0.32} y0={at.y - 0.3} x1={at.x + 0.3} y1={at.y + 0.32} h={CUSHION_H} top="#c9b7f0" left="#ad98de" right="#9682c9" />
+      {occupant}
+      <g data-part="guest-laptop" data-open={open ? 'true' : 'false'} data-visual={guest.visual} data-tone={tone}>
+        <IsoBox {...base} h={1.5} top="#c9cfe4" left="#9aa1bb" right="#8a90aa" />
+        {open ? (
+          <>
+            {/* Lid edges lit by the screen, then the lid's back. */}
+            <IsoBox {...lid} z0={1.5} h={11.5} top={light} left={alongX ? light : '#b4bad2'} right={alongX ? '#b4bad2' : light} />
+            {alongX ? (
+              <polygon points={pts([[lid.x1, lid.y0 + 0.04, 3], [lid.x1, lid.y1 - 0.04, 3], [lid.x1, lid.y1 - 0.04, 11], [lid.x1, lid.y0 + 0.04, 11]])} fill="#b4bad2" stroke={light} strokeWidth="1" />
+            ) : (
+              <polygon points={pts([[lid.x0 + 0.04, lid.y1, 3], [lid.x1 - 0.04, lid.y1, 3], [lid.x1 - 0.04, lid.y1, 11], [lid.x0 + 0.04, lid.y1, 11]])} fill="#b4bad2" stroke={light} strokeWidth="1" />
+            )}
+          </>
+        ) : (
+          <IsoBox {...base} z0={1.5} h={1} top="#b4bad2" left="#9aa1bb" right="#8a90aa" />
+        )}
+      </g>
+    </g>
+  );
+}
+
 /* ---------- Decorations (growth unlocks) ------------------------------------------------------- */
 
 function DecorView({ decor }: { decor: readonly DecorId[] }) {
@@ -415,6 +477,8 @@ export function MiniRoom({
   state,
   hermes,
   friend = null,
+  guests = [],
+  hermesChat = null,
   frame,
   energy = 'unknown',
   anger = 'unknown',
@@ -425,11 +489,11 @@ export function MiniRoom({
   const spec = VISUAL_SPEC[state];
   const titleId = `room-${useId().replace(/[^a-zA-Z0-9_-]/g, '')}`;
   const night = state === 'offline';
-  const friendInRoom = friend && friend.at.y >= 0 ? friend : null;
+  const friendInRoom = friend && !isOutside(friend.at) ? friend : null;
   const friendWho = friend && friend.look % 2 === 1 ? 'friend-b' : 'friend-a';
 
   const hermesActor = (anchor?: { x: number; y: number }) => (
-    <Actor who="hermes" view={hermes} frame={frame} stage={stage} energy={energy} anger={anger} reaction={reaction} anchor={anchor} />
+    <Actor who="hermes" view={hermes} frame={frame} stage={stage} energy={energy} anger={anger} reaction={reaction} anchor={anchor} chat={hermesChat} />
   );
   const friendActor = friendInRoom ? <Actor who={friendWho} view={friendInRoom} frame={frame} /> : null;
 
@@ -437,9 +501,10 @@ export function MiniRoom({
   const asleep = atRest(hermes) && (hermes.activity === 'sleep' || hermes.activity === 'nap') && inside(hermes.at, FURNITURE.bed);
   const showering = atRest(hermes) && hermes.activity === 'shower' && inside(hermes.at, FURNITURE.shower);
   const hermesOnSofa = atRest(hermes) && inside(hermes.at, FURNITURE.sofa);
-  const friendOnSofa = atRest(friendInRoom) && friendInRoom !== null && inside(friendInRoom.at, FURNITURE.sofa);
   const helping = atRest(friendInRoom) && friendInRoom?.activity === 'help';
-  const doorOpen = friend !== null && friend.walking && (friend.at.y < 1.2 && friend.at.x > 6.8);
+  // Anyone walking through the doorway (or just outside it) opens the door.
+  const inDoorway = (view: { walking: boolean; at: Tile }) => view.walking && view.at.y < 1.2 && view.at.x > 6.8;
+  const doorOpen = (friend !== null && inDoorway(friend)) || guests.some(inDoorway);
 
   const pillow = pt(0.43, 2, 22);
   const headScale = STAGE_SCALE[stage];
@@ -455,7 +520,7 @@ export function MiniRoom({
     { key: 'desk', depth: 2.5, node: <Desk screen={spec.screen} cans={CANS[energy]} plant={decor.includes('desk-plant')} /> },
     { key: 'fridge', depth: 4.45, node: <Fridge /> },
     { key: 'bookshelf', depth: 4.95, node: <Bookshelf extra={decor.includes('more-books')} /> },
-    { key: 'tv', depth: 8.9, node: <Tv on={hermesOnSofa && (hermes.activity === 'watch-tv' || hermes.activity === 'host-friend')} /> },
+    { key: 'tv', depth: 8.9, node: <Tv on={hermesOnSofa && hermes.activity === 'watch-tv'} /> },
     {
       key: 'shower',
       depth: 6.5,
@@ -464,16 +529,7 @@ export function MiniRoom({
     {
       key: 'sofa',
       depth: 6.75,
-      node: (
-        <Sofa
-          occupants={
-            <>
-              {hermesOnSofa && hermesActor()}
-              {friendOnSofa && friendActor}
-            </>
-          }
-        />
-      ),
+      node: <Sofa occupants={hermesOnSofa ? hermesActor() : undefined} />,
     },
     { key: 'table-stool', depth: 9.85, node: <TableStool /> },
     { key: 'table', depth: 10.8, node: <Table eating={atRest(hermes) && hermes.activity === 'eat'} /> },
@@ -483,8 +539,16 @@ export function MiniRoom({
   if (!asleep && !showering && !hermesOnSofa) {
     items.push({ key: 'hermes', depth: hermes.at.x + hermes.at.y, node: hermesActor() });
   }
-  if (friendInRoom && !friendOnSofa) {
+  if (friendInRoom) {
     items.push({ key: 'friend', depth: friendInRoom.at.x + friendInRoom.at.y, node: friendActor });
+  }
+  for (const guest of guests) {
+    // A seated friend is drawn on its cushion, behind its laptop; one on the move is drawn where it walks.
+    const seated = guest.phase === 'seated';
+    const seat = SPOTS[guest.seat].at;
+    const actor = <GuestActor view={guest} frame={frame} />;
+    items.push({ key: `seat-${guest.key}`, depth: seat.x + seat.y + 0.3, node: <GuestSeatView guest={guest} occupant={seated ? actor : undefined} /> });
+    if (!seated && !isOutside(guest.at)) items.push({ key: `guest-${guest.key}`, depth: guest.at.x + guest.at.y, node: actor });
   }
   items.sort((a, b) => a.depth - b.depth);
 

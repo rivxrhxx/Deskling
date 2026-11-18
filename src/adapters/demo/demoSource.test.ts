@@ -113,6 +113,29 @@ describe('createDemoSource (FR-D1, FR-D4)', () => {
     expect(events).toHaveLength(2);
   });
 
+  it('counts seq per session: each session keeps its own increasing counter (EVENT_PROTOCOL §6)', () => {
+    const a = { kind: 'claude-code', session: 'demo-a' } as const;
+    const b = { kind: 'codex', session: 'demo-b' } as const;
+    const two: DemoScript = {
+      id: 'two',
+      session: 'demo-two',
+      steps: [
+        { dwellMs: 100, events: [{ type: 'agent.online' }, { type: 'agent.online', source: a }] },
+        { dwellMs: 100, events: [{ type: 'turn.started', source: a }, { type: 'agent.online', source: b }, { type: 'session.message', source: b, to: a }] },
+        { dwellMs: 100, events: [{ type: 'agent.idle' }, { type: 'agent.offline', source: a }] },
+      ],
+    };
+    const { events, emit } = collect();
+    createDemoSource({ script: two, now }).start(emit);
+    advance(300);
+    const bySession = (session: string) => events.filter((e) => (e.source as { session: string }).session === session).map((e) => e.seq);
+    expect(bySession('demo-two')).toEqual([1, 2, 3]);
+    expect(bySession('demo-a')).toEqual([1, 2, 3, 4]);
+    expect(bySession('demo-b')).toEqual([1, 2]);
+    expect(events[1]?.source).toEqual(a);
+    expect(events[4]).toMatchObject({ type: 'session.message', source: b, to: a });
+  });
+
   it('is deterministic: two sources produce identical timelines', () => {
     const a = collect();
     const b = collect();

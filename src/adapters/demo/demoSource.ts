@@ -1,6 +1,7 @@
+import { sessionKey } from '../../core/roomState';
 import type { AgentEventSource } from '../types';
 import type { DemoScript } from './scripts';
-import { DEMO_SCRIPTS, demoEvent } from './scripts';
+import { DEMO_SCRIPTS, demoEvent, demoEventSource } from './scripts';
 
 export interface Scheduler {
   setTimeout(callback: () => void, ms: number): unknown;
@@ -22,7 +23,8 @@ export interface DemoSourceOptions {
 /**
  * Plays a demo script on a fixed schedule and loops forever (FR-D1, FR-D4).
  * Each step's events are emitted together, then the player waits `dwellMs`.
- * Playback position (`seq`, step index) belongs to the source instance: a stop/start cycle — such as
+ * Every session counts its own `seq` (EVENT_PROTOCOL §6), so a script can play several sessions at once.
+ * Playback position (the seq counters, step index) belongs to the source instance: a stop/start cycle — such as
  * React StrictMode's double effect — resumes after the current step instead of replaying it.
  */
 export function createDemoSource({
@@ -30,7 +32,7 @@ export function createDemoSource({
   scheduler = globalScheduler,
   now = () => Date.now(),
 }: DemoSourceOptions = {}): AgentEventSource {
-  let seq = 0;
+  const seqs = new Map<string, number>();
   let index = 0;
   let started = false;
   let lastDwellMs = 0;
@@ -48,7 +50,9 @@ export function createDemoSource({
         for (const spec of step.events) {
           // stop() may be called from inside emit(); honour it immediately.
           if (stopped) return;
-          seq += 1;
+          const key = sessionKey(demoEventSource(spec, script.session));
+          const seq = (seqs.get(key) ?? 0) + 1;
+          seqs.set(key, seq);
           emit(demoEvent(spec, { session: script.session, seq, at }));
         }
         if (stopped) return;

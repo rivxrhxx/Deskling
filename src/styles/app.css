@@ -89,6 +89,42 @@ body {
   animation: bubble-attention 1.6s var(--ease-soft) infinite;
 }
 
+/* A friend who needs the user, under the bubble (FR-MS6). The bubble stays Hermes' state. */
+.attention-line {
+  position: absolute;
+  top: 3.75rem;
+  left: 50%;
+  z-index: 3;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+
+.attention-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.2rem 0.65rem 0.2rem 0.5rem;
+  border-radius: 1rem;
+  background: var(--glass);
+  border: 1px solid color-mix(in srgb, var(--tone) 60%, transparent);
+  font-size: 0.95rem;
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.attention-pill__icon {
+  width: 1.1rem;
+  height: 1.1rem;
+  flex: none;
+  color: var(--tone);
+}
+
+.attention-pill__more {
+  color: var(--text-dim);
+  font-weight: 700;
+}
+
 .demo-badge {
   position: absolute;
   top: 0.8rem;
@@ -170,8 +206,10 @@ body {
   z-index: 6;
   display: flex;
   flex-direction: column;
-  width: 18rem;
+  width: 20rem;
   max-height: calc(100% - 5rem);
+  /* With many sessions in the room the whole panel scrolls rather than squeezing the log to one line. */
+  overflow-y: auto;
   border-radius: 0.8rem;
   border: 1px solid var(--glass-edge);
   background:
@@ -196,6 +234,7 @@ body {
 }
 
 .activity-panel__list {
+  min-height: 6.4rem;
   margin: 0;
   padding: 0.2rem 0.9rem 0.4rem;
   overflow-y: auto;
@@ -206,6 +245,8 @@ body {
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  /* Korean wraps between words, not inside one. */
+  word-break: keep-all;
   padding: 0.22rem 0;
   font-size: 1.05rem;
   line-height: 1.3;
@@ -324,6 +365,7 @@ body {
 
 .activity-panel__demo {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.3rem;
   padding: 0.3rem 0.9rem 0.5rem;
 }
@@ -506,4 +548,56 @@ body {
 .chip[aria-disabled='true'] {
   opacity: 0.45;
   cursor: default;
+}
+
+/* ---- Sessions in the room (FR-MS6) -------------------------------------------------------- */
+.activity-panel__sessions {
+  flex: none;
+  padding: 0.15rem 0.9rem 0.5rem;
+  border-bottom: 1px solid rgba(154, 161, 187, 0.1);
+}
+
+.activity-panel__heading {
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--text-dim);
+}
+
+.sessions__list {
+  display: grid;
+  gap: 0.08rem;
+  margin: 0.2rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.session {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 1rem;
+  line-height: 1.35;
+}
+
+.session__dot {
+  width: 0.55rem;
+  height: 0.55rem;
+  flex: none;
+  border-radius: 50%;
+  background: var(--tone);
+}
+
+.session__name {
+  min-width: 4.8rem;
+  font-weight: 700;
+}
+
+.session__state,
+.session__away {
+  color: var(--text-dim);
+}
+
+.session__away {
+  font-size: 0.85rem;
 }

@@ -116,11 +116,11 @@
 ## M10 세션 친구들 (ADR-022, ADR-023) — 데모로 먼저
 
 - [x] **T65** ADR-022/023/024, EVENT_PROTOCOL v3, REQUIREMENTS FR-MS*·FR-CC*, TASKS
-- [ ] **T66** core: AgentEvent v3(종류 `claude-code`·`codex`, `session.message` + `to`, `bad-target`) 정규화 — FR-MS1, FR-MS5
-- [ ] **T67** core: `roomState` 리듀서 — 세션별 커서·사실·사용량, 집주인/친구 구분, 번호, 끝난 세션 기억, 대화 목록, 합친 최근 활동 — FR-MS1, FR-MS4, FR-MS6
-- [ ] **T68** core: 생활 엔진의 세션 친구 — 손님 자리 4개, 들어오기/나가기, 자기 상태, 대화(돌아보기·편지), 동네 친구·초대 제거 — FR-MS2, FR-MS3, FR-MS5, FR-R4
-- [ ] **T69** ui: Claude·Codex 친구 원본 스프라이트(세션 번호별 색), 말풍선·편지 이모트 — FR-MS1, FR-MS5
-- [ ] **T70** ui/app: 미니룸에 친구들, 패널 세션 목록·알림 줄, 친구 초대 버튼 제거, 데모 "방 친구들" — FR-MS2, FR-MS3, FR-MS6, FR-MS7
+- [x] **T66** core: AgentEvent v3(종류 `claude-code`·`codex`, `session.message` + `to`, `bad-target`) 정규화 — FR-MS1, FR-MS5
+- [x] **T67** core: `roomState` 리듀서 — 세션별 커서·사실·사용량, 집주인/친구 구분, 번호, 끝난 세션 기억, 대화 목록, 합친 최근 활동 — FR-MS1, FR-MS4, FR-MS6
+- [x] **T68** core: 생활 엔진의 세션 친구 — 손님 자리 4개, 들어오기/나가기, 자기 상태, 대화(돌아보기·편지), 동네 친구·초대 제거 — FR-MS2, FR-MS3, FR-MS5, FR-R4
+- [x] **T69** ui: Claude·Codex 친구 원본 스프라이트(세션 번호별 색), 말풍선·편지 이모트 — FR-MS1, FR-MS5
+- [x] **T70** ui/app: 미니룸에 친구들, 패널 세션 목록·알림 줄, 친구 초대 버튼 제거, 데모 "방 친구들" — FR-MS2, FR-MS3, FR-MS6, FR-MS7
 - [ ] **T71** 화면 검증·문서·verify·build·push
 
 ## M11 Claude Code 실제 연결 (ADR-024)

@@ -6,8 +6,9 @@ import { GUEST_SEATS, SPOTS, pathBetween, pathLength, sameTile, toScreen } from 
 /**
  * Hermes' life in the mini room (ADR-020). A pure, deterministic state machine.
  * - Agent facts decide a required behaviour (desk work, waving for approval, sleeping offline).
- * - Only while the agent is idle does Hermes live its own life (shower, eat, TV, friends…),
+ * - Only while the agent is idle does Hermes live its own life (shower, eat, TV…),
  *   and it never uses the computer then: idle life must not look like work.
+ * - Friends are real sessions (ADR-022): nobody visits at random; only the delegation helper comes over on its own.
  * Randomness comes from a seeded PRNG carried in the state; time comes from the caller.
  */
 
@@ -33,7 +34,6 @@ export const IDLE_ACTIVITIES = [
   'water-plant',
   'nap',
   'fridge',
-  'host-friend',
 ] as const;
 export type IdleActivity = (typeof IDLE_ACTIVITIES)[number];
 export type Activity = RequiredActivity | IdleActivity;
@@ -62,7 +62,6 @@ export const IDLE_SPOT: Readonly<Record<IdleActivity, SpotId>> = {
   'water-plant': 'plant',
   nap: 'bed',
   fridge: 'fridge',
-  'host-friend': 'sofa',
 };
 
 /** How long each idle activity lasts once Hermes has arrived (ms). */
@@ -76,7 +75,6 @@ export const IDLE_DURATION: Readonly<Record<IdleActivity, number>> = {
   'water-plant': 5_000,
   nap: 10_000,
   fridge: 4_000,
-  'host-friend': 14_000,
 };
 
 const BASE_WEIGHT: Readonly<Record<IdleActivity, number>> = {
@@ -89,7 +87,6 @@ const BASE_WEIGHT: Readonly<Record<IdleActivity, number>> = {
   'water-plant': 1,
   nap: 1,
   fridge: 1,
-  'host-friend': 2,
 };
 
 /** Tired Hermes naps and snacks more (ADR-020 §5). */
@@ -114,10 +111,11 @@ export interface HermesState extends ActorState {
   readonly activity: Activity;
 }
 
+/** The helper who comes over while work is delegated (FR-R4). */
 export interface FriendState extends ActorState {
-  readonly activity: 'visit' | 'help' | 'leave';
-  readonly role: 'guest' | 'helper';
-  /** Which friend is visiting (sprite variant). */
+  readonly activity: 'help' | 'leave';
+  readonly role: 'helper';
+  /** Which friend helps (sprite variant). */
   readonly look: number;
 }
 
@@ -161,7 +159,6 @@ export interface Chat {
 export interface LifeState {
   readonly hermes: HermesState;
   readonly friend: FriendState | null;
-  readonly friendLeaveAt: number | null;
   /** When the current idle activity ends; null while a required behaviour runs. */
   readonly until: number | null;
   /** Seeded PRNG state (mulberry32). */
@@ -177,8 +174,6 @@ export interface LifeInput {
   readonly now: number;
   readonly visual: VisualState;
   readonly energy: EnergyLevel;
-  /** A one-off "친구 초대" from the user. */
-  readonly invite?: boolean;
   readonly reducedMotion?: boolean;
   /** Session friends present, in arrival order. Beyond the seats they wait, outside the state. */
   readonly guests?: readonly GuestInput[];
@@ -189,7 +184,6 @@ export interface LifeInput {
 }
 
 export const FRIEND_LOOKS = 2;
-const VISIT_MS = IDLE_DURATION['host-friend'];
 const GUEST_SPEED = 1.8;
 /** How long a conversation emote shows (ms). Staging timed by the engine clock, not a fact (ADR-023). */
 export const CHAT_MS = { talk: 4_000, letter: 3_000 } as const;
@@ -207,7 +201,6 @@ export function initialLife(seed: number, now: number): LifeState {
   return {
     hermes: { activity: 'sleep', spot: 'bed', path: [at], departAt: now, arriveAt: now },
     friend: null,
-    friendLeaveAt: null,
     until: null,
     rng: seed >>> 0,
     guests: [],
@@ -277,14 +270,9 @@ function arrived<T extends ActorState>(actor: T, now: number): T {
 const isIdleActivity = (activity: Activity): activity is IdleActivity =>
   (IDLE_ACTIVITIES as readonly string[]).includes(activity);
 
-function pickIdle(
-  rng: number,
-  current: Activity,
-  energy: EnergyLevel,
-  friendPresent: boolean,
-): [IdleActivity, number] {
+function pickIdle(rng: number, current: Activity, energy: EnergyLevel): [IdleActivity, number] {
   const tired = energy === 'low' || energy === 'empty';
-  const options = IDLE_ACTIVITIES.filter((a) => a !== current && !(friendPresent && a === 'host-friend'));
+  const options = IDLE_ACTIVITIES.filter((a) => a !== current);
   const weights = options.map((a) => BASE_WEIGHT[a] * (tired ? (TIRED_BOOST[a] ?? 1) : 1));
   const total = weights.reduce((sum, w) => sum + w, 0);
   const [r, next] = random(rng);
@@ -326,19 +314,19 @@ function stepGuests(guests: readonly GuestActor[], present: readonly GuestInput[
 const asleep = (hermes: HermesState) => hermes.activity === 'sleep' || hermes.activity === 'nap';
 
 export function stepLife(state: LifeState, input: LifeInput): LifeState {
-  const { now, visual, energy, invite = false, reducedMotion = false } = input;
+  const { now, visual, energy, reducedMotion = false } = input;
   const speed = walkSpeed(energy);
-  let { hermes, friend, friendLeaveAt, until, rng } = state;
+  let { hermes, friend, until, rng } = state;
   if (reducedMotion) {
     hermes = arrived(hermes, now);
     friend = friend && arrived(friend, now);
   }
 
-  const spawnFriend = (role: FriendState['role'], spot: SpotId): FriendState => {
+  const spawnHelper = (): FriendState => {
     const [r, next] = random(rng);
     rng = next;
-    const walk = walkTo([SPOTS.outside.at], spot, now, 1.8, reducedMotion);
-    return { activity: role === 'helper' ? 'help' : 'visit', role, spot, look: Math.floor(r * FRIEND_LOOKS), ...walk };
+    const walk = walkTo([SPOTS.outside.at], 'helper', now, 1.8, reducedMotion);
+    return { activity: 'help', role: 'helper', spot: 'helper', look: Math.floor(r * FRIEND_LOOKS), ...walk };
   };
   const friendLeaves = (current: FriendState): FriendState => ({
     ...current,
@@ -360,50 +348,24 @@ export function stepLife(state: LifeState, input: LifeInput): LifeState {
     }
     until = null;
   } else if (!isIdleActivity(hermes.activity) || (until !== null && now >= until)) {
-    const [choice, next] = pickIdle(rng, hermes.activity, energy, friend !== null);
+    const [choice, next] = pickIdle(rng, hermes.activity, energy);
     rng = next;
     hermes = hermesGoes(choice, IDLE_SPOT[choice]);
-    if (choice === 'host-friend') {
-      friend = spawnFriend('guest', 'sofa-2');
-      friendLeaveAt = Math.max(hermes.arriveAt, friend.arriveAt) + VISIT_MS;
-      until = friendLeaveAt;
-    } else {
-      // A kept walk may have ended long ago (nap in the bed he slept in): the activity still lasts its full time.
-      until = Math.max(hermes.arriveAt, now) + IDLE_DURATION[choice];
-    }
+    // A kept walk may have ended long ago (nap in the bed he slept in): the activity still lasts its full time.
+    until = Math.max(hermes.arriveAt, now) + IDLE_DURATION[choice];
   } else if (until === null) {
     until = hermes.arriveAt + IDLE_DURATION[hermes.activity];
   }
 
-  // 2. Friends.
-  if (visual === 'offline') {
-    if (friend && friend.spot !== 'outside') friend = friendLeaves(friend);
-    friendLeaveAt = null;
-  } else if (visual === 'delegated') {
+  // 2. The delegation helper: comes over while work is delegated, goes home otherwise.
+  if (visual === 'delegated') {
     if (!friend) {
-      friend = spawnFriend('helper', 'helper');
-    } else if (friend.role !== 'helper' || friend.spot === 'outside') {
-      friend = { ...friend, role: 'helper', activity: 'help', spot: 'helper', ...walkTo(walked(friend, now), 'helper', now, 1.8, reducedMotion) };
+      friend = spawnHelper();
+    } else if (friend.spot === 'outside') {
+      friend = { ...friend, activity: 'help', spot: 'helper', ...walkTo(walked(friend, now), 'helper', now, 1.8, reducedMotion) };
     }
-    friendLeaveAt = null;
-  } else if (friend?.role === 'helper' && friend.spot !== 'outside') {
+  } else if (friend && friend.spot !== 'outside') {
     friend = friendLeaves(friend);
-  }
-
-  if (invite && visual !== 'offline' && friend === null) {
-    friend = spawnFriend('guest', 'sofa-2');
-    friendLeaveAt = friend.arriveAt + VISIT_MS;
-    if (!required) {
-      hermes = hermesGoes('host-friend', 'sofa');
-      // As with a visit Hermes starts himself: it begins once both are seated.
-      friendLeaveAt = Math.max(hermes.arriveAt, friend.arriveAt) + VISIT_MS;
-      until = friendLeaveAt;
-    }
-  }
-
-  if (friend?.role === 'guest' && friend.spot !== 'outside' && friendLeaveAt !== null && now >= friendLeaveAt) {
-    friend = friendLeaves(friend);
-    friendLeaveAt = null;
   }
   if (friend?.spot === 'outside' && now >= friend.arriveAt) {
     friend = null;
@@ -428,7 +390,7 @@ export function stepLife(state: LifeState, input: LifeInput): LifeState {
     lastConversation = input.conversations.reduce((max, c) => Math.max(max, c.key), Math.max(lastConversation, -1));
   }
 
-  return { hermes, friend, friendLeaveAt, until, rng, guests, chats, lastConversation };
+  return { hermes, friend, until, rng, guests, chats, lastConversation };
 }
 
 export interface GuestView {
@@ -437,6 +399,8 @@ export interface GuestView {
   readonly ordinal: number;
   readonly visual: VisualState;
   readonly phase: GuestActor['phase'];
+  /** Its floor cushion, held from walking in until it is out of the door. */
+  readonly seat: GuestSeat;
   readonly at: Tile;
   readonly walking: boolean;
   readonly face: Facing;
@@ -473,6 +437,7 @@ export function guestViewsAt(state: LifeState, now: number): GuestView[] {
       ordinal: guest.ordinal,
       visual: guest.visual,
       phase,
+      seat: guest.seat,
       at,
       walking,
       face: partner !== null && phase === 'seated' ? faceToward(at, partnerAt(state, partner, now)) : face,

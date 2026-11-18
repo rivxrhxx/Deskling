@@ -1,4 +1,4 @@
-import type { PlainEventType, ToolCategory, ToolOutcome, UsageReport } from '../../core/agentEvent';
+import type { AgentEventSource, PlainEventType, ToolCategory, ToolOutcome, UsageReport } from '../../core/agentEvent';
 import { AGENT_EVENT_SCHEMA, AGENT_EVENT_VERSION } from '../../core/agentEvent';
 
 /**
@@ -6,11 +6,15 @@ import { AGENT_EVENT_SCHEMA, AGENT_EVENT_VERSION } from '../../core/agentEvent';
  * The demo never claims to be a real agent — the app always shows a DEMO badge while it runs.
  */
 
-export type DemoEventSpec =
+export type DemoEventBody =
   | { readonly type: PlainEventType }
   | { readonly type: 'tool.started'; readonly tool: ToolCategory }
   | { readonly type: 'tool.finished'; readonly tool: ToolCategory; readonly outcome: ToolOutcome }
-  | { readonly type: 'usage.reported'; readonly usage: UsageReport };
+  | { readonly type: 'usage.reported'; readonly usage: UsageReport }
+  | { readonly type: 'session.message'; readonly to?: AgentEventSource };
+
+/** A scripted event. Without its own `source` it belongs to the script's session, as kind `demo`. */
+export type DemoEventSpec = DemoEventBody & { readonly source?: AgentEventSource };
 
 export interface DemoStep {
   /** Events emitted together at the start of the step. */
@@ -21,6 +25,7 @@ export interface DemoStep {
 
 export interface DemoScript {
   readonly id: string;
+  /** The session of events that name no source of their own. */
   readonly session: string;
   readonly steps: readonly DemoStep[];
 }
@@ -101,22 +106,66 @@ const life: DemoScript = {
   ],
 };
 
-export const DEMO_SCRIPTS = { core, tour, life } as const satisfies Record<string, DemoScript>;
+const HERMES: AgentEventSource = { kind: 'hermes', session: 'demo-hermes' };
+const CLAUDE_1: AgentEventSource = { kind: 'claude-code', session: 'demo-claude-a' };
+const CLAUDE_2: AgentEventSource = { kind: 'claude-code', session: 'demo-claude-b' };
+const CODEX_1: AgentEventSource = { kind: 'codex', session: 'demo-codex-a' };
+
+/** The same specs, from another session. */
+const by = (source: AgentEventSource, ...specs: DemoEventBody[]): DemoEventSpec[] => specs.map((spec) => ({ ...spec, source }));
+const message = (from: AgentEventSource, to?: AgentEventSource): DemoEventSpec =>
+  to ? { type: 'session.message', source: from, to } : { type: 'session.message', source: from };
+
+/**
+ * "방 친구들" (ADR-022, ADR-023, FR-MS7): Hermes works while session friends come in, work at their laptops,
+ * talk, need the user, succeed or fail, and leave one by one. Every beat stays on screen for 2.5–5 s.
+ */
+const friends: DemoScript = {
+  id: 'friends',
+  session: 'demo-friends',
+  steps: [
+    step(3000, ...by(HERMES, { type: 'agent.online' }, { type: 'turn.started' }, toolStart('code'), usage(20_000, 30_000))), // Hermes codes
+    step(4000, ...by(CLAUDE_1, { type: 'agent.online' }, { type: 'turn.started' }, toolStart('code'))), // Claude 1 comes in
+    step(4000, ...by(CLAUDE_2, { type: 'agent.online' }, { type: 'turn.started' }, toolStart('browser'))), // Claude 2 comes in
+    step(4000, ...by(CODEX_1, { type: 'agent.online' }, { type: 'turn.started' }, toolStart('terminal'))), // Codex 1 comes in
+    step(4500, ...by(HERMES, toolDone('code'), toolStart('browser'), usage(45_000, 60_000))), // everyone settles in
+    step(4500, message(CLAUDE_1, CODEX_1)), // Claude 1 and Codex 1 talk
+    step(4000, ...by(CODEX_1, toolDone('terminal'), { type: 'approval.requested' })), // Codex 1 waves for approval
+    step(4000, ...by(CODEX_1, { type: 'approval.resolved' }, toolStart('terminal'))), // resolved, back to work
+    step(4500, message(CLAUDE_2, HERMES)), // Claude 2 talks with Hermes
+    step(4000, ...by(CLAUDE_2, toolDone('browser'), { type: 'turn.succeeded' })), // Claude 2 is done
+    step(4000, ...by(CODEX_1, toolDone('terminal', 'error'), { type: 'turn.failed' })), // Codex 1 fails
+    step(3500, message(CLAUDE_1)), // Claude 1 sends a letter to someone not in the room
+    step(4000, ...by(CLAUDE_2, { type: 'agent.offline' })), // Claude 2 leaves
+    step(4000, ...by(CODEX_1, { type: 'agent.offline' })), // Codex 1 leaves
+    step(4000, ...by(CLAUDE_1, toolDone('code'), { type: 'agent.offline' })), // Claude 1 leaves
+    step(4000, ...by(HERMES, toolDone('browser'), { type: 'turn.succeeded' }, usage(60_000, 72_000))), // Hermes is done
+    step(5000, ...by(HERMES, { type: 'agent.idle' })), // and lives his own life
+  ],
+};
+
+export const DEMO_SCRIPTS = { core, tour, life, friends } as const satisfies Record<string, DemoScript>;
 export type DemoScriptId = keyof typeof DEMO_SCRIPTS;
 export const DEMO_SCRIPT_IDS = Object.keys(DEMO_SCRIPTS) as DemoScriptId[];
+
+/** The session an event belongs to: its own, or the script's demo session. */
+export function demoEventSource(spec: DemoEventSpec, session: string): AgentEventSource {
+  return spec.source ?? { kind: 'demo', session };
+}
 
 /** Turns a spec into a raw protocol object. It still goes through normalizeAgentEvent like any provider event. */
 export function demoEvent(
   spec: DemoEventSpec,
   meta: { readonly session: string; readonly seq: number; readonly at: number },
 ): Record<string, unknown> {
+  const source = demoEventSource(spec, meta.session);
   return {
+    ...spec,
     schema: AGENT_EVENT_SCHEMA,
     version: AGENT_EVENT_VERSION,
-    id: `${meta.session}-${String(meta.seq).padStart(4, '0')}`,
+    id: `${source.session}-${String(meta.seq).padStart(4, '0')}`,
     seq: meta.seq,
     at: meta.at,
-    source: { kind: 'demo', session: meta.session },
-    ...spec,
+    source,
   };
 }

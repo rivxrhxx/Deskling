@@ -1,8 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
-import type { RecentEntry } from '../core/agentState';
+import type { SourceKind, VisualState } from '../core/agentEvent';
 import type { Vitals } from '../core/mood';
-import { ANGER_LABEL, ENERGY_LABEL, activityKind, describeActivity, formatClock, formatTokens } from './activityText';
+import type { RoomEntry } from '../core/roomState';
+import { sessionLabel } from '../core/roomState';
+import { ANGER_LABEL, ENERGY_LABEL, activityKind, describeRoomActivity, formatClock, formatTokens } from './activityText';
 import { StateIcon } from './icons';
+import { VISUAL_SPEC } from './visualSpec';
 
 export interface DemoPicker {
   readonly options: ReadonlyArray<{ readonly value: string; readonly label: string; readonly selected: boolean }>;
@@ -26,14 +29,19 @@ export interface PetPanel {
   readonly onPet: () => void;
   readonly onFeed: () => void;
   readonly onRename: (name: string) => void;
-  /** Asks a friend over to the room (FR-R5). */
-  readonly onInvite?: () => void;
-  /** False while offline or while someone is already visiting. */
-  readonly canInvite?: boolean;
+}
+
+/** A session in the room (FR-MS6): Hermes, or a friend. `seated` is false for friends beyond the seats. */
+export interface PanelSession {
+  readonly key: string;
+  readonly kind: SourceKind;
+  readonly ordinal: number;
+  readonly visual: VisualState;
+  readonly seated: boolean;
 }
 
 export interface ActivityPanelProps {
-  readonly entries: readonly RecentEntry[];
+  readonly entries: readonly RoomEntry[];
   readonly onClose: () => void;
   readonly formatTime?: (at: number) => string;
   /** Present only while a demo source runs. */
@@ -42,6 +50,8 @@ export interface ActivityPanelProps {
   readonly vitals?: Vitals;
   readonly budget?: BudgetPicker;
   readonly pet?: PetPanel;
+  /** Who is in the room, Hermes first (FR-MS6). */
+  readonly sessions?: readonly PanelSession[];
 }
 
 const HEART = 'M8 14 C8 14 1.5 9.8 1.5 5.6 C1.5 3.4 3.2 2 5 2 C6.4 2 7.4 2.8 8 3.8 C8.6 2.8 9.6 2 11 2 C12.8 2 14.5 3.4 14.5 5.6 C14.5 9.8 8 14 8 14 Z';
@@ -97,18 +107,6 @@ function PetSection({ pet }: { pet: PetPanel }) {
         >
           간식 주기 · {pet.snacksLeft}
         </button>
-        {pet.onInvite && (
-          <button
-            type="button"
-            className="chip"
-            onClick={() => {
-              if (pet.canInvite) pet.onInvite?.();
-            }}
-            aria-disabled={!pet.canInvite}
-          >
-            친구 초대
-          </button>
-        )}
       </div>
     </div>
   );
@@ -176,8 +174,37 @@ function VitalsSection({ vitals, budget }: { vitals: Vitals; budget?: BudgetPick
   );
 }
 
+/** Everyone in the room and their state, in fixed copy (FR-MS6, FR-P4). */
+function SessionsSection({ sessions }: { sessions: readonly PanelSession[] }) {
+  return (
+    <div className="activity-panel__sessions" role="group" aria-label="방에 있는 세션">
+      <span className="activity-panel__heading">방에 있는 세션</span>
+      <ul className="sessions__list">
+        {sessions.map((session) => {
+          const spec = VISUAL_SPEC[session.visual];
+          return (
+            <li
+              key={session.key}
+              className="session"
+              data-session-kind={session.kind}
+              data-visual={session.visual}
+              data-tone={spec.tone}
+              data-seated={session.seated ? 'true' : 'false'}
+            >
+              <span className="session__dot" aria-hidden="true" />
+              <span className="session__name">{sessionLabel(session)}</span>
+              <span className="session__state">{spec.label}</span>
+              {!session.seated && <span className="session__away">(자리 없음)</span>}
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}
+
 /** A small log screen pinned to the wall: recent facts, newest first (FR-P1–P4). Read-only. */
-export function ActivityPanel({ entries, onClose, formatTime = formatClock, demo, vitals, budget, pet }: ActivityPanelProps) {
+export function ActivityPanel({ entries, onClose, formatTime = formatClock, demo, vitals, budget, pet, sessions }: ActivityPanelProps) {
   const closeRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
@@ -207,10 +234,11 @@ export function ActivityPanel({ entries, onClose, formatTime = formatClock, demo
       </header>
       {pet && <PetSection pet={pet} />}
       {vitals && <VitalsSection vitals={vitals} budget={budget} />}
+      {sessions && <SessionsSection sessions={sessions} />}
       {entries.length === 0 ? (
         <p className="activity-panel__empty">아직 기록된 활동이 없습니다.</p>
       ) : (
-        <ol className="activity-panel__list">
+        <ol className="activity-panel__list" aria-label="최근 활동 목록">
           {entries.map((entry) => {
             const kind = activityKind(entry);
             return (
@@ -218,7 +246,7 @@ export function ActivityPanel({ entries, onClose, formatTime = formatClock, demo
                 <time dateTime={new Date(entry.at).toISOString()}>{formatTime(entry.at)}</time>
                 {kind === 'error' && <StateIcon icon="alert" className="activity-panel__mark" />}
                 {kind === 'attention' && <StateIcon icon="hand" className="activity-panel__mark" />}
-                <span>{describeActivity(entry)}</span>
+                <span>{describeRoomActivity(entry)}</span>
               </li>
             );
           })}

@@ -71,13 +71,17 @@ describe('useLife (FR-R2–R6)', () => {
     expect(still.result.current.frame).toBe(0);
   });
 
-  it('invites a friend over', () => {
+  it('has no way to invite anyone: friends are real sessions (ADR-022 §5)', () => {
     const { result } = setup('idle');
-    advance(LIFE_TICK_MS);
-    act(() => result.current.invite());
-    advance(LIFE_TICK_MS);
-    expect(result.current.friend).not.toBeNull();
-    expect(result.current.friend?.activity).toBe('visit');
+    expect(result.current).not.toHaveProperty('invite');
+    advance(10 * 60_000);
+    expect(result.current.friend).toBeNull();
+  });
+
+  it('the delegation helper still comes over while work is delegated', () => {
+    const { result } = setup('delegated');
+    advance(15_000);
+    expect(result.current.friend).toMatchObject({ activity: 'help', walking: false, at: SPOTS.helper.at });
   });
 
   it('a session friend walks in and sits down, then leaves when its session is gone', () => {

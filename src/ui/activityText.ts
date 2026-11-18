@@ -1,5 +1,7 @@
 import type { ToolCategory } from '../core/agentEvent';
 import type { RecentEntry } from '../core/agentState';
+import type { RoomEntry } from '../core/roomState';
+import { sessionLabel } from '../core/roomState';
 
 /**
  * Fixed copy for the activity panel, built only from protocol enums (FR-P4).
@@ -48,6 +50,19 @@ export function describeActivity(entry: RecentEntry): string {
     case 'session.message':
       return '메시지 보냄';
   }
+}
+
+/**
+ * A recent line that says which session it is about (FR-MS6): "Claude 1 · 코드 편집 시작".
+ * A message says only who wrote to whom — "Claude 1 → Codex 1 메시지" — or "Claude 1 메시지 보냄"
+ * when the receiver is unknown or was not in the room (ADR-023).
+ */
+export function describeRoomActivity(entry: RoomEntry): string {
+  const who = sessionLabel(entry);
+  if (entry.type === 'session.message') {
+    return entry.receiver ? `${who} → ${sessionLabel(entry.receiver)} 메시지` : `${who} 메시지 보냄`;
+  }
+  return `${who} · ${describeActivity(entry)}`;
 }
 
 export function activityKind(entry: RecentEntry): ActivityKind {

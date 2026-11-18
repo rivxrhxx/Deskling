@@ -4,11 +4,17 @@ import { createDemoSource } from '../adapters/demo/demoSource';
 import type { DemoScriptId } from '../adapters/demo/scripts';
 import { DEMO_SCRIPT_IDS, DEMO_SCRIPTS } from '../adapters/demo/scripts';
 import type { AgentEventSource } from '../adapters/types';
+import type { GuestKind, SourceKind } from '../core/agentEvent';
+import { GUEST_KINDS } from '../core/agentEvent';
+import type { GuestInput } from '../core/life';
 import { deriveVitals } from '../core/mood';
-import { toScreen } from '../core/room';
+import { GUEST_SEATS, toScreen } from '../core/room';
+import { residentView } from '../core/roomState';
 import type { WindowControls } from '../platform/windowControls';
 import { createWindowControls } from '../platform/windowControls';
+import type { PanelSession } from '../ui/ActivityPanel';
 import { ActivityPanel } from '../ui/ActivityPanel';
+import { AttentionLine } from '../ui/AttentionLine';
 import { CharacterHotspot } from '../ui/CharacterHotspot';
 import { DemoBadge } from '../ui/DemoBadge';
 import { StatusBubble } from '../ui/StatusBubble';
@@ -23,7 +29,14 @@ import { useReducedMotion } from './useReducedMotion';
 
 type StorageLike = Pick<Storage, 'getItem' | 'setItem'>;
 
-const DEMO_LABEL: Readonly<Record<DemoScriptId, string>> = { tour: '전체 상태', core: '기본 흐름', life: '하루 일과' };
+const DEMO_LABEL: Readonly<Record<DemoScriptId, string>> = {
+  tour: '전체 상태',
+  core: '기본 흐름',
+  life: '하루 일과',
+  friends: '방 친구들',
+};
+
+const isGuestKind = (kind: SourceKind): kind is GuestKind => (GUEST_KINDS as readonly SourceKind[]).includes(kind);
 
 /** Interactive elements and overlays never start a window drag (ADR-008). */
 const NO_DRAG = 'button, input, select, textarea, a, [role="dialog"], [data-no-drag]';
@@ -35,6 +48,18 @@ export interface AppProps {
   readonly controls?: WindowControls;
   /** Where UI preferences live. Defaults to localStorage when available. */
   readonly storage?: StorageLike | null;
+}
+
+/** Hermes first (asleep when no resident session is known), then the friends; those beyond the seats wait (FR-MS2). */
+function panelSessions(
+  resident: Pick<PanelSession, 'key' | 'kind' | 'ordinal' | 'visual'> | undefined,
+  guests: readonly GuestInput[],
+): PanelSession[] {
+  const hermes = resident ?? { key: 'resident', kind: 'hermes', ordinal: 0, visual: 'offline' };
+  return [
+    { key: hermes.key, kind: hermes.kind, ordinal: hermes.ordinal, visual: hermes.visual, seated: true },
+    ...guests.map((guest, index) => ({ ...guest, seated: index < GUEST_SEATS.length })),
+  ];
 }
 
 function browserStorage(): StorageLike | null {
@@ -89,14 +114,34 @@ export function App({ source: providedSource, controls: providedControls, storag
     }
   }, [controls, settings.floatOnTop]);
 
-  const view = useAgentFeed(source);
+  // The whole room: Hermes is the latest resident session, every guest session a friend (ADR-022).
+  const room = useAgentFeed(source);
+  const resident = residentView(room);
   const reducedMotion = useReducedMotion(settings.motion);
-  // Energy and anger: fixed readings of reported numbers against the user's budget (ADR-016).
-  const vitals = deriveVitals(view.usage, settings.tokenBudget);
-  // The desktop pet grows from completed tasks; demo and real agents keep separate profiles (ADR-018).
-  const pet = usePet({ mode: source.mode, completedTurns: view.completedTurns, feedKey: source, storage });
-  // Hermes' life in the room: agent facts first, his own routine while idle (ADR-020).
-  const life = useLife({ visual: view.visual, energy: vitals.energy.level, reducedMotion });
+  // Energy and anger: fixed readings of Hermes' reported numbers against the user's budget (ADR-016).
+  const vitals = deriveVitals(resident.usage, settings.tokenBudget);
+  // The desktop pet grows from tasks completed in the room; demo and real agents keep separate profiles (ADR-018).
+  const pet = usePet({ mode: source.mode, completedTurns: room.completedTurns, feedKey: source, storage });
+  // Present friends in arrival order. Memoised: the life engine ticks every 300 ms and needs no new arrays then.
+  const guests = useMemo<GuestInput[]>(
+    () =>
+      room.guestKeys.flatMap((key) => {
+        const session = room.sessions[key];
+        return session && isGuestKind(session.kind)
+          ? [{ key, kind: session.kind, ordinal: session.ordinal, visual: session.visual }]
+          : [];
+      }),
+    [room.guestKeys, room.sessions],
+  );
+  // Hermes' life in the room: agent facts first, his own routine while idle (ADR-020); friends at their seats.
+  const life = useLife({
+    visual: resident.visual,
+    energy: vitals.energy.level,
+    reducedMotion,
+    guests,
+    conversations: room.conversations,
+    residentKey: room.residentKey,
+  });
 
   const [panelOpen, setPanelOpen] = useState(false);
   const hotspotRef = useRef<HTMLButtonElement>(null);
@@ -121,17 +166,20 @@ export function App({ source: providedSource, controls: providedControls, storag
     <section
       className="deskling"
       aria-label="Deskling"
-      data-state={view.visual}
+      data-state={resident.visual}
       data-motion={reducedMotion ? 'reduced' : 'full'}
       style={style}
     >
       <div className="stage" onMouseDown={startDrag}>
         {source.mode === 'demo' && <DemoBadge />}
-        <StatusBubble state={view.visual} />
+        <StatusBubble state={resident.visual} />
+        <AttentionLine sessions={guests} />
         <MiniRoom
-          state={view.visual}
+          state={resident.visual}
           hermes={life.hermes}
           friend={life.friend}
+          guests={life.guests}
+          hermesChat={life.hermesChat}
           frame={life.frame}
           energy={vitals.energy.level}
           anger={vitals.anger.level}
@@ -147,7 +195,8 @@ export function App({ source: providedSource, controls: providedControls, storag
         />
         {panelOpen && (
           <ActivityPanel
-            entries={view.recent}
+            entries={room.recent}
+            sessions={panelSessions(room.residentKey === null ? undefined : room.sessions[room.residentKey], guests)}
             onClose={closePanel}
             pet={{
               name: pet.profile.name,
@@ -157,8 +206,6 @@ export function App({ source: providedSource, controls: providedControls, storag
               onPet: () => void pet.pet(),
               onFeed: () => void pet.feed(),
               onRename: pet.rename,
-              onInvite: life.invite,
-              canInvite: view.visual !== 'offline' && life.friend === null,
             }}
             vitals={vitals}
             budget={{

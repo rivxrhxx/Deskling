@@ -4,13 +4,18 @@ import { describe, expect, it, vi } from 'vitest';
 import type { RecentEntry } from '../core/agentState';
 import { EVENT_TYPES, TOOL_CATEGORIES } from '../core/agentEvent';
 import type { Vitals } from '../core/mood';
+import type { RoomEntry } from '../core/roomState';
+import type { PanelSession } from './ActivityPanel';
 import { ActivityPanel } from './ActivityPanel';
-import { describeActivity, formatTokens } from './activityText';
+import { describeActivity, describeRoomActivity, formatTokens } from './activityText';
 
-const entries: RecentEntry[] = [
-  { key: 3, seq: 3, at: 3000, type: 'tool.finished', tool: 'terminal', outcome: 'error' },
-  { key: 2, seq: 2, at: 2000, type: 'tool.started', tool: 'terminal' },
-  { key: 1, seq: 1, at: 1000, type: 'turn.started' },
+const HERMES = { sessionKey: 'demo:d', kind: 'demo', ordinal: 0 } as const;
+const CLAUDE_1 = { sessionKey: 'claude-code:a', kind: 'claude-code', ordinal: 1 } as const;
+
+const entries: RoomEntry[] = [
+  { key: 3, seq: 3, at: 3000, type: 'tool.finished', tool: 'terminal', outcome: 'error', ...HERMES },
+  { key: 2, seq: 2, at: 2000, type: 'tool.started', tool: 'terminal', ...HERMES },
+  { key: 1, seq: 1, at: 1000, type: 'turn.started', ...HERMES },
 ];
 
 const formatTime = (at: number) => `t${at}`;
@@ -33,22 +38,46 @@ describe('describeActivity (FR-P4)', () => {
   });
 });
 
+describe('describeRoomActivity (FR-MS6, FR-P4)', () => {
+  const base = { key: 1, seq: 1, at: 0 } as const;
+
+  it('names the session an entry belongs to', () => {
+    expect(describeRoomActivity({ ...base, type: 'tool.started', tool: 'code', ...CLAUDE_1 })).toBe('Claude 1 · 코드 편집 시작');
+    expect(describeRoomActivity({ ...base, type: 'turn.started', ...HERMES })).toBe('헤르메스 · 작업 시작');
+    expect(describeRoomActivity({ ...base, type: 'approval.requested', sessionKey: 'codex:x', kind: 'codex', ordinal: 2 })).toBe('Codex 2 · 승인 요청됨');
+  });
+
+  it('says who wrote to whom, never what', () => {
+    const message = { ...base, type: 'session.message', ...CLAUDE_1 } as const;
+    expect(describeRoomActivity({ ...message, toKey: 'codex:x', receiver: { kind: 'codex', ordinal: 1 } })).toBe('Claude 1 → Codex 1 메시지');
+    expect(describeRoomActivity({ ...message, toKey: 'hermes:h', receiver: { kind: 'hermes', ordinal: 0 } })).toBe('Claude 1 → 헤르메스 메시지');
+    expect(describeRoomActivity({ ...message, toKey: null, receiver: null })).toBe('Claude 1 메시지 보냄');
+    expect(describeRoomActivity({ ...message, toKey: 'codex:gone', receiver: null })).toBe('Claude 1 메시지 보냄');
+  });
+
+  it('ignores anything that is not a protocol enum', () => {
+    const sneaky = { ...base, type: 'session.message', ...CLAUDE_1, toKey: 'SECRET', body: 'SECRET' } as unknown as RoomEntry;
+    expect(describeRoomActivity(sneaky)).toBe('Claude 1 메시지 보냄');
+  });
+});
+
 describe('ActivityPanel (FR-P1–P4)', () => {
   it('is a labelled dialog listing entries newest first with time and fixed copy', () => {
     render(<ActivityPanel entries={entries} onClose={vi.fn()} formatTime={formatTime} />);
     const dialog = screen.getByRole('dialog', { name: '최근 활동' });
     const items = within(dialog).getAllByRole('listitem');
     expect(items.map((item) => item.textContent)).toEqual([
-      `t3000${describeActivity(entries[0]!)}`,
-      `t2000${describeActivity(entries[1]!)}`,
-      `t1000${describeActivity(entries[2]!)}`,
+      `t3000${describeRoomActivity(entries[0]!)}`,
+      `t2000${describeRoomActivity(entries[1]!)}`,
+      `t1000${describeRoomActivity(entries[2]!)}`,
     ]);
+    expect(items[0]).toHaveTextContent('헤르메스 · 터미널 실패');
   });
 
   it('marks failures and approvals so they stand out beyond colour', () => {
     render(
       <ActivityPanel
-        entries={[...entries, { key: 0, seq: 0, at: 0, type: 'approval.requested' }]}
+        entries={[...entries, { key: 0, seq: 0, at: 0, type: 'approval.requested', ...CLAUDE_1 }]}
         onClose={vi.fn()}
         formatTime={formatTime}
       />,
@@ -238,29 +267,13 @@ describe('ActivityPanel pet section (FR-G4–G6)', () => {
     expect(onRename).toHaveBeenCalledWith('콩이');
   });
 
-  it('invites a friend over, unless nobody can come right now (FR-R5)', async () => {
-    const onInvite = vi.fn();
-    const { rerender } = render(
-      <ActivityPanel entries={entries} onClose={vi.fn()} formatTime={formatTime} pet={pet({ onInvite, canInvite: true })} />,
-    );
-    await userEvent.click(screen.getByRole('button', { name: '친구 초대' }));
-    expect(onInvite).toHaveBeenCalledTimes(1);
-    rerender(<ActivityPanel entries={entries} onClose={vi.fn()} formatTime={formatTime} pet={pet({ onInvite, canInvite: false })} />);
-    const button = screen.getByRole('button', { name: '친구 초대' });
-    expect(button).toHaveAttribute('aria-disabled', 'true');
-    await userEvent.click(button);
-    expect(onInvite).toHaveBeenCalledTimes(1);
-  });
-
-  it('keeps keyboard focus on the invite button after it becomes unavailable', async () => {
-    const onInvite = vi.fn();
-    const props = { entries, onClose: vi.fn(), formatTime };
-    const { rerender } = render(<ActivityPanel {...props} pet={pet({ onInvite, canInvite: true })} />);
-    const button = screen.getByRole('button', { name: '친구 초대' });
-    await userEvent.click(button);
-    expect(button).toHaveFocus();
-    rerender(<ActivityPanel {...props} pet={pet({ onInvite, canInvite: false })} />);
-    expect(screen.getByRole('button', { name: '친구 초대' })).toHaveFocus();
+  it('has no invite button: friends are real sessions (ADR-022 §5)', () => {
+    render(<ActivityPanel entries={entries} onClose={vi.fn()} formatTime={formatTime} pet={pet()} />);
+    expect(within(screen.getByRole('group', { name: '펫' })).getAllByRole('button').map((b) => b.textContent)).toEqual([
+      '쓰다듬기',
+      '간식 주기 · 2',
+    ]);
+    expect(screen.queryByRole('button', { name: '친구 초대' })).toBeNull();
   });
 
   it('suggests Hermes as the name (ADR-019)', () => {
@@ -281,5 +294,40 @@ describe('ActivityPanel pet section (FR-G4–G6)', () => {
   it('disables snacks when none are left today', () => {
     render(<ActivityPanel entries={entries} onClose={vi.fn()} formatTime={formatTime} pet={pet({ snacksLeft: 0 })} />);
     expect(screen.getByRole('button', { name: '간식 주기, 오늘 0개 남음' })).toBeDisabled();
+  });
+});
+
+describe('ActivityPanel sessions in the room (FR-MS6)', () => {
+  const sessions: PanelSession[] = [
+    { key: 'demo:d', kind: 'demo', ordinal: 0, visual: 'coding', seated: true },
+    { key: 'claude-code:a', kind: 'claude-code', ordinal: 1, visual: 'waiting-approval', seated: true },
+    { key: 'codex:x', kind: 'codex', ordinal: 1, visual: 'error', seated: true },
+    { key: 'claude-code:e', kind: 'claude-code', ordinal: 5, visual: 'idle', seated: false },
+  ];
+
+  it('is absent unless sessions are given', () => {
+    render(<ActivityPanel entries={entries} onClose={vi.fn()} formatTime={formatTime} />);
+    expect(screen.queryByRole('group', { name: '방에 있는 세션' })).toBeNull();
+  });
+
+  it('lists Hermes and every friend with its state, marking friends who found no seat', () => {
+    render(<ActivityPanel entries={entries} onClose={vi.fn()} formatTime={formatTime} sessions={sessions} />);
+    const group = screen.getByRole('group', { name: '방에 있는 세션' });
+    const rows = within(group).getAllByRole('listitem');
+    expect(rows.map((row) => row.textContent)).toEqual([
+      '헤르메스코딩 중',
+      'Claude 1승인 대기 중',
+      'Codex 1오류',
+      'Claude 5대기 중(자리 없음)',
+    ]);
+    expect(rows.map((row) => row.getAttribute('data-tone'))).toEqual(['cool', 'amber', 'ember', 'cool']);
+    expect(rows[3]).toHaveAttribute('data-seated', 'false');
+    for (const row of rows) expect(row.querySelector('.session__dot')).not.toBeNull();
+  });
+
+  it('keeps the recent list separate from the session list', () => {
+    render(<ActivityPanel entries={entries} onClose={vi.fn()} formatTime={formatTime} sessions={sessions} />);
+    const list = screen.getByRole('list', { name: '최근 활동 목록' });
+    expect(within(list).getAllByRole('listitem')).toHaveLength(entries.length);
   });
 });

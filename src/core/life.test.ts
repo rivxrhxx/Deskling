@@ -131,18 +131,6 @@ describe('walking (FR-R6)', () => {
     }
   });
 
-  it('keeps its walk to the sofa when a friend is invited on the way to the TV', () => {
-    const path = pathBetween(SPOTS.bed.at, SPOTS.sofa.at);
-    const arriveAt = T0 + (pathLength(path) / walkSpeed('full')) * 1000;
-    const onTheWay: LifeState = {
-      ...initialLife(5, T0),
-      hermes: { activity: 'watch-tv', spot: 'sofa', path, departAt: T0, arriveAt },
-      until: arriveAt + IDLE_DURATION['watch-tv'],
-    };
-    const state = stepLife(onTheWay, input('idle', T0 + 3_000, { invite: true }));
-    expect(state.hermes).toMatchObject({ activity: 'host-friend', spot: 'sofa', path, departAt: T0, arriveAt });
-  });
-
   it('an idle activity where Hermes already is still lasts its full time', () => {
     const later = T0 + 60_000;
     const picked = new Set<Activity>();
@@ -164,15 +152,14 @@ describe('walking (FR-R6)', () => {
   });
 
   it('snaps to where it was going when motion becomes reduced mid-walk', () => {
-    let state = stepLife(initialLife(5, T0), input('coding', T0));
-    state = stepLife(state, input('coding', T0 + 100, { invite: true }));
+    let state = stepLife(initialLife(5, T0), input('delegated', T0));
     const mid = T0 + 1_000;
     expect(positionAt(state.hermes, mid).walking).toBe(true);
     expect(positionAt(state.friend!, mid).walking).toBe(true);
-    state = stepLife(state, input('coding', mid, { reducedMotion: true }));
+    state = stepLife(state, input('delegated', mid, { reducedMotion: true }));
     expect(state.hermes).toMatchObject({ path: [SPOTS.desk.at], departAt: mid, arriveAt: mid });
     expect(positionAt(state.hermes, mid)).toMatchObject({ at: SPOTS.desk.at, walking: false });
-    expect(state.friend).toMatchObject({ spot: 'sofa-2', path: [SPOTS['sofa-2'].at], departAt: mid, arriveAt: mid });
+    expect(state.friend).toMatchObject({ spot: 'helper', path: [SPOTS.helper.at], departAt: mid, arriveAt: mid });
   });
 });
 
@@ -210,15 +197,9 @@ describe('idle life (FR-R3, ADR-020)', () => {
     expect(other).not.toEqual(life);
   });
 
-  it('invites friends over now and then, who come in and leave through the door', () => {
-    const withFriend = life.filter((s) => s.friend !== null);
-    expect(withFriend.length).toBeGreaterThan(0);
-    const first = withFriend[0]!.friend!;
-    expect(first.path[0]).toEqual(SPOTS.outside.at);
-    const leaving = life.find((s) => s.friend?.spot === 'outside');
-    expect(leaving).toBeDefined();
-    const afterVisit = life.slice(life.indexOf(leaving!)).find((s) => s.friend === null);
-    expect(afterVisit).toBeDefined();
+  it('never has a visitor over on its own: friends are real sessions (ADR-022 §5)', () => {
+    expect(IDLE_ACTIVITIES).not.toContain('host-friend');
+    for (const state of life) expect(state.friend).toBeNull();
   });
 
   it('naps and eats more when energy is low', () => {
@@ -238,48 +219,27 @@ describe('idle life (FR-R3, ADR-020)', () => {
   });
 });
 
-describe('friends (FR-R4)', () => {
-  it('comes over when invited and leaves after the visit', () => {
-    let state = stepLife(initialLife(5, T0), input('idle', T0));
-    state = stepLife(state, input('idle', T0 + 100, { invite: true }));
-    expect(state.friend).toMatchObject({ role: 'guest', spot: 'sofa-2' });
-    expect(state.hermes).toMatchObject({ activity: 'host-friend', spot: 'sofa' });
-    const leaveAt = state.friendLeaveAt!;
-    state = stepLife(state, input('idle', leaveAt));
-    expect(state.friend).toMatchObject({ spot: 'outside' });
-    state = stepLife(state, input('idle', state.friend!.arriveAt));
-    expect(state.friend).toBeNull();
-  });
-
-  it('ignores invitations while asleep with the lights off', () => {
-    const state = stepLife(initialLife(5, T0), input('offline', T0, { invite: true }));
-    expect(state.friend).toBeNull();
-  });
-
-  it('a visiting friend may hang out on the sofa while Hermes works', () => {
-    let state = stepLife(initialLife(5, T0), input('coding', T0));
-    state = stepLife(state, input('coding', T0 + 100, { invite: true }));
-    expect(state.friend).toMatchObject({ role: 'guest', spot: 'sofa-2' });
-    expect(state.hermes).toMatchObject({ activity: 'type-code', spot: 'desk' });
-  });
-
+describe('the delegation helper (FR-R4)', () => {
   it('a friend helps at the side desk while work is delegated, then goes home', () => {
     let state = stepLife(initialLife(5, T0), input('delegated', T0));
-    expect(state.friend).toMatchObject({ role: 'helper', spot: 'helper' });
+    expect(state.friend).toMatchObject({ role: 'helper', activity: 'help', spot: 'helper' });
+    expect(state.friend!.path[0]).toEqual(SPOTS.outside.at);
     state = stepLife(state, input('success', T0 + 30_000));
-    expect(state.friend).toMatchObject({ spot: 'outside' });
+    expect(state.friend).toMatchObject({ activity: 'leave', spot: 'outside' });
+    state = stepLife(state, input('success', state.friend!.arriveAt));
+    expect(state.friend).toBeNull();
   });
 
-  it('everyone goes home when the agent goes offline', () => {
-    let state = stepLife(initialLife(5, T0), input('idle', T0, { invite: true }));
-    state = stepLife(state, input('offline', T0 + 1_000));
+  it('the helper goes home when the agent goes offline', () => {
+    let state = stepLife(initialLife(5, T0), input('delegated', T0));
+    state = stepLife(state, input('offline', T0 + 30_000));
     expect(state.friend?.spot).toBe('outside');
     expect(state.hermes).toMatchObject({ activity: 'sleep', spot: 'bed' });
   });
 
-  it('a friend sent home while coming in turns back at the door instead of crossing the room', () => {
+  it('a helper sent home while coming in turns back at the door instead of crossing the room', () => {
     let state = stepLife(initialLife(5, T0), input('idle', T0));
-    state = stepLife(state, input('idle', T0 + 100, { invite: true }));
+    state = stepLife(state, input('delegated', T0 + 100));
     const now = T0 + 600;
     const here = positionAt(state.friend!, now).at;
     state = stepLife(state, input('offline', now));
@@ -295,9 +255,16 @@ describe('friends (FR-R4)', () => {
     expect(state.friend).toBeNull();
   });
 
-  it('a friend on the way out is gone at once when motion becomes reduced', () => {
-    let state = stepLife(initialLife(5, T0), input('idle', T0, { invite: true }));
-    state = stepLife(state, input('offline', T0 + 1_000));
+  it('a helper on the way out turns back when work is delegated again', () => {
+    let state = stepLife(initialLife(5, T0), input('delegated', T0));
+    state = stepLife(state, input('success', T0 + 30_000));
+    state = stepLife(state, input('delegated', T0 + 31_000));
+    expect(state.friend).toMatchObject({ role: 'helper', activity: 'help', spot: 'helper' });
+  });
+
+  it('a helper on the way out is gone at once when motion becomes reduced', () => {
+    let state = stepLife(initialLife(5, T0), input('delegated', T0));
+    state = stepLife(state, input('offline', T0 + 30_000));
     const leaving = state.friend!;
     expect(leaving.spot).toBe('outside');
     const mid = (leaving.departAt + leaving.arriveAt) / 2;
@@ -306,21 +273,13 @@ describe('friends (FR-R4)', () => {
     expect(state.friend).toBeNull();
   });
 
-  it('an invited visit lasts until both are seated, plus the visit, like one Hermes starts himself', () => {
-    let state = stepLife(initialLife(5, T0), input('idle', T0, { energy: 'empty' }));
-    state = stepLife(state, input('idle', T0 + 100, { energy: 'empty', invite: true }));
-    const { hermes, friend } = state;
-    expect(hermes).toMatchObject({ activity: 'host-friend', spot: 'sofa' });
-    // A tired Hermes walks slowly, so he sits down after the friend.
-    expect(hermes.arriveAt).toBeGreaterThan(friend!.arriveAt);
-    expect(state.friendLeaveAt).toBe(hermes.arriveAt + IDLE_DURATION['host-friend']);
-    expect(state.until).toBe(state.friendLeaveAt);
-  });
-
-  it('while Hermes works, an invited visit is timed from the friend sitting down', () => {
-    let state = stepLife(initialLife(5, T0), input('coding', T0, { energy: 'empty' }));
-    state = stepLife(state, input('coding', T0 + 100, { energy: 'empty', invite: true }));
-    expect(state.friendLeaveAt).toBe(state.friend!.arriveAt + IDLE_DURATION['host-friend']);
+  it('nobody but the helper ever comes over: not while Hermes works, idles or sleeps', () => {
+    const day = simulate(5, [
+      { from: T0, visual: 'offline' },
+      { from: T0 + 5_000, visual: 'coding' },
+      { from: T0 + 60_000, visual: 'idle' },
+    ], T0 + 6 * 60_000, 1_000);
+    for (const state of day) expect(state.friend).toBeNull();
   });
 });
 
@@ -577,14 +536,14 @@ describe('guest views', () => {
   it('shows each friend in its seat with its own state', () => {
     const state = stepLife(initialLife(1, T0), input('idle', T0, { guests: [A, codex(1, 'coding')] }));
     const walking = guestViewsAt(state, T0 + 1_000);
-    expect(walking.map((v) => [v.key, v.phase, v.walking])).toEqual([
-      [A.key, 'arriving', true],
-      [B.key, 'arriving', true],
+    expect(walking.map((v) => [v.key, v.phase, v.walking, v.seat])).toEqual([
+      [A.key, 'arriving', true, 'guest-1'],
+      [B.key, 'arriving', true, 'guest-2'],
     ]);
     const later = guestViewsAt(state, T0 + SETTLED);
     expect(later).toEqual([
-      { key: A.key, kind: 'claude-code', ordinal: 1, visual: 'idle', phase: 'seated', at: SPOTS['guest-1'].at, walking: false, face: SPOTS['guest-1'].face, chat: null },
-      { key: B.key, kind: 'codex', ordinal: 1, visual: 'coding', phase: 'seated', at: SPOTS['guest-2'].at, walking: false, face: SPOTS['guest-2'].face, chat: null },
+      { key: A.key, kind: 'claude-code', ordinal: 1, visual: 'idle', phase: 'seated', seat: 'guest-1', at: SPOTS['guest-1'].at, walking: false, face: SPOTS['guest-1'].face, chat: null },
+      { key: B.key, kind: 'codex', ordinal: 1, visual: 'coding', phase: 'seated', seat: 'guest-2', at: SPOTS['guest-2'].at, walking: false, face: SPOTS['guest-2'].face, chat: null },
     ]);
   });
 

@@ -2,7 +2,8 @@ import { describe, expect, it } from 'vitest';
 import designDoc from '../../docs/DESIGN.md?raw';
 import { VISUAL_STATES } from '../core/agentEvent';
 import { IDLE_ACTIVITIES, IDLE_DURATION, IDLE_SPOT, REQUIRED } from '../core/life';
-import { emoteFor } from './miniroom/emote';
+import { emoteFor, guestEmoteFor } from './miniroom/emote';
+import { spriteFor } from './miniroom/pose';
 import { VISUAL_SPEC } from './visualSpec';
 
 const specs = VISUAL_STATES.map((state) => VISUAL_SPEC[state]);
@@ -81,6 +82,21 @@ describe('docs/DESIGN.md §4 matches the code', () => {
     } else {
       expect(activity).toMatch(/일상/);
     }
+  });
+});
+
+describe('docs/DESIGN.md §3.4 matches the session friends', () => {
+  const states = VISUAL_STATES.filter((state) => state !== 'offline');
+  const rows = tableRows('### 3.4', '## 4. 상태별 사양', states);
+  const codes = (cell: string | undefined) => new Set([...(cell ?? '').matchAll(/`([^`]+)`/g)].map((match) => match[1]));
+
+  it.each(states)('%s row agrees with the guest poses and emotes', (state) => {
+    const row = rows.get(state);
+    expect(row, `DESIGN.md §3.4 has no row for ${state}`).toBeDefined();
+    const [, pose, emote] = row ?? [];
+    const frames = [0, 1].map((frame) => spriteFor({ activity: 'visit', visual: state, walking: false, face: 'front-right', frame, who: 'claude' }).name.replace(/^claude-/, ''));
+    expect(codes(pose)).toEqual(new Set(frames));
+    expect(code(emote)).toBe(guestEmoteFor({ visual: state, walking: false, chat: null }) ?? undefined);
   });
 });
 

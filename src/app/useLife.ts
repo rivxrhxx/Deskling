@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import type { VisualState } from '../core/agentEvent';
-import type { Activity, Chat, ConversationInput, GuestInput, GuestView, LifeInput, LifeState } from '../core/life';
+import type { Activity, Chat, ConversationInput, GuestInput, GuestView, LifeState } from '../core/life';
 import { guestViewsAt, hermesChatAt, hermesFaceOverride, initialLife, positionAt, stepLife } from '../core/life';
 import type { EnergyLevel } from '../core/mood';
 import type { Facing, Tile } from '../core/room';
@@ -43,8 +43,6 @@ export interface LifeView {
   readonly hermesChat: Chat['kind'] | null;
   /** 0/1 animation frame; always 0 with reduced motion. */
   readonly frame: number;
-  /** Asks a friend over (no-op while offline or when someone is already visiting). */
-  readonly invite: () => void;
 }
 
 interface Clocked {
@@ -56,8 +54,8 @@ interface Clocked {
 const monotonic = () => performance.now();
 
 /**
- * Drives Hermes' life in the room (FR-R2–R6). The engine is pure; this hook only supplies time,
- * the agent's visual state and the invite button. Agent facts apply at once, not on the next tick.
+ * Drives Hermes' life in the room (FR-R2–R6) and the session friends (FR-MS2–MS5). The engine is pure;
+ * this hook only supplies time and the agent facts. Hermes' facts apply at once, not on the next tick.
  */
 export function useLife({
   visual,
@@ -81,11 +79,11 @@ export function useLife({
     return { life, at, frame: 0 };
   });
 
-  const advance = useCallback((extra: Partial<LifeInput> = {}, flip = false) => {
+  const advance = useCallback((flip = false) => {
     const { now: clock, ...current } = input.current;
     const at = clock();
     setClocked((prev) => ({
-      life: stepLife(prev.life, { ...current, now: at, ...extra }),
+      life: stepLife(prev.life, { ...current, now: at }),
       at,
       frame: current.reducedMotion ? 0 : flip ? 1 - prev.frame : prev.frame,
     }));
@@ -97,15 +95,13 @@ export function useLife({
   }, [visual, energy, reducedMotion, advance]);
 
   useEffect(() => {
-    const id = setInterval(() => advance({}, true), reducedMotion ? STILL_TICK_MS : LIFE_TICK_MS);
+    const id = setInterval(() => advance(true), reducedMotion ? STILL_TICK_MS : LIFE_TICK_MS);
     return () => clearInterval(id);
   }, [reducedMotion, advance]);
-
-  const invite = useCallback(() => advance({ invite: true }), [advance]);
 
   const { life, at, frame } = clocked;
   const place = positionAt(life.hermes, at);
   const hermes = { activity: life.hermes.activity, ...place, face: hermesFaceOverride(life, at, residentKey) ?? place.face };
   const friend = life.friend ? { activity: life.friend.activity, look: life.friend.look, ...positionAt(life.friend, at) } : null;
-  return { hermes, friend, guests: guestViewsAt(life, at), hermesChat: hermesChatAt(life, at, residentKey), frame, invite };
+  return { hermes, friend, guests: guestViewsAt(life, at), hermesChat: hermesChatAt(life, at, residentKey), frame };
 }

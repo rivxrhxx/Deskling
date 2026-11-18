@@ -437,7 +437,10 @@ describe('reduceRoom — merged recent activity (FR-MS6)', () => {
       { key: 1, seq: 1, at: 100, type: 'turn.started', sessionKey: 'hermes:h-1', kind: 'hermes', ordinal: 0 },
     ]);
     expect(state.entryCount).toBe(3);
-    for (const entry of state.recent) expect(entry).not.toHaveProperty('toKey');
+    for (const entry of state.recent) {
+      expect(entry).not.toHaveProperty('toKey');
+      expect(entry).not.toHaveProperty('receiver');
+    }
   });
 
   it(`keeps at most ${RECENT_LIMIT} entries but keeps counting, with unique keys`, () => {
@@ -486,6 +489,7 @@ describe('reduceRoom — conversations between sessions (FR-MS5, ADR-023)', () =
       kind: 'claude-code',
       ordinal: 1,
       toKey: 'codex:x',
+      receiver: { kind: 'codex', ordinal: 1 },
     });
     expect(state.conversations).toEqual([{ key: 1, from: 'claude-code:a', to: 'codex:x' }]);
     expect(state.conversationCount).toBe(1);
@@ -493,8 +497,26 @@ describe('reduceRoom — conversations between sessions (FR-MS5, ADR-023)', () =
 
   it('records a message without a known receiver with a null target', () => {
     const state = run(ev(HERMES, 'session.message'));
-    expect(state.recent[0]).toMatchObject({ type: 'session.message', sessionKey: 'hermes:h-1', toKey: null });
+    expect(state.recent[0]).toMatchObject({ type: 'session.message', sessionKey: 'hermes:h-1', toKey: null, receiver: null });
     expect(state.conversations).toEqual([{ key: 1, from: 'hermes:h-1', to: null }]);
+  });
+
+  it('names the receiver as it was in the room when the message was sent (FR-MS6)', () => {
+    const toHermes = run(ev(HERMES, 'agent.online'), ev(claude('a'), 'agent.online'), ev(claude('b'), 'session.message', { to: HERMES }));
+    expect(toHermes.recent[0]).toMatchObject({ toKey: 'hermes:h-1', receiver: { kind: 'hermes', ordinal: 0 } });
+
+    // Not in the room (never came, or already left): no receiver, like the letter in the scene.
+    const absent = run(ev(codex('x'), 'agent.online'), ev(codex('x'), 'agent.offline'), ev(claude('a'), 'session.message', { to: codex('x') }));
+    expect(absent.recent[0]).toMatchObject({ toKey: 'codex:x', receiver: null });
+
+    // Later changes do not rewrite history.
+    const later = reduceRoom(toHermes, ev(claude('a'), 'agent.offline'));
+    expect(later.recent[1]).toMatchObject({ sessionKey: 'claude-code:b', ordinal: 2, receiver: { kind: 'hermes', ordinal: 0 } });
+  });
+
+  it('a message to itself has no receiver', () => {
+    const state = run(ev(claude('a'), 'agent.online'), ev(claude('a'), 'session.message', { to: claude('a') }));
+    expect(state.recent[0]).toMatchObject({ toKey: 'claude-code:a', receiver: null });
   });
 
   it('does not seat the receiver of a message', () => {
