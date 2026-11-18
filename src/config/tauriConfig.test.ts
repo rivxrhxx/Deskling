@@ -53,9 +53,11 @@ describe('capabilities (SEC-5)', () => {
     expect(capability.windows).toEqual(['main']);
   });
 
-  it('grants only the five window permissions Deskling needs — no core:default bundle (review T34b, ADR-021)', () => {
+  it('grants only the five window permissions and event listening — no core:default bundle (review T34b, ADR-021, ADR-024)', () => {
     expect([...capability.permissions].sort()).toEqual(
       [
+        'core:event:allow-listen',
+        'core:event:allow-unlisten',
         'core:window:allow-close',
         'core:window:allow-set-always-on-top',
         'core:window:allow-set-always-on-bottom',
@@ -65,9 +67,15 @@ describe('capabilities (SEC-5)', () => {
     );
   });
 
-  it('grants nothing outside the window plugin (no path, tray, menu, event or app APIs)', () => {
+  it('grants nothing outside the window plugin except listening to events (no path, tray, menu or app APIs)', () => {
     for (const permission of capability.permissions) {
-      expect(permission).toMatch(/^core:window:allow-/);
+      expect(permission).toMatch(/^(core:window:allow-|core:event:allow-(listen|unlisten)$)/);
+    }
+  });
+
+  it('lets the webview listen to hook records but never emit events (ADR-024 §6)', () => {
+    for (const forbidden of ['core:event:default', 'core:event:allow-emit', 'core:event:allow-emit-to']) {
+      expect(capability.permissions).not.toContain(forbidden);
     }
   });
 

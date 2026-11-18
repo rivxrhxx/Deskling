@@ -1,7 +1,7 @@
 {
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
-  "description": "Desktop widget window permissions only: drag, layer (top/bottom), size presets, close (SEC-5, ADR-021). No core:default bundle.",
+  "description": "Desktop widget window permissions (drag, layer top/bottom, size presets, close; SEC-5, ADR-021) plus listening to validated hook records (ADR-024). No core:default bundle, no event emit.",
   "windows": [
     "main"
   ],
@@ -10,6 +10,8 @@
     "core:window:allow-set-always-on-top",
     "core:window:allow-set-always-on-bottom",
     "core:window:allow-set-size",
-    "core:window:allow-close"
+    "core:window:allow-close",
+    "core:event:allow-listen",
+    "core:event:allow-unlisten"
   ]
 }

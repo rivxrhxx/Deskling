@@ -94,6 +94,7 @@
 - **맥락:** 독립 보안 리뷰(T34)에서 `core:default`가 경로 조회(홈 디렉터리 노출), 트레이·메뉴, 이벤트, devtools 토글까지 webview에 허용한다는 지적.
 - **결정:** `core:window:allow-start-dragging`, `allow-set-always-on-top`, `allow-set-size`, `allow-close`만 허용한다. `getCurrentWindow()`는 IPC를 쓰지 않으므로 추가 권한이 필요 없다.
 - **결과:** 축소된 capability로 dev 빌드에서 실제 크기 변경(416×364)과 항상 위 해제(window layer 0)를 확인했다. 새 창 API를 쓰려면 이 ADR을 갱신하고 `tauriConfig.test.ts`를 함께 바꾼다.
+- **갱신:** ADR-021에서 `allow-set-always-on-bottom`, ADR-024에서 `core:event:allow-listen`·`allow-unlisten`을 추가했다(총 7개). emit 권한은 없다.
 
 ## ADR-016 사용량 지표 이벤트(AgentEvent v2): 에너지 = 남은 토큰, 화남 = 컨텍스트 채움 — 채택 (2026-11-18)
 
@@ -225,6 +226,10 @@
   5. **TS adapter** `src/adapters/claudeCode/`: 훅 레코드 → AgentEvent v3(kind `claude-code`)로 번역하는 순수 함수 + 세션별 seq·승인 대기·위임 상태.
      `src/platform/`만 Tauri 이벤트를 듣는다(ADR-008 경계). webview는 번역된 이벤트를 다시 정규화한다(이중 검증).
   6. capability에 이벤트 수신 권한(`core:event:allow-listen`, `core:event:allow-unlisten`)만 추가한다(ADR-015 갱신).
+  - **구현 메모(T72/T73 검증으로 확정):** `tool`은 tool-start/tool-end에서 **필수**, `ok`는 tool-end에서 필수이고 다른 이벤트에서는 거부한다.
+    Claude Code에는 "승인 처리됨" 훅이 없어서 adapter가 그 세션의 다음 tool-end·prompt·stop·stop-failure·session-end를 해제로 본다.
+    승인은 `PermissionRequest` 하나만 등록한다(`Notification(permission_prompt)`는 약 6초 늦고 중복). `SubagentStop`은 내부 에이전트에도 불려서 위임 종료로 쓰지 않는다.
+    macOS에서 쓰는 쪽이 이미 닫힌 소켓에 읽기 타임아웃을 걸면 EINVAL이 나므로 브리지는 논블로킹 읽기로 대신한다(테스트 있음). 소켓 경로는 104바이트 제한.
   7. 패널에 "실제 / 데모" 전환. 실제 모드에서는 DEMO 배지가 없고, 연결된 세션이 없으면 헤르메스는 잔다.
   8. 사용자의 `~/.claude/settings.json`에 훅을 넣는 것은 **사용자가 동의할 때만**(설치 스크립트가 백업을 만들고, 제거 명령도 제공).
   9. Claude Code의 토큰·컨텍스트 수치는 transcript(대화 내용 파일)를 읽어야 하므로 가져오지 않는다. Claude 친구의 에너지·화남은 unknown.

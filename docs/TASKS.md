@@ -125,8 +125,8 @@
 
 ## M11 Claude Code 실제 연결 (ADR-024)
 
-- [ ] **T72** 훅 스크립트 `integrations/claude-code/deskling-hook.mjs` + 매핑 문서 — FR-CC1
-- [ ] **T73** Rust 소켓 브리지 + capability(이벤트 수신) — FR-CC2
+- [x] **T72** 훅 스크립트 `integrations/claude-code/deskling-hook.mjs` + 매핑 문서 — FR-CC1
+- [x] **T73** Rust 소켓 브리지 + capability(이벤트 수신) — FR-CC2
 - [ ] **T74** TS adapter `src/adapters/claudeCode/` + platform 수신 + 실제/데모 전환 — FR-CC3, FR-CC4, FR-CC6
 - [ ] **T75** 설치/제거 스크립트(백업), 사용자 동의 후 설치, 실제 세션으로 네이티브 검증 — FR-CC5
 

@@ -54,11 +54,12 @@
 
 ```
 src/core/       순수 TypeScript. 이벤트 규격, 정규화, 리듀서. React·Tauri import 금지.
-src/adapters/   이벤트 소스(demo, 향후 hermes). React·UI import 금지. 원시 데이터를 내보내고 정규화는 core가 한다.
-src/platform/   네이티브 창 API 래퍼. `@tauri-apps/*`를 import할 수 있는 유일한 프런트엔드 폴더.
+src/adapters/   이벤트 소스(demo, claudeCode, 향후 hermes). React·UI import 금지. 원시 데이터를 내보내고 정규화는 core가 한다.
+src/platform/   네이티브 창 API·이벤트 수신 래퍼. `@tauri-apps/*`를 import할 수 있는 유일한 프런트엔드 폴더.
 src/app/        조립 레이어. 소스 → 정규화 → 리듀서 → UI 연결, 설정 저장.
 src/ui/         표현 컴포넌트. 시각 상태만 받는다. adapters·platform·Tauri import 금지.
-src-tauri/      Rust/Tauri 셸. 창 설정과 capability.
+src-tauri/      Rust/Tauri 셸. 창 설정과 capability, 훅 레코드 Unix 소켓 브리지(ADR-024).
+integrations/   앱 밖에서 도는 연동 스크립트(Claude Code 훅). 의존성 없음, 출력 없음, 레코드 필드만 보냄.
 ```
 
 경계는 `eslint.config.js`의 `no-restricted-imports`로 강제한다. 규칙을 끄지 말고 구조를 고친다.

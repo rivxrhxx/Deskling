@@ -135,7 +135,7 @@
 | SEC-2 | 프롬프트 전문, 파일 내용, 파일 경로, 터미널 명령어, 환경변수, API 키, Authorization 헤더, raw tool arguments를 UI·로그·저장소에 남기지 않는다. | S |
 | SEC-3 | 검증 실패 로그에는 에러 코드만 남기고 입력값을 포함하지 않는다. | S |
 | SEC-4 | 앱은 에이전트에게 명령을 보내거나 승인을 대신하는 기능이 없다. | S |
-| SEC-5 | Tauri capability는 필요한 창 권한만 허용한다(드래그, 항상 위, 항상 아래, 크기, 닫기). 셸·파일시스템 플러그인을 쓰지 않는다. | S |
+| SEC-5 | Tauri capability는 필요한 창 권한(드래그, 항상 위, 항상 아래, 크기, 닫기)과 이벤트 수신(listen/unlisten, ADR-024)만 허용한다. emit·셸·파일시스템 권한은 없다. | S |
 | SEC-6 | Provider 전용 로직은 adapter 레이어에만 있고 UI 컴포넌트에는 없다(린트로 강제). | S |
 | SEC-7 | localStorage에는 UI 설정(`deskling.settings.v1`)과 펫 프로필(`deskling.pet.v1`: 숫자와 사용자 이름)만 저장한다(ADR-018). | M |
 
