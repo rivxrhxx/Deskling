@@ -4,6 +4,7 @@ import { createDemoSource } from '../adapters/demo/demoSource';
 import { DEMO_SCRIPTS } from '../adapters/demo/scripts';
 import type { AgentEventSource, SourceMode } from '../adapters/types';
 import { VISUAL_STATES } from '../core/agentEvent';
+import { SPOTS, toScreen } from '../core/room';
 import { mockReducedMotion } from '../test/matchMedia';
 import { VISUAL_SPEC } from '../ui/visualSpec';
 import { App } from './App';
@@ -33,7 +34,7 @@ const raw = (seq: number, type: string, extra: Record<string, unknown> = {}) => 
 });
 
 const statusText = () => screen.getByRole('status').textContent;
-const sceneState = () => screen.getByRole('img', { name: /미니어처 작업실/ }).getAttribute('data-state');
+const sceneState = () => screen.getByRole('img', { name: /헤르메스의 방/ }).getAttribute('data-state');
 
 beforeEach(() => {
   mockReducedMotion(false);
@@ -256,7 +257,7 @@ describe('App window dragging (FR-W3, ADR-008)', () => {
     const { fireEvent } = await import('@testing-library/react');
     const controls = fakeControls();
     render(<App source={manualSource().source} controls={controls} storage={fakeStorage()} />);
-    fireEvent.mouseDown(screen.getByRole('img', { name: /미니어처 작업실/ }), { button: 0 });
+    fireEvent.mouseDown(screen.getByRole('img', { name: /헤르메스의 방/ }), { button: 0 });
     expect(controls.startDragging).toHaveBeenCalledTimes(1);
   });
 
@@ -264,7 +265,7 @@ describe('App window dragging (FR-W3, ADR-008)', () => {
     const { fireEvent } = await import('@testing-library/react');
     const controls = fakeControls();
     render(<App source={manualSource().source} controls={controls} storage={fakeStorage()} />);
-    fireEvent.mouseDown(screen.getByRole('img', { name: /미니어처 작업실/ }), { button: 2 });
+    fireEvent.mouseDown(screen.getByRole('img', { name: /헤르메스의 방/ }), { button: 2 });
     expect(controls.startDragging).not.toHaveBeenCalled();
   });
 
@@ -373,21 +374,49 @@ describe('App settings updates (review T34g)', () => {
   });
 });
 
-describe('App hotspot follows the character (FR-V7)', () => {
-  it('sits over the bed while idle and over the desk while working', () => {
+describe('App: Hermes lives in the room (FR-R2–R6, FR-V7)', () => {
+  const scene = () => screen.getByRole('img', { name: /헤르메스의 방/ });
+  const hermes = () => scene().querySelector('[data-part="hermes"]');
+
+  it('sleeps until the agent connects, then goes to the desk when a task starts — and the hotspot follows', () => {
+    vi.useFakeTimers();
     const live = manualSource('live');
     render(<App source={live.source} controls={fakeControls()} storage={fakeStorage()} />);
     const hotspot = screen.getByRole('button', { name: '최근 활동 보기' });
+    expect(hermes()).toHaveAttribute('data-activity', 'sleep');
+
     live.emit(raw(1, 'agent.online'));
-    expect(hotspot).toHaveAttribute('data-place', 'bed');
     live.emit(raw(2, 'turn.started'));
-    expect(hotspot).toHaveAttribute('data-place', 'desk');
+    expect(hermes()).toHaveAttribute('data-activity', 'ponder');
+    act(() => vi.advanceTimersByTime(10_000));
+
+    expect(hermes()).toHaveAttribute('data-walking', 'false');
+    const desk = toScreen(SPOTS.desk.at);
+    expect(hotspot.style.getPropertyValue('--hx')).toBe(String(desk.x));
+    expect(hotspot.style.getPropertyValue('--hy')).toBe(String(desk.y));
+  });
+
+  it('invites a friend over from the panel', async () => {
+    const { fireEvent } = await import('@testing-library/react');
+    vi.useFakeTimers();
+    const live = manualSource('live');
+    render(<App source={live.source} controls={fakeControls()} storage={fakeStorage()} />);
+    fireEvent.click(screen.getByRole('button', { name: '최근 활동 보기' }));
+    expect(screen.getByRole('button', { name: '친구 초대' })).toBeDisabled();
+
+    live.emit(raw(1, 'agent.online'));
+    const invite = screen.getByRole('button', { name: '친구 초대' });
+    if (!invite.hasAttribute('disabled')) fireEvent.click(invite);
+    act(() => vi.advanceTimersByTime(4_000));
+
+    expect(scene().querySelector('[data-part="friend"]')).not.toBeNull();
+    expect(scene()).toHaveAttribute('data-state', 'idle');
   });
 });
 
 describe('App vitals: usage → energy/anger → scene and panel (FR-V2–V6)', () => {
   const usageRaw = (seq: number, usage: object) => ({ ...raw(seq, 'usage.reported'), version: 2, usage });
-  const scene = () => screen.getByRole('img', { name: /미니어처 작업실/ });
+  const scene = () => screen.getByRole('img', { name: /헤르메스의 방/ });
 
   it('turns reported usage into scene moods without numbers in the scene', () => {
     const live = manualSource('live');
@@ -432,8 +461,8 @@ describe('App vitals: usage → energy/anger → scene and panel (FR-V2–V6)', 
 });
 
 describe('App growing the desktop pet (FR-G1–G6, ADR-018)', () => {
-  const scene = () => screen.getByRole('img', { name: /미니어처 작업실/ });
-  const stage = () => scene().querySelector('[data-part="growth"]')?.getAttribute('data-stage');
+  const scene = () => screen.getByRole('img', { name: /헤르메스의 방/ });
+  const stage = () => scene().querySelector('[data-part="hermes"]')?.getAttribute('data-stage');
 
   function completeTurns(live: ReturnType<typeof manualSource>, count: number, startSeq = 1) {
     let seq = startSeq;
@@ -484,15 +513,15 @@ describe('App growing the desktop pet (FR-G1–G6, ADR-018)', () => {
     expect(JSON.parse(storage.data.get('deskling.pet.v1') ?? '{}').live.name).toBe('콩이');
 
     fireEvent.click(screen.getByRole('button', { name: '쓰다듬기' }));
-    expect(scene().querySelector('[data-part="reaction-hearts"]')).not.toBeNull();
+    expect(scene().querySelector('[data-emote="heart"]')).not.toBeNull();
     expect(scene()).toHaveAttribute('data-state', 'thinking');
     expect(scene()).toHaveAttribute('data-energy', 'low');
 
     act(() => vi.advanceTimersByTime(2200));
-    expect(scene().querySelector('[data-part="reaction-hearts"]')).toBeNull();
+    expect(scene().querySelector('[data-emote="heart"]')).toBeNull();
 
     fireEvent.click(screen.getByRole('button', { name: '간식 주기, 오늘 3개 남음' }));
-    expect(scene().querySelector('[data-part="reaction-snack"]')).not.toBeNull();
+    expect(scene().querySelector('[data-part="cookie"]')).not.toBeNull();
     expect(screen.getByRole('img', { name: '애정도 하트 5개 중 1개' })).toBeInTheDocument();
   });
 

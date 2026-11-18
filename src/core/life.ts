@@ -52,7 +52,7 @@ export const REQUIRED: Readonly<Record<VisualState, { activity: RequiredActivity
   error: { activity: 'frustrated', spot: 'desk' },
 };
 
-const IDLE_SPOT: Readonly<Record<IdleActivity, SpotId>> = {
+export const IDLE_SPOT: Readonly<Record<IdleActivity, SpotId>> = {
   shower: 'shower',
   eat: 'table',
   'watch-tv': 'sofa',

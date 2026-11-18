@@ -1,21 +1,22 @@
-import type { Ref } from 'react';
+import type { CSSProperties, Ref } from 'react';
 
 /**
- * An invisible HTML button laid over the character (the SVG scene is role="img", so it cannot
- * contain accessible controls). Native button semantics give click, Enter and Space for free.
+ * An invisible HTML button laid over Hermes (the SVG scene is role="img", so it cannot contain
+ * accessible controls). Native button semantics give click, Enter and Space for free.
  */
 export function CharacterHotspot({
   expanded,
   onActivate,
   buttonRef,
-  place,
+  at,
 }: {
   expanded: boolean;
   onActivate: () => void;
   buttonRef?: Ref<HTMLButtonElement>;
-  /** Follows the character between desk and bed (ADR-017). */
-  place: 'desk' | 'bed';
+  /** Hermes' feet in the room's 480×320 viewBox; the hotspot follows him around (FR-V7). */
+  at: { x: number; y: number };
 }) {
+  const style = { '--hx': String(at.x), '--hy': String(at.y) } as CSSProperties;
   return (
     <button
       ref={buttonRef}
@@ -25,7 +26,7 @@ export function CharacterHotspot({
       aria-haspopup="dialog"
       aria-expanded={expanded}
       onClick={onActivate}
-      data-place={place}
+      style={style}
       data-no-drag=""
     />
   );

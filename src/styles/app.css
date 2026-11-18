@@ -134,36 +134,6 @@ body {
   }
 }
 
-/* ---- Character hotspot -------------------------------------------------------------------- */
-/* Matches the character's box in the 400×260 viewBox (desk: x 160–212, y 104–176); the SVG is 100vw wide. */
-.character-hotspot {
-  position: absolute;
-  left: calc(100vw * 160 / 400);
-  width: calc(100vw * 52 / 400);
-  bottom: calc(100vw * 84 / 400);
-  height: calc(100vw * 72 / 400);
-  z-index: 2;
-  padding: 0;
-  border: 0;
-  border-radius: 40%;
-  background: transparent;
-  cursor: pointer;
-}
-
-/* In bed the character lies across the pillow end (x 60–120, y 124–180). */
-.character-hotspot[data-place='bed'] {
-  left: calc(100vw * 60 / 400);
-  width: calc(100vw * 60 / 400);
-  bottom: calc(100vw * 80 / 400);
-  height: calc(100vw * 56 / 400);
-}
-
-.character-hotspot:focus-visible {
-  outline: 2px solid var(--tone-violet);
-  outline-offset: 2px;
-}
-
-/* ---- Small icon buttons ------------------------------------------------------------------- */
 .icon-button {
   display: inline-grid;
   place-items: center;

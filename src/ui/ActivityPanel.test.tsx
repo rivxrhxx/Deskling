@@ -222,7 +222,7 @@ describe('ActivityPanel pet section (FR-G4–G6)', () => {
     const onRename = vi.fn();
     render(<ActivityPanel entries={entries} onClose={vi.fn()} formatTime={formatTime} pet={pet({ onRename })} />);
     const input = screen.getByRole('textbox', { name: '이름' });
-    expect(input).toHaveAttribute('placeholder', '이름을 지어 주세요');
+    expect(input).toHaveAttribute('placeholder', '헤르메스');
     expect(input).toHaveAttribute('maxLength', '12');
     await userEvent.type(input, '콩이{Enter}');
     expect(onRename).toHaveBeenCalledWith('콩이');
@@ -236,6 +236,22 @@ describe('ActivityPanel pet section (FR-G4–G6)', () => {
     await userEvent.type(input, '이');
     await userEvent.tab();
     expect(onRename).toHaveBeenCalledWith('콩이');
+  });
+
+  it('invites a friend over, unless nobody can come right now (FR-R5)', async () => {
+    const onInvite = vi.fn();
+    const { rerender } = render(
+      <ActivityPanel entries={entries} onClose={vi.fn()} formatTime={formatTime} pet={pet({ onInvite, canInvite: true })} />,
+    );
+    await userEvent.click(screen.getByRole('button', { name: '친구 초대' }));
+    expect(onInvite).toHaveBeenCalledTimes(1);
+    rerender(<ActivityPanel entries={entries} onClose={vi.fn()} formatTime={formatTime} pet={pet({ onInvite, canInvite: false })} />);
+    expect(screen.getByRole('button', { name: '친구 초대' })).toBeDisabled();
+  });
+
+  it('suggests Hermes as the name (ADR-019)', () => {
+    render(<ActivityPanel entries={entries} onClose={vi.fn()} formatTime={formatTime} pet={pet()} />);
+    expect(screen.getByRole('textbox', { name: '이름' })).toHaveAttribute('placeholder', '헤르메스');
   });
 
   it('pets and feeds', async () => {

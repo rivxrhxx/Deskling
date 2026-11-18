@@ -27,10 +27,10 @@ Deskling은 Tauri 2 셸 안에서 React 프런트엔드가 동작하는 데스�
  src/core/agentState.ts   reduceAgentState(state, event)   ← 순수 함수
           │ AgentViewState { visual, recent, ... }
           ▼
- src/app/  useAgentFeed() → <App/>  (조립, 설정)
-          │ visual state, recent entries, settings
+ src/app/  useAgentFeed() · useLife() · usePet() → <App/>  (조립, 설정)
+          │ visual state, Hermes/friend 위치, recent entries, settings
           ▼
- src/ui/   Workshop(SVG), StatusBubble, DemoBadge, ActivityPanel, WindowToolbar
+ src/ui/   MiniRoom(SVG), StatusBubble, DemoBadge, ActivityPanel, WindowToolbar
           │ 사용자 조작(크기·투명도·항상 위·드래그·닫기)
           ▼
  src/platform/windowControls.ts  → @tauri-apps/api window  → Tauri 창
@@ -105,16 +105,18 @@ Tauri 런타임이면 `@tauri-apps/api/window` 구현, 아니면(브라우저·�
 - `useAgentFeed.ts`: 소스 구독 → ingest → `useReducer`.
 - `settings.ts`: 설정 검증·로드·저장(try/catch, 기본값 폴백).
 - `useReducedMotion.ts`: `prefers-reduced-motion` 구독 + 사용자 설정 결합.
+- `useLife.ts`: 순수 생활 엔진(`core/life.ts`)에 시계·틱(300ms)·초대를 공급한다. 에이전트 상태 변화는 그리기 전에 즉시 반영한다(ADR-020).
 
 ### 3.9 `src/ui/`
-- `visualSpec.ts`: 상태별 라벨·아이콘·포즈·톤 표(단일 진실 공급원).
-- `workshop/`: SVG 작업실(`Workshop`, `Character`, `MonitorScreen`, `Helper`).
+- `visualSpec.ts`: 상태별 라벨·설명·아이콘·톤·모니터 화면 표(단일 진실 공급원). 행동·장소는 `core/life.ts`.
+- `miniroom/`: 픽셀 미니룸(`MiniRoom`, `Actor`, `MonitorScreen`, `IsoBox`), 순수 함수 `spriteFor`·`emoteFor`, 픽셀 맵 `sprites`.
 - `StatusBubble`, `DemoBadge`, `ActivityPanel`, `WindowToolbar`, `icons`.
 
 ## 4. 네이티브 창 (src-tauri)
 
-- `tauri.conf.json`: `transparent: true`, `decorations: false`, `alwaysOnTop: true`, `shadow: false`,
-  `visibleOnAllWorkspaces: true`, 기본 400×280(ADR-017), `app.macOSPrivateApi: true`(macOS 투명 창에 필요, ADR-007).
+- `tauri.conf.json`: `transparent: true`, `decorations: false`, `alwaysOnTop: false`, `shadow: false`,
+  `visibleOnAllWorkspaces: true`, 기본 480×340(ADR-021), `app.macOSPrivateApi: true`(macOS 투명 창에 필요, ADR-007).
+  바탕화면 층(always on bottom)은 앱이 실행 중에 설정한다(ADR-021).
 - `capabilities/default.json`: 창 드래그·항상 위·크기·닫기 권한 4개만. `core:default`는 쓰지 않는다(ADR-015).
 - Rust 측은 현재 Tauri 빌더만 실행한다. 로그 플러그인을 쓰지 않는다(ADR-009).
 

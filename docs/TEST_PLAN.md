@@ -13,7 +13,7 @@
 | 레벨 | 대상 | 도구 | 위치 |
 | --- | --- | --- | --- |
 | 단위 | core(정규화, 리듀서, ingest), demo 스크립트·소스, settings | Vitest (node/jsdom) | `src/**/*.test.ts` |
-| 컴포넌트 | StatusBubble, DemoBadge, Workshop, ActivityPanel, WindowToolbar | Vitest + RTL + jsdom | `src/ui/**/*.test.tsx` |
+| 컴포넌트 | StatusBubble, DemoBadge, MiniRoom, ActivityPanel, WindowToolbar | Vitest + RTL + jsdom | `src/ui/**/*.test.tsx` |
 | 통합 | App + demo source + fake timers + mock WindowControls | Vitest + RTL | `src/app/*.test.tsx` |
 | 설정 | `tauri.conf.json`, capability, 레이어 경계 린트 규칙 | Vitest (JSON import, ESLint API) | `src/config/*.test.ts` |
 | 네이티브 | Rust 컴파일·clippy·fmt, 앱 번들 | cargo, tauri CLI | `npm run verify`, `npm run build:app` |
@@ -32,8 +32,8 @@
 | FR-D2, FR-D3 | `src/adapters/demo/scripts.test.ts` | 스크립트를 리듀서에 적용한 시각 상태 열 |
 | FR-D1, FR-D4 | `src/adapters/demo/demoSource.test.ts` | 고정 간격, 반복, seq 증가, stop 후 무발행 |
 | FR-D6 | `src/adapters/demo/scripts.test.ts` | 모든 스크립트 이벤트가 정규화 통과 |
-| FR-S3 | `src/ui/visualSpec.test.ts` | 11개 상태, 포즈·아이콘·라벨 모두 고유 |
-| FR-S1, FR-S6 | `src/ui/workshop/Workshop.test.tsx` | 상태별 `data-pose`, 화면 `data-screen`, 텍스트 노드 없음 |
+| FR-S3 | `src/ui/visualSpec.test.ts` | 11개 상태, 라벨·아이콘·화면·행동 모두 고유, DESIGN §4·§4.3 표와 코드 일치 |
+| FR-S1, FR-S6 | `src/ui/miniroom/MiniRoom.test.tsx` | 가구, 상태별 화면 `data-screen`, 포즈 `data-pose`, 텍스트 노드 없음 |
 | FR-S4 | `src/ui/StatusBubble.test.tsx` | `role=status`, 아이콘·라벨 |
 | FR-D5 | `src/ui/DemoBadge.test.tsx`, `src/app/App.test.tsx` | 데모 모드 모든 상태에서 배지 |
 | FR-M1~M3 | `src/app/useReducedMotion.test.tsx`, `src/app/App.test.tsx` | `data-motion` 값 |
@@ -45,12 +45,17 @@
 | SEC-6 | `src/config/boundaries.test.ts` | ui에서 adapters·tauri import 시 린트 에러, 동적 import·`__TAURI*` 금지 |
 | FR-V1 | `src/core/normalize.test.ts`, `src/core/agentState.test.ts` | v2 `usage.reported` 숫자만, `bad-usage`, 세션별 스냅샷, 최근 목록 제외 |
 | FR-V2, FR-V3 | `src/core/mood.test.ts` | 에너지·화남 단계 경계값 |
-| FR-V4 | `src/ui/workshop/Workshop.test.tsx` | 캔 수, 눈꺼풀, 눈썹 모양, 핏줄, 김, 잠잘 때 숨김, 텍스트 없음 |
+| FR-V4 | `src/ui/miniroom/MiniRoom.test.tsx` | 캔 수, 이모트 우선순위(땀·핏줄·김·배터리), 잠잘 때 z 우선, 텍스트 없음 |
 | FR-V5, FR-V6 | `src/ui/ActivityPanel.test.tsx`, `src/app/settings.test.ts`, `src/app/App.test.tsx` | 숫자·meter·보고 없음, 예산 선택·저장·재계산 |
 | FR-G1, FR-G6 | `src/core/agentState.test.ts`, `src/app/pet.test.ts`, `src/app/usePet.test.tsx`, `src/app/App.test.tsx` | completedTurns, 증가분만 경험치, demo/live 분리, 저장·재시작 |
-| FR-G2, FR-G3 | `src/core/growth.test.ts`, `src/ui/workshop/Workshop.test.tsx` | 단계·해금 경계값, 크기·목도리·배지, 소품 |
+| FR-G2, FR-G3 | `src/core/growth.test.ts`, `src/ui/miniroom/MiniRoom.test.tsx` | 단계·해금 경계값, 스프라이트 배율·별 배지, 소품 |
 | FR-G4, FR-G5 | `src/core/growth.test.ts`, `src/app/usePet.test.tsx`, `src/ui/ActivityPanel.test.tsx`, `src/app/App.test.tsx` | 쿨다운·하루 간식·상한, 하트·간식 반응, 이름 정리, 에이전트 상태 불변 |
-| FR-V7, FR-V8 | `src/ui/visualSpec.test.ts`, `src/ui/workshop/Workshop.test.tsx`, `src/app/App.test.tsx` | 위치(desk/bed), 침대 포즈, walker 재마운트, hotspot 위치 |
+| FR-V7, FR-V8 | `src/app/useLife.test.tsx`, `src/app/App.test.tsx` | 잠 → 책상으로 걸어감, hotspot이 헤르메스 좌표(`--hx`/`--hy`)를 따라감 |
+| FR-R1 | `src/core/room.test.ts`, `src/ui/miniroom/MiniRoom.test.tsx` | 투영 좌표, 가구·지점이 바닥 안, 통로가 가구를 지나지 않음, 가구 부품 |
+| FR-R2, FR-R3 | `src/core/life.test.ts`, `src/app/useLife.test.tsx` | 상태별 필수 행동 즉시 반영, 대기 중 일상만(컴퓨터 안 씀), 시드 재현 |
+| FR-R4, FR-R5 | `src/core/life.test.ts`, `src/ui/ActivityPanel.test.tsx`, `src/app/App.test.tsx` | 친구 방문·퇴장, 위임 도우미, "친구 초대" 버튼과 비활성 조건, 오프라인 밤 |
+| FR-R6 | `src/core/life.test.ts`, `src/app/useLife.test.tsx` | 걷기 경로·속도, reduced-motion 순간 이동·프레임 고정, 언마운트 시 타이머 정리 |
+| FR-R7 | `src/app/App.test.tsx`, `src/config/tauriConfig.test.ts` | 기본 바탕화면 층, "위에 띄우기" 전환, Accessory 정책 |
 
 ## 4. 명령
 

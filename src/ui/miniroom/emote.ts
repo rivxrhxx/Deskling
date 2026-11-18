@@ -43,6 +43,7 @@ export function emoteFor({ activity, walking, energy, anger, reaction }: EmoteIn
   if (anger === 'furious') return 'steam';
   if (anger === 'angry') return 'vein';
   if (energy === 'empty') return 'battery';
+  if (anger === 'annoyed') return 'sweat';
   if (walking) return null;
   return ACTIVITY_EMOTE[activity] ?? null;
 }

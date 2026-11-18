@@ -26,6 +26,10 @@ export interface PetPanel {
   readonly onPet: () => void;
   readonly onFeed: () => void;
   readonly onRename: (name: string) => void;
+  /** Asks a friend over to the room (FR-R5). */
+  readonly onInvite?: () => void;
+  /** False while offline or while someone is already visiting. */
+  readonly canInvite?: boolean;
 }
 
 export interface ActivityPanelProps {
@@ -59,7 +63,7 @@ function PetSection({ pet }: { pet: PetPanel }) {
         <input
           className="pet__name"
           aria-label="이름"
-          placeholder="이름을 지어 주세요"
+          placeholder="헤르메스"
           maxLength={12}
           value={draft}
           onChange={(event) => setDraft(event.currentTarget.value)}
@@ -93,6 +97,11 @@ function PetSection({ pet }: { pet: PetPanel }) {
         >
           간식 주기 · {pet.snacksLeft}
         </button>
+        {pet.onInvite && (
+          <button type="button" className="chip" onClick={pet.onInvite} disabled={!pet.canInvite}>
+            친구 초대
+          </button>
+        )}
       </div>
     </div>
   );

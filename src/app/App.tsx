@@ -5,18 +5,19 @@ import type { DemoScriptId } from '../adapters/demo/scripts';
 import { DEMO_SCRIPT_IDS, DEMO_SCRIPTS } from '../adapters/demo/scripts';
 import type { AgentEventSource } from '../adapters/types';
 import { deriveVitals } from '../core/mood';
+import { toScreen } from '../core/room';
 import type { WindowControls } from '../platform/windowControls';
 import { createWindowControls } from '../platform/windowControls';
 import { ActivityPanel } from '../ui/ActivityPanel';
 import { CharacterHotspot } from '../ui/CharacterHotspot';
 import { DemoBadge } from '../ui/DemoBadge';
 import { StatusBubble } from '../ui/StatusBubble';
-import { VISUAL_SPEC } from '../ui/visualSpec';
+import { MiniRoom } from '../ui/miniroom/MiniRoom';
 import { WindowToolbar } from '../ui/WindowToolbar';
-import { Workshop } from '../ui/workshop/Workshop';
 import type { Settings } from './settings';
 import { TOKEN_BUDGETS, loadSettings, parseSettings, saveSettings, windowSizeFor } from './settings';
 import { useAgentFeed } from './useAgentFeed';
+import { useLife } from './useLife';
 import { usePet } from './usePet';
 import { useReducedMotion } from './useReducedMotion';
 
@@ -94,6 +95,8 @@ export function App({ source: providedSource, controls: providedControls, storag
   const vitals = deriveVitals(view.usage, settings.tokenBudget);
   // The desktop pet grows from completed tasks; demo and real agents keep separate profiles (ADR-018).
   const pet = usePet({ mode: source.mode, completedTurns: view.completedTurns, feedKey: source, storage });
+  // Hermes' life in the room: agent facts first, his own routine while idle (ADR-020).
+  const life = useLife({ visual: view.visual, energy: vitals.energy.level, reducedMotion });
 
   const [panelOpen, setPanelOpen] = useState(false);
   const hotspotRef = useRef<HTMLButtonElement>(null);
@@ -125,8 +128,11 @@ export function App({ source: providedSource, controls: providedControls, storag
       <div className="stage" onMouseDown={startDrag}>
         {source.mode === 'demo' && <DemoBadge />}
         <StatusBubble state={view.visual} />
-        <Workshop
+        <MiniRoom
           state={view.visual}
+          hermes={life.hermes}
+          friend={life.friend}
+          frame={life.frame}
           energy={vitals.energy.level}
           anger={vitals.anger.level}
           stage={pet.stage}
@@ -137,7 +143,7 @@ export function App({ source: providedSource, controls: providedControls, storag
           expanded={panelOpen}
           onActivate={togglePanel}
           buttonRef={hotspotRef}
-          place={VISUAL_SPEC[view.visual].place}
+          at={toScreen(life.hermes.at)}
         />
         {panelOpen && (
           <ActivityPanel
@@ -151,6 +157,8 @@ export function App({ source: providedSource, controls: providedControls, storag
               onPet: () => void pet.pet(),
               onFeed: () => void pet.feed(),
               onRename: pet.rename,
+              onInvite: life.invite,
+              canInvite: view.visual !== 'offline' && life.friend === null,
             }}
             vitals={vitals}
             budget={{

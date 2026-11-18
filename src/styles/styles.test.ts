@@ -3,9 +3,9 @@ import designDoc from '../../docs/DESIGN.md?raw';
 import { VISUAL_SPEC } from '../ui/visualSpec';
 import appCss from './app.css?raw';
 import tokensCss from './tokens.css?raw';
-import workshopCss from './workshop.css?raw';
+import miniroomCss from './miniroom.css?raw';
 
-const allCss = [tokensCss, appCss, workshopCss].join('\n');
+const allCss = [tokensCss, appCss, miniroomCss].join('\n');
 
 describe('design tokens (DESIGN.md §2)', () => {
   const rows = designDoc
@@ -30,7 +30,7 @@ describe('stylesheet contract', () => {
   it('maps every tone used by the visual spec to a colour token', () => {
     const tones = new Set(Object.values(VISUAL_SPEC).map((spec) => spec.tone));
     for (const tone of tones) {
-      expect(workshopCss).toMatch(new RegExp(`\\[data-tone="${tone}"\\][^{]*\\{[^}]*--tone:\\s*var\\(--tone-${tone}\\)`));
+      expect(miniroomCss).toMatch(new RegExp(`\\[data-tone="${tone}"\\][^{]*\\{[^}]*--tone:\\s*var\\(--tone-${tone}\\)`));
     }
   });
 
@@ -42,6 +42,12 @@ describe('stylesheet contract', () => {
 
   it('also honours the OS preference before the app decides (unless the user forced full motion)', () => {
     expect(appCss).toMatch(/@media \(prefers-reduced-motion: reduce\)\s*\{[^@]*:not\(\[data-motion="full"\]\)/);
+  });
+
+  it('glides the hotspot at the same pace as the life tick (FR-V7)', async () => {
+    const { LIFE_TICK_MS } = await import('../app/useLife');
+    expect(tokensCss).toMatch(new RegExp(`--life-tick:\\s*${LIFE_TICK_MS}ms;`));
+    expect(miniroomCss).toMatch(/\.character-hotspot\s*\{[^}]*var\(--hx[^}]*var\(--hy/);
   });
 
   it('shows the toolbar only on hover or keyboard focus (FR-W7)', () => {

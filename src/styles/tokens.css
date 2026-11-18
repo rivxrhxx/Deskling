@@ -1,12 +1,6 @@
 /* Deskling design tokens — keep in sync with docs/DESIGN.md §2 (enforced by styles.test.ts). */
 :root {
-  --room-wall: #161a28;
-  --room-wall-edge: #20263a;
-  --room-floor: #1c2030;
-  --room-floor-side: #10131d;
-  --wood: #2b2f42;
   --ink: #0b0d14;
-  --skin: #cfd6ea;
   --text: #e6e9f5;
   --text-dim: #9aa1bb;
 
@@ -27,4 +21,6 @@
 
   --ease-soft: cubic-bezier(0.4, 0, 0.2, 1);
   --state-fade: 180ms;
+  /* Matches LIFE_TICK_MS in src/app/useLife.ts so the hotspot glides with Hermes. */
+  --life-tick: 300ms;
 }

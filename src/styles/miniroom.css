@@ -1,0 +1,111 @@
+/* Hermes' mini room: tone mapping, placement and small looping animations (docs/DESIGN.md §3, §6). */
+
+[data-tone="dim"] { --tone: var(--tone-dim); }
+[data-tone="cool"] { --tone: var(--tone-cool); }
+[data-tone="violet"] { --tone: var(--tone-violet); }
+[data-tone="amber"] { --tone: var(--tone-amber); }
+[data-tone="ember"] { --tone: var(--tone-ember); }
+[data-tone="mint"] { --tone: var(--tone-mint); }
+
+/* The 480×320 room sits on the bottom edge of the transparent window, 100vw wide. */
+.miniroom {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 100%;
+  overflow: visible;
+  image-rendering: pixelated;
+}
+
+/* Hotspot over Hermes: --hx/--hy are his feet in viewBox units (CharacterHotspot). */
+.character-hotspot {
+  position: absolute;
+  left: calc(100vw * (var(--hx, 240) - 22) / 480);
+  bottom: calc(100vw * (320 - var(--hy, 200) - 4) / 480);
+  width: calc(100vw * 44 / 480);
+  height: calc(100vw * 60 / 480);
+  z-index: 2;
+  padding: 0;
+  border: 0;
+  border-radius: 40%;
+  background: transparent;
+  cursor: pointer;
+  transition:
+    left var(--life-tick) linear,
+    bottom var(--life-tick) linear;
+}
+
+.character-hotspot:focus-visible {
+  outline: 2px solid var(--tone-violet);
+  outline-offset: 2px;
+}
+
+/* ---- Emotes and care ----------------------------------------------------------------------- */
+.emote { animation: emote-float 1.8s ease-in-out infinite; }
+.cookie { animation: cookie-pop 2s ease-out both; }
+
+@keyframes emote-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-2px); }
+}
+
+@keyframes cookie-pop {
+  0% { opacity: 0; transform: translateY(4px); }
+  20% { opacity: 1; transform: translateY(0); }
+  85% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+/* ---- Room life ----------------------------------------------------------------------------- */
+.shower-water rect { animation: drip 0.5s linear infinite; }
+.shower-water rect:nth-child(2) { animation-delay: 0.17s; }
+.shower-water rect:nth-child(3) { animation-delay: 0.33s; }
+
+@keyframes drip {
+  from { transform: translateY(0); opacity: 1; }
+  to { transform: translateY(14px); opacity: 0; }
+}
+
+.tv-glow--on { animation: tv-flicker 1.4s steps(2) infinite; }
+
+@keyframes tv-flicker {
+  0%, 100% { opacity: 0.9; }
+  50% { opacity: 0.65; }
+}
+
+.string-bulb { animation: twinkle 2.6s ease-in-out infinite; }
+.string-bulb--1 { animation-delay: 0.9s; }
+.string-bulb--2 { animation-delay: 1.7s; }
+.miniroom[data-state="offline"] .string-bulb { opacity: 0.35; animation: none; }
+
+@keyframes twinkle {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.45; }
+}
+
+/* ---- Monitor contents (abstract shapes only) ----------------------------------------------- */
+.cursor-blink { animation: blink 1s steps(1) infinite; }
+.screen-drift { animation: drift 6s ease-in-out infinite alternate; }
+.dialog-pulse { animation: blink 1.6s ease-in-out infinite; }
+.packet { animation: packet 1.2s linear infinite; }
+
+@keyframes blink {
+  50% { opacity: 0; }
+}
+
+@keyframes drift {
+  from { transform: translate(-10px, -3px); }
+  to { transform: translate(10px, 3px); }
+}
+
+@keyframes packet {
+  from { transform: translateX(0); }
+  to { transform: translateX(14px); }
+}
+
+/* Lights out: the night overlay fades in rather than snapping. */
+.night { transition: opacity var(--state-fade) var(--ease-soft); }

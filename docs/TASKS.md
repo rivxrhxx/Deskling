@@ -110,7 +110,7 @@
 - [x] **T60** `src/core/life.ts`: 상태별 필수 행동, 대기 일상·친구 방문, 걷기 경로·시간(시드 고정) — FR-R2~R6
 - [x] **T61** 픽셀 스프라이트: ASCII 맵 → SVG, 헤르메스·친구 포즈, 이모트 — FR-R1, FR-R2
 - [x] **T62** `MiniRoom` 장면: 방·가구·깊이 정렬·캐릭터·친구·이모트·밤·성장·소품 — FR-R1~R5, FR-G2~G4, FR-V4
-- [ ] **T63** App 통합: 일상 엔진 구동(틱·reduced-motion), 친구 초대, 기존 작업실 제거, visualSpec·DESIGN 정리
+- [x] **T63** App 통합: 일상 엔진 구동(틱·reduced-motion), 친구 초대, 기존 작업실 제거, visualSpec·DESIGN 정리
 - [ ] **T64** 화면 검증(WebKit·네이티브), 문서·상태, verify·build, push
 
 ## 백로그 (vertical slice 이후, 각각 ADR 먼저)

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import cargoToml from '../../src-tauri/Cargo.toml?raw';
+import libRs from '../../src-tauri/src/lib.rs?raw';
 import capability from '../../src-tauri/capabilities/default.json';
 import tauriConf from '../../src-tauri/tauri.conf.json';
 
@@ -74,5 +75,11 @@ describe('capabilities (SEC-5)', () => {
     for (const permission of capability.permissions) {
       expect(permission).not.toMatch(/^(shell|fs|http|process|opener):/);
     }
+  });
+});
+
+describe('desktop widget process (FR-R7, ADR-021)', () => {
+  it('runs as an accessory app on macOS: no Dock icon, no ⌘Tab entry', () => {
+    expect(libRs).toMatch(/#\[cfg\(target_os = "macos"\)\]\s*app\.set_activation_policy\(tauri::ActivationPolicy::Accessory\);/);
   });
 });
