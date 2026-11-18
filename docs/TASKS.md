@@ -10,7 +10,7 @@
 
 ## M1 스캐폴딩
 
-- [ ] **T01** Vite + React + TypeScript + Vitest/RTL 스캐폴딩, App 스모크 테스트
+- [x] **T01** Vite + React + TypeScript + Vitest/RTL 스캐폴딩, App 스모크 테스트
   - 검증: `npm run test`, `npm run typecheck`, `npm run lint`, `npm run build`
 - [ ] **T02** 레이어 경계 린트 규칙 (`no-restricted-imports`) — SEC-6
   - 검증: `src/config/boundaries.test.ts` (ui→tauri/adapters, core→react 금지)

@@ -76,3 +76,9 @@
 - **맥락:** 프레임 없는 투명 창은 OS 리사이즈 핸들을 쓰기 어렵고, 자유 리사이즈는 장면 비율을 깨뜨린다.
 - **결정:** 기본 320×280을 기준으로 S(0.8)·M(1.0)·L(1.3) 배율을 `WindowControls.setSize()`로 적용한다. 루트 font-size가 창 너비에 비례하고 모든 UI가 rem/SVG viewBox를 써서 같이 커진다.
 - **결과:** 비율이 항상 유지된다. 임의 크기는 지원하지 않는다.
+
+## ADR-013 Node 24 LTS 기준, Node 23은 경고와 함께 허용 — 채택 (2026-11-18)
+
+- **맥락:** 최신 Vitest 5, jsdom 31, ESLint 10은 `node ^20.19 || ^22.13 || >=24`를 요구한다. 개발 머신 기본 `node`는 EOL된 23.11이고, Homebrew `node@24`(24.22.1, keg-only)가 함께 설치돼 있다. npm 10.9는 Vitest 5 설치 중 arborist 버그(`edgesOut` null)로 실패했다.
+- **결정:** 프로젝트 기준은 Node 24 LTS(`.node-version` = 24, `engines.node` = `^22.13.0 || >=24`)다. 의존성을 구버전으로 낮추지 않는다. 검증은 Node 24에서 하고, 기본 셸의 Node 23에서도 `verify:fast`가 동작하는지 따로 확인한다.
+- **결과:** Node 23에서는 `npm install` 시 EBADENGINE 경고가 난다. 사용자에게 Node 24를 PATH에 올리기를 권장한다(`brew link --overwrite node@24` 등). 셸 설정은 이 저장소에서 바꾸지 않는다.
