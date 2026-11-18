@@ -21,6 +21,4 @@
 
   --ease-soft: cubic-bezier(0.4, 0, 0.2, 1);
   --state-fade: 180ms;
-  /* Matches LIFE_TICK_MS in src/app/useLife.ts so the hotspot glides with Hermes. */
-  --life-tick: 300ms;
 }

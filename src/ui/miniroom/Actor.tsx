@@ -6,7 +6,7 @@ import type { CareReaction } from './emote';
 import { emoteFor } from './emote';
 import { PixelSprite } from './PixelSprite';
 import type { ActorActivity, Who } from './pose';
-import { spriteFor } from './pose';
+import { FRIEND_SCALE, STAGE_SCALE, spriteFor } from './pose';
 import { EMOTES, FRIEND_PALETTES, HERMES_PALETTE, SPRITES } from './sprites';
 
 export interface ActorView {
@@ -16,9 +16,6 @@ export interface ActorView {
   readonly face: Facing;
 }
 
-/** Growth stage size (DESIGN §4.2). */
-const STAGE_SCALE: Readonly<Record<GrowthStage, number>> = { baby: 2, kid: 2.25, adult: 2.5 };
-const FRIEND_SCALE = 2.4;
 
 /** Poses that show Hermes' chest, where the adult star badge sits (not his back, not behind a book). */
 const CHEST_VISIBLE = new Set(['front', 'front-walk-a', 'front-walk-b', 'sit-front', 'wave', 'arms-up', 'water']);

@@ -44,10 +44,14 @@ describe('stylesheet contract', () => {
     expect(appCss).toMatch(/@media \(prefers-reduced-motion: reduce\)\s*\{[^@]*:not\(\[data-motion="full"\]\)/);
   });
 
-  it('glides the hotspot at the same pace as the life tick (FR-V7)', async () => {
-    const { LIFE_TICK_MS } = await import('../app/useLife');
-    expect(tokensCss).toMatch(new RegExp(`--life-tick:\\s*${LIFE_TICK_MS}ms;`));
-    expect(miniroomCss).toMatch(/\.character-hotspot\s*\{[^}]*var\(--hx[^}]*var\(--hy/);
+  it('keeps the hotspot on Hermes: placed from --hx/--hy and moved in the same step as his sprite (FR-V7)', () => {
+    const rule = miniroomCss.match(/\.character-hotspot\s*\{[^}]*\}/)?.[0] ?? '';
+    expect(rule).toMatch(/var\(--hx[^}]*var\(--hy/);
+    expect(rule).not.toMatch(/transition/);
+  });
+
+  it('dims chips that are disabled or aria-disabled alike', () => {
+    expect(appCss).toMatch(/\.chip:disabled,\s*\.chip\[aria-disabled='true'\]\s*\{[^}]*opacity:\s*0\.45/);
   });
 
   it('shows the toolbar only on hover or keyboard focus (FR-W7)', () => {

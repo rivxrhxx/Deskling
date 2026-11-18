@@ -402,11 +402,11 @@ describe('App: Hermes lives in the room (FR-R2–R6, FR-V7)', () => {
     const live = manualSource('live');
     render(<App source={live.source} controls={fakeControls()} storage={fakeStorage()} />);
     fireEvent.click(screen.getByRole('button', { name: '최근 활동 보기' }));
-    expect(screen.getByRole('button', { name: '친구 초대' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: '친구 초대' })).toHaveAttribute('aria-disabled', 'true');
 
     live.emit(raw(1, 'agent.online'));
     const invite = screen.getByRole('button', { name: '친구 초대' });
-    if (!invite.hasAttribute('disabled')) fireEvent.click(invite);
+    if (invite.getAttribute('aria-disabled') !== 'true') fireEvent.click(invite);
     act(() => vi.advanceTimersByTime(4_000));
 
     expect(scene().querySelector('[data-part="friend"]')).not.toBeNull();

@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { useId } from 'react';
+import { memo, useId } from 'react';
 import type { VisualState } from '../../core/agentEvent';
 import type { DecorId, GrowthStage } from '../../core/growth';
 import type { AngerLevel, EnergyLevel } from '../../core/mood';
@@ -8,6 +8,7 @@ import { FURNITURE, GRID } from '../../core/room';
 import { VISUAL_SPEC } from '../visualSpec';
 import type { ActorView } from './Actor';
 import { Actor } from './Actor';
+import { STAGE_SCALE } from './pose';
 import type { CareReaction } from './emote';
 import { IsoBox } from './IsoBox';
 import { planeX, planeY, pt, pts } from './isoMath';
@@ -42,7 +43,7 @@ const inside = (at: Tile, f: Footprint) => at.x > f.x0 && at.x < f.x1 && at.y > 
 
 /* ---------- Room shell ---------------------------------------------------------------------- */
 
-function Floor({ night }: { night: boolean }) {
+const Floor = memo(function Floor() {
   return (
     <g data-part="floor">
       <polygon points={pts([[0, GRID, 0], [GRID, GRID, 0], [GRID, GRID, -10], [0, GRID, -10]])} fill="#b9773f" stroke={INK} />
@@ -65,12 +66,11 @@ function Floor({ night }: { night: boolean }) {
       {/* Centre rug */}
       <polygon points={pts([[3.3, 2.3, 0.5], [5, 2.3, 0.5], [5, 3.9, 0.5], [3.3, 3.9, 0.5]])} fill="#f6c3d5" stroke="#e48aab" />
       <polygon points={pts([[3.5, 2.5, 0.6], [4.8, 2.5, 0.6], [4.8, 3.7, 0.6], [3.5, 3.7, 0.6]])} fill="none" stroke="#fff3f7" strokeDasharray="2 2" />
-      {night && <polygon points={pts([[0, 0, 0], [GRID, 0, 0], [GRID, GRID, 0], [0, GRID, 0]])} fill="none" />}
     </g>
   );
-}
+});
 
-function Walls() {
+const Walls = memo(function Walls() {
   const band = WALL_H - 18;
   return (
     <>
@@ -116,9 +116,13 @@ function Walls() {
       <polyline points={pts([[0, GRID, WALL_H], [0, 0, WALL_H], [GRID, 0, WALL_H]])} fill="none" stroke={INK} strokeWidth="2" />
     </>
   );
-}
+});
 
-function Window({ night }: { night: boolean }) {
+const Window = memo(function Window({ night }: { night: boolean }) {
+  const a = pt(0, 3.65, 46);
+  const b = pt(0, 3.65, 88);
+  const c = pt(0, 3.05, 67);
+  const d = pt(0, 4.25, 67);
   return (
     <g data-part="window">
       <polygon points={pts([[0, 2.95, 42], [0, 4.35, 42], [0, 4.35, 92], [0, 2.95, 92]])} fill="#ffffff" stroke={INK} />
@@ -139,26 +143,16 @@ function Window({ night }: { night: boolean }) {
           </>
         )}
       </g>
-      {[[0, 3.65, 46], [0, 3.65, 88]].length === 2 && (() => {
-        const a = pt(0, 3.65, 46);
-        const b = pt(0, 3.65, 88);
-        const c = pt(0, 3.05, 67);
-        const d = pt(0, 4.25, 67);
-        return (
-          <>
-            <line x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke="#ffffff" strokeWidth="2" />
-            <line x1={c.x} y1={c.y} x2={d.x} y2={d.y} stroke="#ffffff" strokeWidth="2" />
-          </>
-        );
-      })()}
+      <line x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke="#ffffff" strokeWidth="2" />
+      <line x1={c.x} y1={c.y} x2={d.x} y2={d.y} stroke="#ffffff" strokeWidth="2" />
       <polygon points={pts([[0, 2.8, 38], [0, 3.2, 38], [0, 3.1, 96], [0, 2.8, 96]])} fill="#f7b6cc" stroke={INK} strokeWidth="0.6" />
       <polygon points={pts([[0, 4.1, 38], [0, 4.5, 38], [0, 4.5, 96], [0, 4.2, 96]])} fill="#f7b6cc" stroke={INK} strokeWidth="0.6" />
       <polygon points={pts([[0, 2.8, 96], [0, 4.5, 96], [0, 4.5, 99], [0, 2.8, 99]])} fill="#c98a55" stroke={INK} strokeWidth="0.6" />
     </g>
   );
-}
+});
 
-function Door({ open }: { open: boolean }) {
+const Door = memo(function Door({ open }: { open: boolean }) {
   return (
     <g data-part="door" data-open={open ? 'true' : 'false'}>
       <polygon points={pts([[7.35, 0, 0], [8.65, 0, 0], [8.65, 0, 74], [7.35, 0, 74]])} fill="#c98a55" stroke={INK} />
@@ -173,7 +167,7 @@ function Door({ open }: { open: boolean }) {
       )}
     </g>
   );
-}
+});
 
 /* ---------- Furniture ------------------------------------------------------------------------- */
 
@@ -194,7 +188,7 @@ function Bed({ occupant, asleep }: { occupant?: ReactNode; asleep: boolean }) {
   );
 }
 
-function Bookshelf({ extra }: { extra: boolean }) {
+const Bookshelf = memo(function Bookshelf({ extra }: { extra: boolean }) {
   const books = ['#e8505b', '#5b6fd6', '#72e3bd', '#f2d27a', '#a48df0', '#ff8fb1'];
   return (
     <g data-part="bookshelf">
@@ -212,7 +206,7 @@ function Bookshelf({ extra }: { extra: boolean }) {
       </g>
     </g>
   );
-}
+});
 
 function Tv({ on }: { on: boolean }) {
   return (
@@ -226,7 +220,7 @@ function Tv({ on }: { on: boolean }) {
   );
 }
 
-function Desk({ screen, cans, plant, children }: { screen: React.ComponentProps<typeof MonitorScreen>['screen']; cans: number; plant: boolean; children?: ReactNode }) {
+function Desk({ screen, cans, plant }: { screen: React.ComponentProps<typeof MonitorScreen>['screen']; cans: number; plant: boolean }) {
   return (
     <g data-part="desk">
       <IsoBox x0={1} y0={0} x1={3} y1={1} h={22} top="#e8ad72" left="#c98b52" right="#b0733f" />
@@ -248,12 +242,11 @@ function Desk({ screen, cans, plant, children }: { screen: React.ComponentProps<
       )}
       {/* Stool */}
       <IsoBox x0={1.8} y0={1.35} x1={2.2} y1={1.75} h={10} top="#ff8fa0" left="#e8505b" right="#c93f4a" />
-      {children}
     </g>
   );
 }
 
-function Fridge() {
+const Fridge = memo(function Fridge() {
   return (
     <g data-part="fridge">
       <IsoBox x0={3.6} y0={0} x1={4.5} y1={0.8} h={58} top="#d9f3ea" left="#bfe8dc" right="#a5d8c9" />
@@ -263,7 +256,7 @@ function Fridge() {
       <circle cx={pt(3.8, 0.8, 48).x} cy={pt(3.8, 0.8, 48).y} r="2" fill="#f49ab8" />
     </g>
   );
-}
+});
 
 function Shower({ occupant, running }: { occupant?: ReactNode; running: boolean }) {
   const head = pt(5.75, 0.08, 92);
@@ -333,7 +326,7 @@ function Table({ eating }: { eating: boolean }) {
   );
 }
 
-function Plant() {
+const Plant = memo(function Plant() {
   const top = pt(8.5, 3.9, 12);
   return (
     <g data-part="plant">
@@ -345,7 +338,7 @@ function Plant() {
       </g>
     </g>
   );
-}
+});
 
 function HelperDesk() {
   return (
@@ -361,7 +354,7 @@ function HelperDesk() {
 
 /* ---------- Decorations (growth unlocks) ------------------------------------------------------- */
 
-function Decor({ decor }: { decor: readonly DecorId[] }) {
+function DecorView({ decor }: { decor: readonly DecorId[] }) {
   const has = (id: DecorId) => decor.includes(id);
   return (
     <>
@@ -411,6 +404,9 @@ function Decor({ decor }: { decor: readonly DecorId[] }) {
   );
 }
 
+// `decor` is a fresh array every render; compare by content so the static shell is skipped.
+const Decor = memo(DecorView, (a, b) => a.decor.join() === b.decor.join());
+
 /* ---------- The room -------------------------------------------------------------------------- */
 
 const CANS: Readonly<Record<EnergyLevel, number>> = { unknown: 0, full: 0, ok: 1, low: 2, empty: 3 };
@@ -446,7 +442,7 @@ export function MiniRoom({
   const doorOpen = friend !== null && friend.walking && (friend.at.y < 1.2 && friend.at.x > 6.8);
 
   const pillow = pt(0.43, 2, 22);
-  const headScale = stage === 'baby' ? 2 : stage === 'kid' ? 2.25 : 2.5;
+  const headScale = STAGE_SCALE[stage];
   const shower = pt(5.75, 0.75, 0);
 
   type Item = { depth: number; node: ReactNode; key: string };
@@ -506,7 +502,7 @@ export function MiniRoom({
     >
       <title id={titleId}>{`헤르메스의 방 — ${spec.label}`}</title>
       <ellipse cx="240" cy="306" rx="150" ry="9" fill="#000000" opacity="0.18" />
-      <Floor night={night} />
+      <Floor />
       <Walls />
       <Window night={night} />
       <Door open={doorOpen} />

@@ -98,7 +98,14 @@ function PetSection({ pet }: { pet: PetPanel }) {
           간식 주기 · {pet.snacksLeft}
         </button>
         {pet.onInvite && (
-          <button type="button" className="chip" onClick={pet.onInvite} disabled={!pet.canInvite}>
+          <button
+            type="button"
+            className="chip"
+            onClick={() => {
+              if (pet.canInvite) pet.onInvite?.();
+            }}
+            aria-disabled={!pet.canInvite}
+          >
             친구 초대
           </button>
         )}

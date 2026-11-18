@@ -1,9 +1,14 @@
+import type { GrowthStage } from '../../core/growth';
 import type { Activity } from '../../core/life';
 import type { Facing } from '../../core/room';
 
 /** What an actor is doing: Hermes' activities, or a friend's visit/help/leave. */
 export type ActorActivity = Activity | 'visit' | 'help' | 'leave';
 export type Who = 'hermes' | 'friend-a' | 'friend-b';
+
+/** Pixel scale of Hermes' sprite per growth stage (DESIGN §4.2), and of friends. */
+export const STAGE_SCALE: Readonly<Record<GrowthStage, number>> = { baby: 2, kid: 2.25, adult: 2.5 };
+export const FRIEND_SCALE = 2.4;
 
 export interface PoseInput {
   readonly activity: ActorActivity;

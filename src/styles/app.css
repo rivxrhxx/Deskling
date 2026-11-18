@@ -502,7 +502,8 @@ body {
   gap: 0.3rem;
 }
 
-.chip:disabled {
+.chip:disabled,
+.chip[aria-disabled='true'] {
   opacity: 0.45;
   cursor: default;
 }

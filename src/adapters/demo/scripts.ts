@@ -82,21 +82,21 @@ const tour: DemoScript = {
 };
 
 /**
- * "하루 일과": a day in the room (ADR-016, ADR-017). Lazing in bed, a working turn that burns through the
- * token budget while the context window fills up (calm → annoyed → angry → furious), back to bed exhausted
- * after the context is compacted, then lights out. With the default 200k budget it visits every energy level.
+ * "하루 일과": a day in the room (ADR-016, ADR-017). Hermes' own routine around the room, a working turn that burns through the
+ * token budget while the context window fills up (calm → annoyed → angry → furious), back to his routine, exhausted
+ * after the context is compacted, then lights out (offline: asleep in bed). With the default 200k budget it visits every energy level.
  */
 const life: DemoScript = {
   id: 'life',
   session: 'demo-life',
   steps: [
-    step(4200, { type: 'agent.online' }, usage(10_000, 8_000)), // idle in bed — full, calm
+    step(4200, { type: 'agent.online' }, usage(10_000, 8_000)), // idle (own routine around the room) — full, calm
     step(3000, { type: 'turn.started' }, usage(30_000, 60_000)), // thinking — full, calm
     step(3600, toolStart('code'), usage(70_000, 110_000)), // coding — full, annoyed
     step(3600, toolDone('code'), toolStart('terminal'), usage(115_000, 160_000)), // terminal — ok, angry
     step(3600, toolDone('terminal'), toolStart('browser'), usage(150_000, 185_000)), // browsing — low, furious
     step(3000, toolDone('browser'), { type: 'turn.succeeded' }, usage(185_000, 192_000)), // success — empty, furious
-    step(4200, { type: 'agent.idle' }, contextOnly(20_000)), // back to bed — empty, calm again
+    step(4200, { type: 'agent.idle' }, contextOnly(20_000)), // idle again (routine) — empty, calm again
     step(4200, { type: 'agent.offline' }), // lights out
   ],
 };

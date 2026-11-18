@@ -246,7 +246,21 @@ describe('ActivityPanel pet section (FR-G4–G6)', () => {
     await userEvent.click(screen.getByRole('button', { name: '친구 초대' }));
     expect(onInvite).toHaveBeenCalledTimes(1);
     rerender(<ActivityPanel entries={entries} onClose={vi.fn()} formatTime={formatTime} pet={pet({ onInvite, canInvite: false })} />);
-    expect(screen.getByRole('button', { name: '친구 초대' })).toBeDisabled();
+    const button = screen.getByRole('button', { name: '친구 초대' });
+    expect(button).toHaveAttribute('aria-disabled', 'true');
+    await userEvent.click(button);
+    expect(onInvite).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps keyboard focus on the invite button after it becomes unavailable', async () => {
+    const onInvite = vi.fn();
+    const props = { entries, onClose: vi.fn(), formatTime };
+    const { rerender } = render(<ActivityPanel {...props} pet={pet({ onInvite, canInvite: true })} />);
+    const button = screen.getByRole('button', { name: '친구 초대' });
+    await userEvent.click(button);
+    expect(button).toHaveFocus();
+    rerender(<ActivityPanel {...props} pet={pet({ onInvite, canInvite: false })} />);
+    expect(screen.getByRole('button', { name: '친구 초대' })).toHaveFocus();
   });
 
   it('suggests Hermes as the name (ADR-019)', () => {

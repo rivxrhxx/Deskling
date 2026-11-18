@@ -4,6 +4,7 @@ import type { Activity, LifeInput, LifeState } from '../core/life';
 import { initialLife, positionAt, stepLife } from '../core/life';
 import type { EnergyLevel } from '../core/mood';
 import type { Facing, Tile } from '../core/room';
+import type { FriendView } from '../ui/miniroom/MiniRoom';
 
 /** How often the room is advanced: walking steps, typing hands, idle schedule (DESIGN §9.4). */
 export const LIFE_TICK_MS = 300;
@@ -14,9 +15,9 @@ export interface UseLifeOptions {
   readonly visual: VisualState;
   readonly energy: EnergyLevel;
   readonly reducedMotion: boolean;
-  /** PRNG seed for idle choices; defaults to the start time. */
+  /** PRNG seed for idle choices; defaults to the wall-clock start time. */
   readonly seed?: number;
-  /** Injected clock for tests. */
+  /** Engine clock (ms). Monotonic by default so a system clock change can't stall the routine. Injected in tests. */
   readonly now?: () => number;
 }
 
@@ -25,14 +26,6 @@ export interface HermesView {
   readonly at: Tile;
   readonly walking: boolean;
   readonly face: Facing;
-}
-
-export interface FriendView {
-  readonly activity: 'visit' | 'help' | 'leave';
-  readonly at: Tile;
-  readonly walking: boolean;
-  readonly face: Facing;
-  readonly look: number;
 }
 
 export interface LifeView {
@@ -50,11 +43,13 @@ interface Clocked {
   readonly frame: number;
 }
 
+const monotonic = () => performance.now();
+
 /**
  * Drives Hermes' life in the room (FR-R2–R6). The engine is pure; this hook only supplies time,
  * the agent's visual state and the invite button. Agent facts apply at once, not on the next tick.
  */
-export function useLife({ visual, energy, reducedMotion, seed, now = Date.now }: UseLifeOptions): LifeView {
+export function useLife({ visual, energy, reducedMotion, seed, now = monotonic }: UseLifeOptions): LifeView {
   const input = useRef({ visual, energy, reducedMotion, now });
   // Declared first so it runs before the step below sees the new input.
   useLayoutEffect(() => {
@@ -63,7 +58,7 @@ export function useLife({ visual, energy, reducedMotion, seed, now = Date.now }:
 
   const [clocked, setClocked] = useState<Clocked>(() => {
     const at = now();
-    const life = stepLife(initialLife(seed ?? at, at), { now: at, visual, energy, reducedMotion });
+    const life = stepLife(initialLife(seed ?? Date.now(), at), { now: at, visual, energy, reducedMotion });
     return { life, at, frame: 0 };
   });
 

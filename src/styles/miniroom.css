@@ -34,9 +34,7 @@
   border-radius: 40%;
   background: transparent;
   cursor: pointer;
-  transition:
-    left var(--life-tick) linear,
-    bottom var(--life-tick) linear;
+  /* Not animated: the sprite moves in 300 ms steps and the hotspot moves in the same render. */
 }
 
 .character-hotspot:focus-visible {
