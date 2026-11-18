@@ -187,3 +187,69 @@ describe('ActivityPanel vitals (FR-V5, FR-V6)', () => {
     expect(onChange).toHaveBeenCalledWith(500_000);
   });
 });
+
+describe('ActivityPanel pet section (FR-G4–G6)', () => {
+  const pet = (overrides: object = {}) => ({
+    name: '',
+    hearts: 3,
+    snacksLeft: 2,
+    demo: true,
+    onPet: vi.fn(),
+    onFeed: vi.fn(),
+    onRename: vi.fn(),
+    ...overrides,
+  });
+
+  it('is absent unless pet details are given', () => {
+    render(<ActivityPanel entries={entries} onClose={vi.fn()} formatTime={formatTime} />);
+    expect(screen.queryByRole('group', { name: '펫' })).toBeNull();
+  });
+
+  it('shows hearts for affection and marks the demo profile', () => {
+    render(<ActivityPanel entries={entries} onClose={vi.fn()} formatTime={formatTime} pet={pet()} />);
+    const group = screen.getByRole('group', { name: '펫' });
+    expect(within(group).getByRole('img', { name: '애정도 하트 5개 중 3개' })).toBeInTheDocument();
+    expect(group.querySelectorAll('[data-filled="true"]')).toHaveLength(3);
+    expect(within(group).getByText('DEMO')).toBeInTheDocument();
+  });
+
+  it('has no DEMO mark for a real agent profile', () => {
+    render(<ActivityPanel entries={entries} onClose={vi.fn()} formatTime={formatTime} pet={pet({ demo: false })} />);
+    expect(within(screen.getByRole('group', { name: '펫' })).queryByText('DEMO')).toBeNull();
+  });
+
+  it('names the pet on Enter', async () => {
+    const onRename = vi.fn();
+    render(<ActivityPanel entries={entries} onClose={vi.fn()} formatTime={formatTime} pet={pet({ onRename })} />);
+    const input = screen.getByRole('textbox', { name: '이름' });
+    expect(input).toHaveAttribute('placeholder', '이름을 지어 주세요');
+    expect(input).toHaveAttribute('maxLength', '12');
+    await userEvent.type(input, '콩이{Enter}');
+    expect(onRename).toHaveBeenCalledWith('콩이');
+  });
+
+  it('also saves the name when focus leaves the field', async () => {
+    const onRename = vi.fn();
+    render(<ActivityPanel entries={entries} onClose={vi.fn()} formatTime={formatTime} pet={pet({ name: '콩', onRename })} />);
+    const input = screen.getByRole('textbox', { name: '이름' });
+    expect(input).toHaveValue('콩');
+    await userEvent.type(input, '이');
+    await userEvent.tab();
+    expect(onRename).toHaveBeenCalledWith('콩이');
+  });
+
+  it('pets and feeds', async () => {
+    const onPet = vi.fn();
+    const onFeed = vi.fn();
+    render(<ActivityPanel entries={entries} onClose={vi.fn()} formatTime={formatTime} pet={pet({ onPet, onFeed })} />);
+    await userEvent.click(screen.getByRole('button', { name: '쓰다듬기' }));
+    await userEvent.click(screen.getByRole('button', { name: '간식 주기, 오늘 2개 남음' }));
+    expect(onPet).toHaveBeenCalledTimes(1);
+    expect(onFeed).toHaveBeenCalledTimes(1);
+  });
+
+  it('disables snacks when none are left today', () => {
+    render(<ActivityPanel entries={entries} onClose={vi.fn()} formatTime={formatTime} pet={pet({ snacksLeft: 0 })} />);
+    expect(screen.getByRole('button', { name: '간식 주기, 오늘 0개 남음' })).toBeDisabled();
+  });
+});

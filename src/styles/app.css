@@ -465,3 +465,70 @@ body {
   color: var(--text);
   font: inherit;
 }
+
+/* ---- Pet card in the activity panel (ADR-018) --------------------------------------------- */
+.activity-panel__pet {
+  display: grid;
+  gap: 0.35rem;
+  padding: 0.1rem 0.9rem 0.55rem;
+  border-bottom: 1px solid rgba(154, 161, 187, 0.1);
+}
+
+.pet__row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.pet__name {
+  flex: 1;
+  min-width: 0;
+  padding: 0.15rem 0.4rem;
+  border: 1px solid transparent;
+  border-radius: 0.4rem;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+
+.pet__name:hover,
+.pet__name:focus {
+  border-color: var(--glass-edge);
+  background: rgba(8, 10, 17, 0.9);
+  outline: none;
+}
+
+.pet__name::placeholder {
+  color: var(--text-dim);
+  font-weight: 500;
+}
+
+.pet__demo {
+  padding: 0 0.35rem;
+  border: 1px solid var(--tone-violet);
+  border-radius: 0.6rem;
+  color: #ddd4ff;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+}
+
+.pet__hearts {
+  display: inline-flex;
+  gap: 0.1rem;
+}
+
+.pet__hearts svg { fill: rgba(154, 161, 187, 0.25); }
+.pet__hearts svg[data-filled='true'] { fill: var(--heart); }
+
+.pet__actions {
+  display: flex;
+  gap: 0.3rem;
+}
+
+.chip:disabled {
+  opacity: 0.45;
+  cursor: default;
+}

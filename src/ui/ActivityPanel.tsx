@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { RecentEntry } from '../core/agentState';
 import type { Vitals } from '../core/mood';
 import { ANGER_LABEL, ENERGY_LABEL, activityKind, describeActivity, formatClock, formatTokens } from './activityText';
@@ -15,6 +15,19 @@ export interface BudgetPicker {
   readonly onChange: (value: number) => void;
 }
 
+/** The desktop pet's card (ADR-018). Care only affects the pet — never the agent. */
+export interface PetPanel {
+  readonly name: string;
+  /** 0–5. */
+  readonly hearts: number;
+  readonly snacksLeft: number;
+  /** True for the demo profile, which grows separately from a real agent's. */
+  readonly demo: boolean;
+  readonly onPet: () => void;
+  readonly onFeed: () => void;
+  readonly onRename: (name: string) => void;
+}
+
 export interface ActivityPanelProps {
   readonly entries: readonly RecentEntry[];
   readonly onClose: () => void;
@@ -24,6 +37,65 @@ export interface ActivityPanelProps {
   /** Energy and context numbers (FR-V5). The scene never shows numbers; this panel does. */
   readonly vitals?: Vitals;
   readonly budget?: BudgetPicker;
+  readonly pet?: PetPanel;
+}
+
+const HEART = 'M8 14 C8 14 1.5 9.8 1.5 5.6 C1.5 3.4 3.2 2 5 2 C6.4 2 7.4 2.8 8 3.8 C8.6 2.8 9.6 2 11 2 C12.8 2 14.5 3.4 14.5 5.6 C14.5 9.8 8 14 8 14 Z';
+
+function PetSection({ pet }: { pet: PetPanel }) {
+  // Follow outside name changes without an effect (React: "adjusting state when a prop changes").
+  const [draft, setDraft] = useState(pet.name);
+  const [savedName, setSavedName] = useState(pet.name);
+  if (pet.name !== savedName) {
+    setSavedName(pet.name);
+    setDraft(pet.name);
+  }
+  const commit = () => {
+    if (draft !== pet.name) pet.onRename(draft);
+  };
+  return (
+    <div className="activity-panel__pet" role="group" aria-label="펫">
+      <div className="pet__row">
+        <input
+          className="pet__name"
+          aria-label="이름"
+          placeholder="이름을 지어 주세요"
+          maxLength={12}
+          value={draft}
+          onChange={(event) => setDraft(event.currentTarget.value)}
+          onBlur={commit}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter') {
+              event.preventDefault();
+              commit();
+            }
+          }}
+        />
+        {pet.demo && <span className="pet__demo">DEMO</span>}
+        <span className="pet__hearts" role="img" aria-label={`애정도 하트 5개 중 ${pet.hearts}개`}>
+          {[0, 1, 2, 3, 4].map((index) => (
+            <svg key={index} viewBox="0 0 16 16" width="11" height="11" aria-hidden="true" focusable="false" data-filled={index < pet.hearts}>
+              <path d={HEART} />
+            </svg>
+          ))}
+        </span>
+      </div>
+      <div className="pet__actions">
+        <button type="button" className="chip" onClick={pet.onPet}>
+          쓰다듬기
+        </button>
+        <button
+          type="button"
+          className="chip"
+          onClick={pet.onFeed}
+          disabled={pet.snacksLeft === 0}
+          aria-label={`간식 주기, 오늘 ${pet.snacksLeft}개 남음`}
+        >
+          간식 주기 · {pet.snacksLeft}
+        </button>
+      </div>
+    </div>
+  );
 }
 
 function Meter({ label, percent }: { label: string; percent: number }) {
@@ -89,7 +161,7 @@ function VitalsSection({ vitals, budget }: { vitals: Vitals; budget?: BudgetPick
 }
 
 /** A small log screen pinned to the wall: recent facts, newest first (FR-P1–P4). Read-only. */
-export function ActivityPanel({ entries, onClose, formatTime = formatClock, demo, vitals, budget }: ActivityPanelProps) {
+export function ActivityPanel({ entries, onClose, formatTime = formatClock, demo, vitals, budget, pet }: ActivityPanelProps) {
   const closeRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
@@ -117,6 +189,7 @@ export function ActivityPanel({ entries, onClose, formatTime = formatClock, demo
           </svg>
         </button>
       </header>
+      {pet && <PetSection pet={pet} />}
       {vitals && <VitalsSection vitals={vitals} budget={budget} />}
       {entries.length === 0 ? (
         <p className="activity-panel__empty">아직 기록된 활동이 없습니다.</p>
