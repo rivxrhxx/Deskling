@@ -105,6 +105,7 @@ Deskling이 이해하는 유일한 입력 형식. provider(Hermes Agent 등)에 
 | `pendingApprovals` | `approval.requested` +1, `approval.resolved` −1 (0 미만 불가) |
 | `delegations` | `delegation.started` +1, `delegation.finished` −1 (0 미만 불가) |
 | `lastOutcome` | `turn.succeeded` → `success`, `turn.failed` → `error`. `turn.started`/`agent.idle`/`agent.offline` → 없음 |
+| `completedTurns` (뷰 상태) | 수용된 `turn.succeeded`마다 +1. 피드(소스)가 바뀌기 전까지 세션이 바뀌어도 유지. 키우기 경험치의 출처(ADR-018) |
 | `usage` (뷰 상태) | `usage.reported`가 보낸 값만 덮어쓴다(보내지 않은 항목은 유지). 세션이 바뀌면 지운다. 최근 활동 목록에는 넣지 않는다 |
 
 턴 종료(`turn.succeeded`/`turn.failed`), `agent.idle`, `agent.offline`은 `activeTools`, `pendingApprovals`, `delegations`를 비운다.

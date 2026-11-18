@@ -91,6 +91,17 @@
 - [x] **T47** App 통합: 사용량 → 분위기 → 장면·패널 — FR-V2~V6
 - [x] **T48** 화면 검증(WebKit 렌더링·네이티브), 문서·상태 갱신
 
+## M8 키우기 (ADR-018)
+
+- [x] **T49** ADR-018, REQUIREMENTS FR-G*·SEC-7, EVENT_PROTOCOL §4, DESIGN §4.2 문서화
+- [ ] **T50** 리듀서: `completedTurns` (수용된 `turn.succeeded` 수, 세션 전환에도 유지) — FR-G1
+- [ ] **T51** `src/core/growth.ts`: 성장 단계, 해금 소품, 쓰다듬기·간식 규칙, 이름 정리 — FR-G2~G5
+- [ ] **T52** `src/app/pet.ts`: 프로필(demo/live) 검증·로드·저장, 키 하나 — FR-G1, FR-G6, SEC-7
+- [ ] **T53** `usePet`: 완료 작업 증가분 → 경험치, 돌보기 동작, 반응 타이머 — FR-G1, FR-G4
+- [ ] **T54** 장면: 성장 단계 모습, 해금 소품, 하트·간식 반응 — FR-G2~G4
+- [ ] **T55** 패널 "펫" 영역: 이름 짓기, 하트, 쓰다듬기·간식 버튼, DEMO 표시 — FR-G4~G6
+- [ ] **T56** App 통합, 화면 검증, 문서·상태 갱신
+
 ## 백로그 (vertical slice 이후, 각각 ADR 먼저)
 
 - [ ] Hermes Agent adapter: 전송 방식·위치 결정 ADR
