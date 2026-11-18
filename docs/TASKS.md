@@ -76,6 +76,22 @@
   - [x] **T34g** 설정 연속 변경 유실 방지, 기본 투어 테스트 강화 (리뷰 LOW)
   - [x] **T34h** 세션 교차(interleave) 한계와 dev 의존성 advisory를 ADR/상태 문서에 기록
 
+## M7 생활감: 에너지·화남·침대 (ADR-016, ADR-017)
+
+- [x] **T36** ADR-016/017, EVENT_PROTOCOL v2, REQUIREMENTS FR-V*, DESIGN §3·§4.1 문서화
+- [ ] **T37** `normalizeAgentEvent`: v2 `usage.reported` 검증(`bad-usage`), v1 호환 — FR-V1
+- [ ] **T38** 리듀서: 세션별 최신 사용량 스냅샷, 최근 목록 제외, 세션 전환 시 초기화 — FR-V1
+- [ ] **T39** `src/core/mood.ts`: 에너지·화남 단계 순수 함수 — FR-V2, FR-V3
+- [ ] **T40** 설정: 토큰 예산(50k~1M, 기본 200k) — FR-V6
+- [ ] **T41** visualSpec: 상태별 위치(desk/bed), 침대 포즈 이름 — FR-V7
+- [ ] **T42** 방 확장(400×260)과 침대, 기본 창 400×280, 위치 따라가는 hotspot — FR-V7, ADR-017
+- [ ] **T43** 침대 포즈(뒹굴/잠)와 걷기 전환 — FR-V7, FR-V8
+- [ ] **T44** 장면 분위기 표시: 전구·눈꺼풀·캔(에너지), 눈썹·핏줄·김(화남) — FR-V4
+- [ ] **T45** 활동 패널: 남은 토큰·컨텍스트 숫자, 예산 선택 — FR-V5, FR-V6
+- [ ] **T46** 데모: 사용량 보고 추가, "하루 일과" 시나리오 — FR-V1~V4
+- [ ] **T47** App 통합: 사용량 → 분위기 → 장면·패널 — FR-V2~V6
+- [ ] **T48** 화면 검증(WebKit 렌더링·네이티브), 문서·상태 갱신
+
 ## 백로그 (vertical slice 이후, 각각 ADR 먼저)
 
 - [ ] Hermes Agent adapter: 전송 방식·위치 결정 ADR

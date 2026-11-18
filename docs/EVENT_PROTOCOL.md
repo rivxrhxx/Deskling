@@ -1,4 +1,4 @@
-# EVENT_PROTOCOL — AgentEvent v1
+# EVENT_PROTOCOL — AgentEvent v2
 
 Deskling이 이해하는 유일한 입력 형식. provider(Hermes Agent 등)에 의존하지 않는다.
 코드상의 진실 공급원은 `src/core/agentEvent.ts`이며, 이 문서와 항상 같은 커밋에서 바뀐다.
@@ -28,7 +28,7 @@ Deskling이 이해하는 유일한 입력 형식. provider(Hermes Agent 등)에 
 | 필드 | 타입 | 규칙 |
 | --- | --- | --- |
 | `schema` | string | 정확히 `"deskling.agent-event"` |
-| `version` | number | 정확히 `1` |
+| `version` | number | `1` 또는 `2`. `usage.reported`는 `2`에서만 허용 |
 | `id` | string | `^[A-Za-z0-9._:-]{1,64}$` |
 | `seq` | integer | `0` 이상 safe integer. 세션 안에서 단조 증가 |
 | `at` | integer | Unix epoch 밀리초, `0` 이상 `8.64e15` 이하 정수 (JavaScript Date가 표현할 수 있는 범위) |
@@ -37,6 +37,7 @@ Deskling이 이해하는 유일한 입력 형식. provider(Hermes Agent 등)에 
 | `type` | string | §3의 이벤트 타입 |
 | `tool` | string | `tool.*` 이벤트에서 필수. `"code"` \| `"browser"` \| `"terminal"` \| `"file"` |
 | `outcome` | string | `tool.finished`에서 필수. `"ok"` \| `"error"` |
+| `usage` | object | `usage.reported`에서 필수. §3.1 |
 
 `tool`, `outcome`은 해당 타입이 아닌 이벤트에 있으면 무시한다(출력에 복사하지 않음).
 
@@ -56,6 +57,31 @@ Deskling이 이해하는 유일한 입력 형식. provider(Hermes Agent 등)에 
 | `delegation.finished` | 위임한 작업이 끝남 | — |
 | `turn.succeeded` | 턴이 성공으로 끝남 | — |
 | `turn.failed` | 턴이 실패로 끝남 | — |
+| `usage.reported` | 사용량 보고(v2) — 활동이 아니라 계측값 | `usage` |
+
+### 3.1 `usage.reported` (v2)
+
+```json
+{
+  "schema": "deskling.agent-event",
+  "version": 2,
+  "id": "u-0042",
+  "seq": 42,
+  "at": 1767225660000,
+  "source": { "kind": "demo", "session": "demo-life" },
+  "type": "usage.reported",
+  "usage": { "tokens": { "used": 120000 }, "context": { "used": 156000, "limit": 200000 } }
+}
+```
+
+| 필드 | 규칙 |
+| --- | --- |
+| `usage` | 객체. `tokens`, `context` 중 하나 이상 필요 |
+| `usage.tokens.used` | 이 세션에서 지금까지 쓴 토큰 수. `0` 이상 safe integer |
+| `usage.context.used` | 현재 컨텍스트 창에 차 있는 토큰 수. `0` 이상 safe integer |
+| `usage.context.limit` | 컨텍스트 창 한도. `1` 이상 safe integer |
+
+숫자 외의 내용(모델 이름, 비용, 프롬프트 등)은 받지 않는다. 그 밖의 키는 버린다. 실패 코드는 `bad-usage`.
 
 ### 도구 카테고리
 
@@ -79,6 +105,7 @@ Deskling이 이해하는 유일한 입력 형식. provider(Hermes Agent 등)에 
 | `pendingApprovals` | `approval.requested` +1, `approval.resolved` −1 (0 미만 불가) |
 | `delegations` | `delegation.started` +1, `delegation.finished` −1 (0 미만 불가) |
 | `lastOutcome` | `turn.succeeded` → `success`, `turn.failed` → `error`. `turn.started`/`agent.idle`/`agent.offline` → 없음 |
+| `usage` (뷰 상태) | `usage.reported`가 보낸 값만 덮어쓴다(보내지 않은 항목은 유지). 세션이 바뀌면 지운다. 최근 활동 목록에는 넣지 않는다 |
 
 턴 종료(`turn.succeeded`/`turn.failed`), `agent.idle`, `agent.offline`은 `activeTools`, `pendingApprovals`, `delegations`를 비운다.
 
@@ -98,6 +125,15 @@ Deskling이 이해하는 유일한 입력 형식. provider(Hermes Agent 등)에 
 `thinking`은 "턴이 진행 중이고 실행 중인 도구가 없다"는 사실이다. 내용이나 추론을 뜻하지 않는다.
 `success`/`error`는 다음 이벤트가 올 때까지 유지된다. 시간 경과로 상태를 바꾸지 않는다(FR-E6).
 대기로 돌아가는 것은 adapter가 `agent.idle`을 보낼 때다.
+
+## 5.1 에너지와 화남 (ADR-016)
+
+시각 상태와 별개인 분위기 값이다. `src/core/mood.ts`의 순수 함수가 보고된 숫자와 사용자 예산으로 계산한다.
+
+| 값 | 계산 | 단계 |
+| --- | --- | --- |
+| 에너지 | `1 − tokens.used / 예산` (0~1로 자름) | `full` ≥ 0.6, `ok` ≥ 0.3, `low` ≥ 0.1, `empty` < 0.1, 보고 없음 `unknown` |
+| 화남 | `context.used / context.limit` (0~1로 자름) | `calm` < 0.5, `annoyed` < 0.75, `angry` < 0.9, `furious` ≥ 0.9, 보고 없음 `unknown` |
 
 ## 6. 순서와 중복
 
@@ -124,7 +160,7 @@ adapter는 이런 데이터를 애초에 읽지 않는 것을 원칙으로 한�
 
 정규화 실패는 다음 코드 중 하나를 반환한다. 코드 외의 정보(입력값, 필드 내용)는 반환·로그하지 않는다.
 
-`not-object`, `bad-schema`, `bad-version`, `bad-id`, `bad-seq`, `bad-timestamp`, `bad-source`, `bad-type`, `bad-tool`, `bad-outcome`
+`not-object`, `bad-schema`, `bad-version`, `bad-id`, `bad-seq`, `bad-timestamp`, `bad-source`, `bad-type`, `bad-tool`, `bad-outcome`, `bad-usage`
 
 ## 9. Adapter 계약
 
