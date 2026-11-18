@@ -1,7 +1,7 @@
-import type { AgentEvent, AgentEventSource } from './agentEvent';
+import type { AgentEvent, AgentEventSource, UsageReport } from './agentEvent';
 import {
   AGENT_EVENT_SCHEMA,
-  AGENT_EVENT_VERSION,
+  AGENT_EVENT_VERSIONS,
   EVENT_TYPES,
   SOURCE_KINDS,
   TOOL_CATEGORIES,
@@ -25,6 +25,7 @@ export const NORMALIZE_ERRORS = [
   'bad-type',
   'bad-tool',
   'bad-outcome',
+  'bad-usage',
 ] as const;
 export type NormalizeError = (typeof NORMALIZE_ERRORS)[number];
 
@@ -59,6 +60,37 @@ function isNonNegativeSafeInteger(value: unknown): value is number {
   return typeof value === 'number' && Number.isSafeInteger(value) && value >= 0;
 }
 
+function isPositiveSafeInteger(value: unknown): value is number {
+  return isNonNegativeSafeInteger(value) && value > 0;
+}
+
+/** Copies only the numeric usage fields (ADR-016). Returns null when anything is malformed. */
+function parseUsage(raw: unknown): UsageReport | null {
+  if (!isPlainRecord(raw)) return null;
+  const rawTokens = own(raw, 'tokens');
+  const rawContext = own(raw, 'context');
+  if (rawTokens === undefined && rawContext === undefined) return null;
+
+  let tokens: UsageReport['tokens'];
+  if (rawTokens !== undefined) {
+    if (!isPlainRecord(rawTokens)) return null;
+    const used = own(rawTokens, 'used');
+    if (!isNonNegativeSafeInteger(used)) return null;
+    tokens = Object.freeze({ used });
+  }
+
+  let context: UsageReport['context'];
+  if (rawContext !== undefined) {
+    if (!isPlainRecord(rawContext)) return null;
+    const used = own(rawContext, 'used');
+    const limit = own(rawContext, 'limit');
+    if (!isNonNegativeSafeInteger(used) || !isPositiveSafeInteger(limit)) return null;
+    context = Object.freeze({ used, limit });
+  }
+
+  return Object.freeze({ ...(tokens ? { tokens } : {}), ...(context ? { context } : {}) });
+}
+
 function fail(error: NormalizeError): NormalizeResult {
   return { ok: false, error };
 }
@@ -80,7 +112,8 @@ export function normalizeAgentEvent(input: unknown): NormalizeResult {
 function normalize(input: unknown): NormalizeResult {
   if (!isPlainRecord(input)) return fail('not-object');
   if (own(input, 'schema') !== AGENT_EVENT_SCHEMA) return fail('bad-schema');
-  if (own(input, 'version') !== AGENT_EVENT_VERSION) return fail('bad-version');
+  const version = own(input, 'version');
+  if (version !== AGENT_EVENT_VERSIONS[0] && version !== AGENT_EVENT_VERSIONS[1]) return fail('bad-version');
 
   const id = own(input, 'id');
   if (!isIdentifier(id)) return fail('bad-id');
@@ -101,7 +134,14 @@ function normalize(input: unknown): NormalizeResult {
   const type = own(input, 'type');
   if (!oneOf(EVENT_TYPES, type)) return fail('bad-type');
 
-  const common = { schema: AGENT_EVENT_SCHEMA, version: AGENT_EVENT_VERSION, id, seq, at, source } as const;
+  const common = { schema: AGENT_EVENT_SCHEMA, version, id, seq, at, source } as const;
+
+  if (type === 'usage.reported') {
+    if (version < 2) return fail('bad-type');
+    const usage = parseUsage(own(input, 'usage'));
+    if (!usage) return fail('bad-usage');
+    return { ok: true, event: Object.freeze({ ...common, type, usage }) };
+  }
 
   if (type === 'tool.started' || type === 'tool.finished') {
     const tool = own(input, 'tool');

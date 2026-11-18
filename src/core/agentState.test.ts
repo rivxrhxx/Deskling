@@ -7,7 +7,7 @@ let seq = 0;
 
 /** Builds a valid event. Tests talk in facts, not in raw objects. */
 function ev(
-  type: AgentEventType,
+  type: Exclude<AgentEventType, 'usage.reported'>,
   extra: { tool?: ToolCategory; outcome?: ToolOutcome; session?: string; seq?: number; at?: number } = {},
 ): AgentEvent {
   seq = extra.seq ?? seq + 1;

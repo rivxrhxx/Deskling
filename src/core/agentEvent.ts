@@ -1,13 +1,18 @@
 /**
- * AgentEvent v1 — the only input Deskling understands. Provider-neutral.
+ * AgentEvent v2 — the only input Deskling understands. Provider-neutral.
  * Source of truth for docs/EVENT_PROTOCOL.md; change both in the same commit.
  *
- * v1 deliberately has no free-text fields: events say *what kind* of thing happened,
+ * The protocol deliberately has no free-text fields: events say *what kind* of thing happened,
  * never *what* the agent is reading, writing, running or thinking (ADR-003).
+ * v2 adds `usage.reported`, which carries token and context counts only (ADR-016).
  */
 
 export const AGENT_EVENT_SCHEMA = 'deskling.agent-event';
-export const AGENT_EVENT_VERSION = 1;
+/** Accepted protocol versions. v2 adds `usage.reported` (ADR-016). */
+export const AGENT_EVENT_VERSIONS = [1, 2] as const;
+export type AgentEventVersion = (typeof AGENT_EVENT_VERSIONS)[number];
+/** The version Deskling's own demo source emits. */
+export const AGENT_EVENT_VERSION: AgentEventVersion = 2;
 
 export const SOURCE_KINDS = ['demo', 'hermes', 'custom'] as const;
 export type SourceKind = (typeof SOURCE_KINDS)[number];
@@ -31,6 +36,7 @@ export const EVENT_TYPES = [
   'delegation.finished',
   'turn.succeeded',
   'turn.failed',
+  'usage.reported',
 ] as const;
 export type AgentEventType = (typeof EVENT_TYPES)[number];
 
@@ -65,7 +71,7 @@ export interface AgentEventSource {
 
 interface AgentEventBase {
   readonly schema: typeof AGENT_EVENT_SCHEMA;
-  readonly version: typeof AGENT_EVENT_VERSION;
+  readonly version: AgentEventVersion;
   readonly id: string;
   readonly seq: number;
   /** Unix epoch milliseconds when the provider observed the fact. */
@@ -73,7 +79,7 @@ interface AgentEventBase {
   readonly source: AgentEventSource;
 }
 
-export type PlainEventType = Exclude<AgentEventType, 'tool.started' | 'tool.finished'>;
+export type PlainEventType = Exclude<AgentEventType, 'tool.started' | 'tool.finished' | 'usage.reported'>;
 
 export interface PlainAgentEvent extends AgentEventBase {
   readonly type: PlainEventType;
@@ -90,4 +96,15 @@ export interface ToolFinishedEvent extends AgentEventBase {
   readonly outcome: ToolOutcome;
 }
 
-export type AgentEvent = PlainAgentEvent | ToolStartedEvent | ToolFinishedEvent;
+/** Numbers only: how many tokens the session used and how full the context window is (v2). */
+export interface UsageReport {
+  readonly tokens?: { readonly used: number };
+  readonly context?: { readonly used: number; readonly limit: number };
+}
+
+export interface UsageReportedEvent extends AgentEventBase {
+  readonly type: 'usage.reported';
+  readonly usage: UsageReport;
+}
+
+export type AgentEvent = PlainAgentEvent | ToolStartedEvent | ToolFinishedEvent | UsageReportedEvent;

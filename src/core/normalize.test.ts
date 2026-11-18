@@ -27,7 +27,7 @@ describe('normalizeAgentEvent — valid input (FR-E1, FR-E3)', () => {
     });
   });
 
-  it.each(EVENT_TYPES.filter((t) => !t.startsWith('tool.')))('accepts %s', (type) => {
+  it.each(EVENT_TYPES.filter((t) => !t.startsWith('tool.') && t !== 'usage.reported'))('accepts %s', (type) => {
     expect(expectOk({ ...base, type })).toEqual({ ...base, type });
   });
 
@@ -120,7 +120,7 @@ describe('normalizeAgentEvent — invalid input (EVENT_PROTOCOL §8)', () => {
     ['a class instance', new Date(0), 'not-object'],
     ['a missing schema', { ...valid, schema: undefined }, 'bad-schema'],
     ['a foreign schema', { ...valid, schema: 'other.event' }, 'bad-schema'],
-    ['a future version', { ...valid, version: 2 }, 'bad-version'],
+    ['a future version', { ...valid, version: 3 }, 'bad-version'],
     ['a string version', { ...valid, version: '1' }, 'bad-version'],
     ['an empty id', { ...valid, id: '' }, 'bad-id'],
     ['a 65 character id', { ...valid, id: 'a'.repeat(65) }, 'bad-id'],
@@ -235,5 +235,73 @@ describe('normalizeAgentEvent — sensitive data never propagates (SEC-1, SEC-2)
     const event = expectOk(input);
     expect(JSON.stringify(event)).not.toContain(SECRET);
     expect(({} as Record<string, unknown>).polluted).toBeUndefined();
+  });
+});
+
+describe('normalizeAgentEvent — usage.reported (v2, FR-V1, ADR-016)', () => {
+  const v2 = { ...base, version: 2 } as const;
+  const usageEvent = (usage: unknown) => ({ ...v2, type: 'usage.reported', usage });
+
+  it('keeps the version of the input event', () => {
+    expect(expectOk({ ...base, type: 'turn.started' }).version).toBe(1);
+    expect(expectOk({ ...v2, type: 'turn.started' }).version).toBe(2);
+  });
+
+  it('accepts token and context usage', () => {
+    expect(expectOk(usageEvent({ tokens: { used: 120000 }, context: { used: 156000, limit: 200000 } }))).toEqual({
+      ...v2,
+      type: 'usage.reported',
+      usage: { tokens: { used: 120000 }, context: { used: 156000, limit: 200000 } },
+    });
+  });
+
+  it('accepts tokens only and context only', () => {
+    expect(expectOk(usageEvent({ tokens: { used: 0 } }))).toMatchObject({ usage: { tokens: { used: 0 } } });
+    expect(expectOk(usageEvent({ context: { used: 5, limit: 10 } }))).toMatchObject({ usage: { context: { used: 5, limit: 10 } } });
+    expect(expectOk(usageEvent({ tokens: { used: 1 } }))).not.toHaveProperty('usage.context');
+  });
+
+  it('copies only the numbers — model names, costs or prompts are dropped', () => {
+    const event = expectOk(
+      usageEvent({ tokens: { used: 7, model: 'SECRET-MODEL' }, context: { used: 1, limit: 2, prompt: 'SECRET' }, cost: 'SECRET' }),
+    );
+    expect(JSON.stringify(event)).not.toContain('SECRET');
+    expect(event).toEqual({ ...v2, type: 'usage.reported', usage: { tokens: { used: 7 }, context: { used: 1, limit: 2 } } });
+  });
+
+  it('returns a deeply frozen usage object', () => {
+    const event = expectOk(usageEvent({ tokens: { used: 7 }, context: { used: 1, limit: 2 } }));
+    if (event.type !== 'usage.reported') throw new Error('wrong type');
+    expect(Object.isFrozen(event.usage)).toBe(true);
+    expect(Object.isFrozen(event.usage.tokens)).toBe(true);
+    expect(Object.isFrozen(event.usage.context)).toBe(true);
+  });
+
+  it.each<[string, unknown]>([
+    ['a missing usage', undefined],
+    ['a non-object usage', 42],
+    ['an empty usage', {}],
+    ['a non-object tokens', { tokens: 5 }],
+    ['tokens without used', { tokens: {} }],
+    ['negative tokens', { tokens: { used: -1 } }],
+    ['fractional tokens', { tokens: { used: 1.5 } }],
+    ['string tokens', { tokens: { used: '10' } }],
+    ['context without limit', { context: { used: 1 } }],
+    ['context with a zero limit', { context: { used: 0, limit: 0 } }],
+    ['context with a negative used', { context: { used: -3, limit: 10 } }],
+    ['unsafe context numbers', { context: { used: 1, limit: Number.MAX_SAFE_INTEGER + 1 } }],
+  ])('rejects %s as bad-usage', (_label, usage) => {
+    expect(normalizeAgentEvent(usageEvent(usage))).toEqual({ ok: false, error: 'bad-usage' });
+  });
+
+  it('rejects usage.reported in a v1 event', () => {
+    expect(normalizeAgentEvent({ ...base, type: 'usage.reported', usage: { tokens: { used: 1 } } })).toEqual({
+      ok: false,
+      error: 'bad-type',
+    });
+  });
+
+  it('ignores usage on other event types', () => {
+    expect(expectOk({ ...v2, type: 'turn.started', usage: { tokens: { used: 1 } } })).not.toHaveProperty('usage');
   });
 });

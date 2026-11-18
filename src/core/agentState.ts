@@ -119,6 +119,8 @@ function applyFacts(facts: AgentFacts, event: AgentEvent): AgentFacts {
       return { ...online, delegations: online.delegations + 1 };
     case 'delegation.finished':
       return { ...online, delegations: Math.max(0, online.delegations - 1) };
+    case 'usage.reported':
+      return online;
   }
 }
 
