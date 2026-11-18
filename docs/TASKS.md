@@ -18,7 +18,7 @@
   - 검증: `npm run rust:check`
 - [x] **T04** 오버레이 창 설정(투명·무테·항상 위·그림자 없음·macOSPrivateApi) + 최소 capability — FR-W1, SEC-5
   - 검증: `src/config/tauriConfig.test.ts`
-- [ ] **T05** `verify:fast`, `verify`, `build:app` 스크립트 구성
+- [x] **T05** `verify:fast`, `verify`, `build:app` 스크립트 구성
   - 검증: `npm run verify:fast`, `npm run verify`
 
 ## M2 이벤트 코어
@@ -65,6 +65,8 @@
 - [ ] **T32** `npm run build:app` macOS 번들 빌드 — NFR-1
 - [ ] **T33** `npm run tauri dev` 실행 + 스크린샷으로 투명 오버레이·장면 확인 — TEST_PLAN §5
 - [ ] **T34** 독립 리뷰(보안·정확성) 후 지적 반영
+- [ ] **T35** 원본 앱 아이콘으로 Tauri 기본 로고 교체 — NFR-3
+  - 검증: `src-tauri/icons/*` 재생성, `npm run build:app`
 
 ## 백로그 (vertical slice 이후, 각각 ADR 먼저)
 
