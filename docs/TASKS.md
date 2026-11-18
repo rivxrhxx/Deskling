@@ -34,7 +34,7 @@
 
 ## M3 데모
 
-- [ ] **T14** `core` 스크립트: idle → thinking → coding → terminal → success → idle — FR-D2
+- [x] **T14** `core` 스크립트: idle → thinking → coding → terminal → success → idle — FR-D2
 - [ ] **T15** `tour` 스크립트: 11개 상태 순서대로 — FR-D3
 - [ ] **T16** 데모 스크립트의 모든 이벤트가 정규화 통과 — FR-D6
 - [ ] **T17** `createDemoSource`: 고정 간격 재생, 반복 시 seq 증가, stop — FR-D1, FR-D4
