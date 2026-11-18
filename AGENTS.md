@@ -15,6 +15,8 @@
    검증 실패 로그에는 에러 코드만 남기고 입력값은 절대 출력하지 않는다.
 5. **Provider 로직 격리.** Hermes 등 특정 provider 로직은 `src/adapters/<provider>/`(또는 향후 Rust 측 adapter)에만 둔다.
    `src/ui/`, `src/app/` 컴포넌트에 provider 이름이나 provider 전용 분기를 넣지 않는다.
+   예외(ADR-022): 프로토콜 enum인 `source.kind` 값(`hermes`, `claude-code`, `codex` …)으로 캐릭터의 **모습·이름표만** 고르는 것은 허용한다
+   (상태별 톤을 고르는 것과 같은 표현 매핑). 전송·훅 해석·이벤트 번역 같은 연동 로직은 여전히 adapter에만 둔다.
 6. **데모는 항상 표시.** demo adapter가 동작하는 동안 DEMO 배지를 숨기는 옵션을 만들지 않는다.
 7. **원본 그래픽만.** 외부 게임·상업 캐릭터 이미지를 복사하지 않는다. MVP 그래픽은 직접 만든 CSS/SVG primitive다.
 
