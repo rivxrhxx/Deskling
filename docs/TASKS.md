@@ -41,7 +41,7 @@
 
 ## M4 장면 (vertical slice 화면)
 
-- [ ] **T18** `visualSpec`: 11개 상태의 고유 라벨·아이콘·포즈·톤 — FR-S3
+- [x] **T18** `visualSpec`: 11개 상태의 고유 라벨·아이콘·포즈·톤 — FR-S3
 - [ ] **T19** `StatusBubble`: 아이콘 + 라벨, `role=status` — FR-S4
 - [ ] **T20** `DemoBadge` — FR-D5
 - [ ] **T21** `Workshop` SVG: 상태별 포즈·모니터 화면, 텍스트 노드 없음 — FR-S1, FR-S6
