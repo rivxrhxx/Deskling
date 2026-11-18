@@ -177,3 +177,72 @@ describe('App activity panel (FR-P1, FR-P3)', () => {
     expect(screen.getByRole('dialog', { name: '최근 활동' })).toBeInTheDocument();
   });
 });
+
+function fakeControls() {
+  return {
+    startDragging: vi.fn(() => Promise.resolve()),
+    setAlwaysOnTop: vi.fn<(on: boolean) => Promise<void>>(() => Promise.resolve()),
+    setSize: vi.fn<(width: number, height: number) => Promise<void>>(() => Promise.resolve()),
+    close: vi.fn(() => Promise.resolve()),
+  };
+}
+
+function fakeStorage(initial?: object) {
+  const data = new Map<string, string>(initial ? [['deskling.settings.v1', JSON.stringify(initial)]] : []);
+  return {
+    data,
+    getItem: (key: string) => data.get(key) ?? null,
+    setItem: (key: string, value: string) => void data.set(key, value),
+  };
+}
+
+describe('App window settings (FR-W2, FR-W4–W6, FR-W8, FR-M2)', () => {
+  it('applies stored settings to the native window and the scene on start', () => {
+    const controls = fakeControls();
+    const storage = fakeStorage({ size: 'l', opacity: 0.6, alwaysOnTop: false, motion: 'reduced', demoScript: 'tour' });
+    render(<App source={manualSource().source} controls={controls} storage={storage} />);
+
+    expect(controls.setSize).toHaveBeenCalledWith(416, 364);
+    expect(controls.setAlwaysOnTop).toHaveBeenCalledWith(false);
+    const root = screen.getByRole('region', { name: 'Deskling' });
+    expect(root.style.getPropertyValue('--scene-opacity')).toBe('0.6');
+    expect(root).toHaveAttribute('data-motion', 'reduced');
+  });
+
+  it('changes size, pin, opacity and motion from the toolbar and persists them', async () => {
+    const { default: userEvent } = await import('@testing-library/user-event');
+    const { fireEvent } = await import('@testing-library/react');
+    const user = userEvent.setup();
+    const controls = fakeControls();
+    const storage = fakeStorage();
+    render(<App source={manualSource().source} controls={controls} storage={storage} />);
+
+    await user.click(screen.getByRole('button', { name: '작게' }));
+    expect(controls.setSize).toHaveBeenLastCalledWith(256, 224);
+
+    await user.click(screen.getByRole('button', { name: '항상 위에 표시' }));
+    expect(controls.setAlwaysOnTop).toHaveBeenLastCalledWith(false);
+
+    fireEvent.change(screen.getByRole('slider', { name: '불투명도' }), { target: { value: '50' } });
+    expect(screen.getByRole('region', { name: 'Deskling' }).style.getPropertyValue('--scene-opacity')).toBe('0.5');
+
+    await user.click(screen.getByRole('button', { name: '모션: 시스템 설정' }));
+    expect(screen.getByRole('region', { name: 'Deskling' })).toHaveAttribute('data-motion', 'reduced');
+
+    expect(JSON.parse(storage.data.get('deskling.settings.v1') ?? '{}')).toEqual({
+      size: 's',
+      opacity: 0.5,
+      alwaysOnTop: false,
+      motion: 'reduced',
+      demoScript: 'tour',
+    });
+  });
+
+  it('closes the native window from the toolbar', async () => {
+    const { default: userEvent } = await import('@testing-library/user-event');
+    const controls = fakeControls();
+    render(<App source={manualSource().source} controls={controls} storage={fakeStorage()} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Deskling 닫기' }));
+    expect(controls.close).toHaveBeenCalledTimes(1);
+  });
+});

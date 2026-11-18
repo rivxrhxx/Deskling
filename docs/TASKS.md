@@ -55,7 +55,7 @@
 - [x] **T25** `ActivityPanel`: 캐릭터 클릭·Enter로 열기, 닫기 버튼·Esc, 고정 문구 — FR-P1~P4
 - [x] **T26** `settings`: 검증·로드·저장, 저장 키 하나 — FR-W6, SEC-7
 - [x] **T27** `WindowControls` 인터페이스, Tauri/no-op 구현 선택
-- [ ] **T28** `WindowToolbar`: 크기 S/M/L, 투명도, 항상 위, 모션, 닫기 — FR-W2, W4, W5, W7, W8, FR-M2
+- [x] **T28** `WindowToolbar`: 크기 S/M/L, 투명도, 항상 위, 모션, 닫기 — FR-W2, W4, W5, W7, W8, FR-M2
 - [ ] **T29** 드래그: 빈 영역 pointerdown → `startDragging`, 캐릭터·컨트롤은 제외 — FR-W3
 - [ ] **T30** 데모 시나리오 선택(`tour` 기본 / `core`) — FR-D3
 

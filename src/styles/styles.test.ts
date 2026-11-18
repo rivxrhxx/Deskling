@@ -44,6 +44,11 @@ describe('stylesheet contract', () => {
     expect(appCss).toMatch(/@media \(prefers-reduced-motion: reduce\)\s*\{[^@]*:not\(\[data-motion="full"\]\)/);
   });
 
+  it('shows the toolbar only on hover or keyboard focus (FR-W7)', () => {
+    expect(appCss).toMatch(/\.window-toolbar\s*\{[^}]*opacity:\s*0;/);
+    expect(appCss).toMatch(/\.deskling:hover \.window-toolbar,\s*\.deskling:focus-within \.window-toolbar\s*\{[^}]*opacity:\s*1;/);
+  });
+
   it('loads nothing from the network: no imports, fonts or remote urls (NFR-2)', () => {
     expect(allCss).not.toMatch(/@import|@font-face|https?:\/\//);
     const urls = allCss.match(/url\(([^)]*)\)/g) ?? [];

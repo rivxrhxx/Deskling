@@ -268,3 +268,53 @@ body {
   from { opacity: 0; transform: translateY(-0.3rem); }
   to { opacity: 1; transform: translateY(0); }
 }
+
+/* ---- Window toolbar: only on hover or keyboard focus (FR-W7) ------------------------------ */
+.window-toolbar {
+  position: absolute;
+  left: 50%;
+  bottom: 0.4rem;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.25rem 0.4rem;
+  border-radius: 1.2rem;
+  border: 1px solid var(--glass-edge);
+  background: var(--glass);
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(-50%, 0.3rem);
+  transition:
+    opacity 160ms var(--ease-soft),
+    transform 160ms var(--ease-soft);
+}
+
+.deskling:hover .window-toolbar,
+.deskling:focus-within .window-toolbar {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translate(-50%, 0);
+}
+
+.window-toolbar__group {
+  display: flex;
+  gap: 0.1rem;
+  padding-right: 0.3rem;
+  border-right: 1px solid rgba(154, 161, 187, 0.16);
+}
+
+.icon-button--text {
+  width: 1.8rem;
+  font-family: var(--font-ui);
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.window-toolbar__opacity {
+  width: 5.6rem;
+  height: 1rem;
+  margin: 0 0.2rem;
+  accent-color: var(--tone-violet);
+  cursor: pointer;
+}
