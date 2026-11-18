@@ -1,10 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import type { VisualState } from './agentEvent';
 import { VISUAL_STATES } from './agentEvent';
-import type { Activity, LifeInput, LifeState } from './life';
-import { IDLE_ACTIVITIES, REQUIRED, initialLife, positionAt, stepLife, walkSpeed } from './life';
+import type { Activity, IdleActivity, LifeInput, LifeState } from './life';
+import { IDLE_ACTIVITIES, IDLE_DURATION, REQUIRED, initialLife, positionAt, stepLife, walkSpeed } from './life';
 import type { EnergyLevel } from './mood';
-import { SPOTS, pathBetween, pathLength } from './room';
+import type { Tile } from './room';
+import { HUB, SPOTS, pathBetween, pathLength } from './room';
 
 const T0 = 1_000_000;
 
@@ -97,6 +98,68 @@ describe('walking (FR-R6)', () => {
   it('drops what it is doing and heads to the desk when work starts', () => {
     const states = simulate(3, [{ from: T0, visual: 'idle' }, { from: T0 + 20_000, visual: 'coding' }], T0 + 20_000);
     expect(states.at(-1)?.hermes).toMatchObject({ activity: 'type-code', spot: 'desk' });
+  });
+
+  it('keeps its walk when the work changes but the desk stays the goal', () => {
+    let state = stepLife(initialLife(1, T0), input('thinking', T0));
+    const { path, departAt, arriveAt } = state.hermes;
+    state = stepLife(state, input('coding', arriveAt - 500));
+    expect(state.hermes).toMatchObject({ activity: 'type-code', spot: 'desk', path, departAt, arriveAt });
+  });
+
+  it('reaches the desk in one walk even when the tool changes every 1.2 s', () => {
+    const tick = 300;
+    const walkMs = (pathLength(pathBetween(SPOTS.bed.at, SPOTS.desk.at)) / walkSpeed('full')) * 1000;
+    const tools: VisualState[] = ['thinking', 'coding', 'terminal'];
+    const timeline = Array.from({ length: 6 }, (_, i) => ({ from: T0 + i * 1200, visual: tools[i % 3]! }));
+    const states = simulate(1, timeline, T0 + 7_200, tick);
+    for (let i = Math.ceil(walkMs / tick); i < states.length; i += 1) {
+      expect(positionAt(states[i]!.hermes, T0 + i * tick)).toMatchObject({ at: SPOTS.desk.at, walking: false });
+    }
+  });
+
+  it('keeps its walk to the sofa when a friend is invited on the way to the TV', () => {
+    const path = pathBetween(SPOTS.bed.at, SPOTS.sofa.at);
+    const arriveAt = T0 + (pathLength(path) / walkSpeed('full')) * 1000;
+    const onTheWay: LifeState = {
+      ...initialLife(5, T0),
+      hermes: { activity: 'watch-tv', spot: 'sofa', path, departAt: T0, arriveAt },
+      until: arriveAt + IDLE_DURATION['watch-tv'],
+    };
+    const state = stepLife(onTheWay, input('idle', T0 + 3_000, { invite: true }));
+    expect(state.hermes).toMatchObject({ activity: 'host-friend', spot: 'sofa', path, departAt: T0, arriveAt });
+  });
+
+  it('an idle activity where Hermes already is still lasts its full time', () => {
+    const later = T0 + 60_000;
+    const picked = new Set<Activity>();
+    for (let seed = 1; seed <= 30; seed += 1) {
+      const state = stepLife(initialLife(seed, T0), input('idle', later, { energy: 'empty' }));
+      const activity = state.hermes.activity as IdleActivity;
+      picked.add(activity);
+      expect(state.until).toBeGreaterThanOrEqual(later + IDLE_DURATION[activity]);
+    }
+    expect(picked.has('nap')).toBe(true);
+  });
+
+  it('turns straight back when its goal is behind it on the current walk', () => {
+    let state = stepLife(initialLife(1, T0), input('coding', T0));
+    const now = T0 + 1_000;
+    const here = positionAt(state.hermes, now).at;
+    state = stepLife(state, input('offline', now));
+    expect(state.hermes).toMatchObject({ activity: 'sleep', spot: 'bed', path: [here, SPOTS.bed.at] });
+  });
+
+  it('snaps to where it was going when motion becomes reduced mid-walk', () => {
+    let state = stepLife(initialLife(5, T0), input('coding', T0));
+    state = stepLife(state, input('coding', T0 + 100, { invite: true }));
+    const mid = T0 + 1_000;
+    expect(positionAt(state.hermes, mid).walking).toBe(true);
+    expect(positionAt(state.friend!, mid).walking).toBe(true);
+    state = stepLife(state, input('coding', mid, { reducedMotion: true }));
+    expect(state.hermes).toMatchObject({ path: [SPOTS.desk.at], departAt: mid, arriveAt: mid });
+    expect(positionAt(state.hermes, mid)).toMatchObject({ at: SPOTS.desk.at, walking: false });
+    expect(state.friend).toMatchObject({ spot: 'sofa-2', path: [SPOTS['sofa-2'].at], departAt: mid, arriveAt: mid });
   });
 });
 
@@ -199,5 +262,51 @@ describe('friends (FR-R4)', () => {
     state = stepLife(state, input('offline', T0 + 1_000));
     expect(state.friend?.spot).toBe('outside');
     expect(state.hermes).toMatchObject({ activity: 'sleep', spot: 'bed' });
+  });
+
+  it('a friend sent home while coming in turns back at the door instead of crossing the room', () => {
+    let state = stepLife(initialLife(5, T0), input('idle', T0));
+    state = stepLife(state, input('idle', T0 + 100, { invite: true }));
+    const now = T0 + 600;
+    const here = positionAt(state.friend!, now).at;
+    state = stepLife(state, input('offline', now));
+    const leaving = state.friend!;
+    const out = SPOTS.outside.at;
+    const away = (p: Tile) => Math.hypot(p.x - out.x, p.y - out.y);
+    expect(leaving).toMatchObject({ activity: 'leave', spot: 'outside' });
+    expect(leaving.path[0]).toEqual(here);
+    expect(leaving.path.at(-1)).toEqual(out);
+    expect(leaving.path).not.toContainEqual(HUB);
+    for (const point of leaving.path) expect(away(point)).toBeLessThanOrEqual(away(here) + 1e-9);
+    state = stepLife(state, input('offline', leaving.arriveAt));
+    expect(state.friend).toBeNull();
+  });
+
+  it('a friend on the way out is gone at once when motion becomes reduced', () => {
+    let state = stepLife(initialLife(5, T0), input('idle', T0, { invite: true }));
+    state = stepLife(state, input('offline', T0 + 1_000));
+    const leaving = state.friend!;
+    expect(leaving.spot).toBe('outside');
+    const mid = (leaving.departAt + leaving.arriveAt) / 2;
+    expect(positionAt(leaving, mid).walking).toBe(true);
+    state = stepLife(state, input('offline', mid, { reducedMotion: true }));
+    expect(state.friend).toBeNull();
+  });
+
+  it('an invited visit lasts until both are seated, plus the visit, like one Hermes starts himself', () => {
+    let state = stepLife(initialLife(5, T0), input('idle', T0, { energy: 'empty' }));
+    state = stepLife(state, input('idle', T0 + 100, { energy: 'empty', invite: true }));
+    const { hermes, friend } = state;
+    expect(hermes).toMatchObject({ activity: 'host-friend', spot: 'sofa' });
+    // A tired Hermes walks slowly, so he sits down after the friend.
+    expect(hermes.arriveAt).toBeGreaterThan(friend!.arriveAt);
+    expect(state.friendLeaveAt).toBe(hermes.arriveAt + IDLE_DURATION['host-friend']);
+    expect(state.until).toBe(state.friendLeaveAt);
+  });
+
+  it('while Hermes works, an invited visit is timed from the friend sitting down', () => {
+    let state = stepLife(initialLife(5, T0), input('coding', T0, { energy: 'empty' }));
+    state = stepLife(state, input('coding', T0 + 100, { energy: 'empty', invite: true }));
+    expect(state.friendLeaveAt).toBe(state.friend!.arriveAt + IDLE_DURATION['host-friend']);
   });
 });

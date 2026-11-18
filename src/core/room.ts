@@ -92,18 +92,19 @@ export const SPOTS: Readonly<Record<SpotId, Spot>> = spots;
 export const HUB: Tile = { x: 4.2, y: 3.6 };
 
 export const isOutside = (tile: Tile) => tile.y < 0;
-const same = (a: Tile, b: Tile) => Math.abs(a.x - b.x) < 1e-6 && Math.abs(a.y - b.y) < 1e-6;
+/** True when two points coincide (within float error). */
+export const sameTile = (a: Tile, b: Tile) => Math.abs(a.x - b.x) < 1e-6 && Math.abs(a.y - b.y) < 1e-6;
 
 /** Waypoints from one point to another: via the door when leaving or entering, via the hub otherwise. */
 export function pathBetween(from: Tile, to: Tile): Tile[] {
-  if (same(from, to)) return [from];
+  if (sameTile(from, to)) return [from];
   const door = SPOTS.door.at;
   const points: Tile[] = [from];
   if (isOutside(from)) points.push(door);
   const start = points[points.length - 1] as Tile;
   const end = isOutside(to) ? door : to;
-  if (!same(start, HUB) && !same(end, HUB) && !same(start, end)) points.push(HUB);
-  if (!same(points[points.length - 1] as Tile, end)) points.push(end);
+  if (!sameTile(start, HUB) && !sameTile(end, HUB) && !sameTile(start, end)) points.push(HUB);
+  if (!sameTile(points[points.length - 1] as Tile, end)) points.push(end);
   if (isOutside(to)) points.push(to);
   return points;
 }

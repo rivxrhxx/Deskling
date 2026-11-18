@@ -1,7 +1,7 @@
 import type { VisualState } from './agentEvent';
 import type { EnergyLevel } from './mood';
 import type { Facing, SpotId, Tile } from './room';
-import { SPOTS, pathBetween, pathLength } from './room';
+import { SPOTS, pathBetween, pathLength, sameTile } from './room';
 
 /**
  * Hermes' life in the mini room (ADR-020). A pure, deterministic state machine.
@@ -166,12 +166,9 @@ function faceFor(dx: number, dy: number): Facing {
   return dy >= 0 ? 'front-left' : 'back-right';
 }
 
-/** Where an actor is at `now`, whether it is walking and which way it faces. */
-export function positionAt(actor: ActorState, now: number): { at: Tile; walking: boolean; face: Facing } {
-  const last = actor.path[actor.path.length - 1] as Tile;
-  if (now >= actor.arriveAt || actor.path.length < 2) {
-    return { at: last, walking: false, face: SPOTS[actor.spot].face };
-  }
+/** The walk under way at `now`: the index of the waypoint being walked to and the point reached; null when not walking. */
+function progress(actor: ActorState, now: number): { next: number; at: Tile } | null {
+  if (now >= actor.arriveAt || actor.path.length < 2) return null;
   const total = pathLength(actor.path);
   let remaining = (Math.max(0, now - actor.departAt) / (actor.arriveAt - actor.departAt)) * total;
   for (let i = 1; i < actor.path.length; i += 1) {
@@ -180,21 +177,46 @@ export function positionAt(actor: ActorState, now: number): { at: Tile; walking:
     const length = Math.hypot(b.x - a.x, b.y - a.y);
     if (remaining <= length || i === actor.path.length - 1) {
       const t = length === 0 ? 1 : Math.min(1, remaining / length);
-      return {
-        at: { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t },
-        walking: true,
-        face: faceFor(b.x - a.x, b.y - a.y),
-      };
+      return { next: i, at: { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t } };
     }
     remaining -= length;
   }
-  return { at: last, walking: false, face: SPOTS[actor.spot].face };
+  return null;
 }
 
-function walkTo(from: Tile, spot: SpotId, now: number, speed: number, reduced: boolean) {
-  const path = pathBetween(from, SPOTS[spot].at);
+/** Where an actor is at `now`, whether it is walking and which way it faces. */
+export function positionAt(actor: ActorState, now: number): { at: Tile; walking: boolean; face: Facing } {
+  const walk = progress(actor, now);
+  if (!walk) return { at: actor.path[actor.path.length - 1] as Tile, walking: false, face: SPOTS[actor.spot].face };
+  const a = actor.path[walk.next - 1] as Tile;
+  const b = actor.path[walk.next] as Tile;
+  return { at: walk.at, walking: true, face: faceFor(b.x - a.x, b.y - a.y) };
+}
+
+/** The waypoints an actor has already passed on its current walk, ending where it is at `now`. */
+function walked(actor: ActorState, now: number): Tile[] {
+  const walk = progress(actor, now);
+  if (!walk) return [actor.path[actor.path.length - 1] as Tile];
+  const passed = actor.path.slice(0, walk.next);
+  return sameTile(passed[passed.length - 1] as Tile, walk.at) ? passed : [...passed, walk.at];
+}
+
+/**
+ * A walk to `spot` from the end of `trail` (the points passed so far). When the spot lies on the trail,
+ * the actor turns back along it (a friend sent home in the doorway leaves from there); otherwise via the hub.
+ */
+function walkTo(trail: readonly Tile[], spot: SpotId, now: number, speed: number, reduced: boolean) {
+  const to = SPOTS[spot].at;
+  const back = trail.findLastIndex((point) => sameTile(point, to));
+  const path = back >= 0 ? trail.slice(back).reverse() : pathBetween(trail[trail.length - 1] as Tile, to);
   const duration = reduced ? 0 : (pathLength(path) / speed) * 1000;
   return { path, departAt: now, arriveAt: now + duration };
+}
+
+/** With reduced motion nobody is seen mid-walk: an actor still on its way is already there. */
+function arrived<T extends ActorState>(actor: T, now: number): T {
+  if (actor.arriveAt <= now) return actor;
+  return { ...actor, path: [actor.path[actor.path.length - 1] as Tile], departAt: now, arriveAt: now };
 }
 
 const isIdleActivity = (activity: Activity): activity is IdleActivity =>
@@ -223,24 +245,28 @@ export function stepLife(state: LifeState, input: LifeInput): LifeState {
   const { now, visual, energy, invite = false, reducedMotion = false } = input;
   const speed = walkSpeed(energy);
   let { hermes, friend, friendLeaveAt, until, rng } = state;
+  if (reducedMotion) {
+    hermes = arrived(hermes, now);
+    friend = friend && arrived(friend, now);
+  }
 
   const spawnFriend = (role: FriendState['role'], spot: SpotId): FriendState => {
     const [r, next] = random(rng);
     rng = next;
-    const walk = walkTo(SPOTS.outside.at, spot, now, 1.8, reducedMotion);
+    const walk = walkTo([SPOTS.outside.at], spot, now, 1.8, reducedMotion);
     return { activity: role === 'helper' ? 'help' : 'visit', role, spot, look: Math.floor(r * FRIEND_LOOKS), ...walk };
   };
   const friendLeaves = (current: FriendState): FriendState => ({
     ...current,
     activity: 'leave',
     spot: 'outside',
-    ...walkTo(positionAt(current, now).at, 'outside', now, 1.8, reducedMotion),
+    ...walkTo(walked(current, now), 'outside', now, 1.8, reducedMotion),
   });
-  const hermesGoes = (activity: Activity, spot: SpotId): HermesState => ({
-    activity,
-    spot,
-    ...walkTo(positionAt(hermes, now).at, spot, now, speed, reducedMotion),
-  });
+  // Already heading for (or at) that spot: keep the walk and only change what Hermes will do there.
+  const hermesGoes = (activity: Activity, spot: SpotId): HermesState =>
+    spot === hermes.spot
+      ? { ...hermes, activity }
+      : { activity, spot, ...walkTo(walked(hermes, now), spot, now, speed, reducedMotion) };
 
   // 1. Hermes: agent facts first, its own life only while the agent is idle.
   const required = REQUIRED[visual];
@@ -258,7 +284,8 @@ export function stepLife(state: LifeState, input: LifeInput): LifeState {
       friendLeaveAt = Math.max(hermes.arriveAt, friend.arriveAt) + VISIT_MS;
       until = friendLeaveAt;
     } else {
-      until = hermes.arriveAt + IDLE_DURATION[choice];
+      // A kept walk may have ended long ago (nap in the bed he slept in): the activity still lasts its full time.
+      until = Math.max(hermes.arriveAt, now) + IDLE_DURATION[choice];
     }
   } else if (until === null) {
     until = hermes.arriveAt + IDLE_DURATION[hermes.activity];
@@ -272,7 +299,7 @@ export function stepLife(state: LifeState, input: LifeInput): LifeState {
     if (!friend) {
       friend = spawnFriend('helper', 'helper');
     } else if (friend.role !== 'helper' || friend.spot === 'outside') {
-      friend = { ...friend, role: 'helper', activity: 'help', spot: 'helper', ...walkTo(positionAt(friend, now).at, 'helper', now, 1.8, reducedMotion) };
+      friend = { ...friend, role: 'helper', activity: 'help', spot: 'helper', ...walkTo(walked(friend, now), 'helper', now, 1.8, reducedMotion) };
     }
     friendLeaveAt = null;
   } else if (friend?.role === 'helper' && friend.spot !== 'outside') {
@@ -284,6 +311,8 @@ export function stepLife(state: LifeState, input: LifeInput): LifeState {
     friendLeaveAt = friend.arriveAt + VISIT_MS;
     if (!required) {
       hermes = hermesGoes('host-friend', 'sofa');
+      // As with a visit Hermes starts himself: it begins once both are seated.
+      friendLeaveAt = Math.max(hermes.arriveAt, friend.arriveAt) + VISIT_MS;
       until = friendLeaveAt;
     }
   }
