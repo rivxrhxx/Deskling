@@ -123,7 +123,7 @@ export function Workshop({ state }: { state: VisualState }) {
         <rect x="202" y="137" width="8" height="10" fill="#1a1e2b" />
         <rect x="190" y="146" width="32" height="4" rx="2" fill="#1a1e2b" />
         <rect x="162" y="88" width="88" height="50" rx="4" fill="#0b0d14" stroke="#2a3046" strokeWidth="1.2" />
-        <MonitorScreen screen={spec.screen} clipId={id('screen')} />
+        <MonitorScreen key={spec.screen} screen={spec.screen} clipId={id('screen')} />
         <circle className="monitor__led tone-fill" cx="244" cy="135.8" r="0.9" />
       </g>
 
@@ -164,11 +164,16 @@ export function Workshop({ state }: { state: VisualState }) {
         <rect x="78" y="170" width="46" height="6" rx="3" fill="#313752" />
       </g>
 
-      <Character pose={spec.pose} skinGradientId={id('skin')} />
+      <Character key={spec.pose} pose={spec.pose} skinGradientId={id('skin')} />
 
       {state === 'delegated' && <Helper />}
 
-      <rect className="room-dim" x="0" y="40" width="320" height="200" fill="#04050a" />
+      {/* Dims the diorama only — the area around it must stay fully transparent. */}
+      <polygon
+        className="room-dim"
+        points="30,46 290,46 290,52 286,52 286,198 306,224 306,234 14,234 14,224 34,198 34,52 30,52"
+        fill="#04050a"
+      />
     </svg>
   );
 }

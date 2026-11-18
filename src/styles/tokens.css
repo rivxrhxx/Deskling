@@ -1,0 +1,28 @@
+/* Deskling design tokens — keep in sync with docs/DESIGN.md §2 (enforced by styles.test.ts). */
+:root {
+  --room-wall: #161a28;
+  --room-wall-edge: #20263a;
+  --room-floor: #1c2030;
+  --room-floor-side: #10131d;
+  --wood: #2b2f42;
+  --ink: #0b0d14;
+  --skin: #cfd6ea;
+  --text: #e6e9f5;
+  --text-dim: #9aa1bb;
+
+  --tone-cool: #6cc7f2;
+  --tone-violet: #a48df0;
+  --tone-amber: #f4b04a;
+  --tone-ember: #ff6a3d;
+  --tone-mint: #72e3bd;
+  --tone-dim: #5c6280;
+
+  --glass: rgba(11, 13, 21, 0.84);
+  --glass-edge: rgba(154, 161, 187, 0.22);
+
+  --font-ui: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Apple SD Gothic Neo', system-ui, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, monospace;
+
+  --ease-soft: cubic-bezier(0.4, 0, 0.2, 1);
+  --state-fade: 180ms;
+}

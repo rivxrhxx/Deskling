@@ -7,6 +7,8 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
     include: ['src/**/*.test.{ts,tsx}', 'scripts/**/*.test.mjs'],
+    // CSS must be processed so `?raw` stylesheet imports carry real content (styles.test.ts).
+    css: true,
     restoreMocks: true,
     unstubGlobals: true,
   },

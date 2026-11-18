@@ -125,11 +125,13 @@ const POSES: Record<PoseId, PoseArt> = {
       { d: 'M119 156 Q130 156 128 150', hand: [128, 150] },
     ],
     extras: (
+      <g className="folder-bob">
       <g className="folder" transform="rotate(-8 116 155)">
         <path d="M104 149 v-2.5 a1.5 1.5 0 0 1 1.5 -1.5 h6 l2 2.5" fill="#5f6fa8" />
         <rect x="104" y="148" width="24" height="16" rx="2" fill="#6a7bb8" />
         <rect x="108" y="153" width="14" height="1.6" rx="0.8" fill="#b9c4ee" opacity="0.7" />
         <rect x="108" y="157" width="10" height="1.6" rx="0.8" fill="#b9c4ee" opacity="0.5" />
+      </g>
       </g>
     ),
   },
@@ -186,7 +188,8 @@ const POSES: Record<PoseId, PoseArt> = {
     eyes: (
       <g>
         {openEyes(99, 110, 139.5)}
-        <path d="M95.5 133.5 l5 1.6 M114 133.5 l-5 1.6" stroke={EYE} strokeWidth="1.3" strokeLinecap="round" />
+        {/* Worried, not angry: the inner ends of the brows are raised. */}
+        <path d="M95.5 135.2 l5 -1.8 M114 135.2 l-5 -1.8" stroke={EYE} strokeWidth="1.3" strokeLinecap="round" />
       </g>
     ),
     mouth: line('M100.5 149 q2 -2 4 0 q2 2 4 0'),
