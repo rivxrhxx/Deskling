@@ -71,7 +71,7 @@
   - [x] **T34b** capability에서 `core:default` 제거, 창 권한 4개만 (리뷰 MEDIUM, SEC-5)
   - [x] **T34c** 멈춘 소스의 늦은 이벤트 무시 + 소스 전환 시 offline 깜빡임 제거 (리뷰 MEDIUM/LOW)
   - [x] **T34d** 최근 활동 항목에서 provider `id` 제거, 리듀서 카운터 key 사용 (리뷰 LOW)
-  - [ ] **T34e** 동적 `import()`·`__TAURI*` 전역 접근으로 레이어 경계 우회 금지 (리뷰 LOW, SEC-6)
+  - [x] **T34e** 동적 `import()`·`__TAURI*` 전역 접근으로 레이어 경계 우회 금지 (리뷰 LOW, SEC-6)
   - [ ] **T34f** 데모 소스: 재시작 시 첫 단계 재생 안 함, 단계 중간 stop 존중 (리뷰 LOW)
   - [ ] **T34g** 설정 연속 변경 유실 방지, 기본 투어 테스트 강화 (리뷰 LOW)
   - [ ] **T34h** 세션 교차(interleave) 한계와 dev 의존성 advisory를 ADR/상태 문서에 기록

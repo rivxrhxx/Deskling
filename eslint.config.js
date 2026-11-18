@@ -52,6 +52,20 @@ export default defineConfig([
     [layer(['adapters', 'app', 'ui'], 'platform은 창 API 래퍼만 담당한다.')],
   ),
   boundary(['src/app/**/*.{ts,tsx}'], [TAURI]),
+  {
+    // Closes the two ways around no-restricted-imports (review T34e): dynamic import() and reaching
+    // for Tauri's injected globals directly. Only src/platform may talk to Tauri.
+    files: ['src/**/*.{ts,tsx}'],
+    ignores: ['src/platform/**', '**/*.test.{ts,tsx}', 'src/test/**'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        { selector: 'ImportExpression', message: '동적 import()는 레이어 경계 검사를 우회한다. 정적 import를 쓴다.' },
+        { selector: 'Identifier[name=/^__TAURI/]', message: 'Tauri 내부 전역은 src/platform/ 에서만 쓴다.' },
+        { selector: 'Literal[value=/^__TAURI/]', message: 'Tauri 내부 전역은 src/platform/ 에서만 쓴다.' },
+      ],
+    },
+  },
   boundary(
     ['src/ui/**/*.{ts,tsx}'],
     [TAURI, layer(['adapters', 'app', 'platform'], 'UI는 시각 상태만 받는다 — provider·플랫폼 로직 금지.')],
