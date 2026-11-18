@@ -328,3 +328,25 @@ describe('App resilience (review T34a)', () => {
     expect(screen.getByRole('dialog', { name: '최근 활동' })).toHaveTextContent('에이전트 연결됨');
   });
 });
+
+describe('App source switching (review T34c)', () => {
+  it('ignores late events from a source that was already stopped', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+    const first = manualSource('live');
+    const { rerender } = render(<App source={first.source} controls={fakeControls()} storage={fakeStorage()} />);
+    const second = manualSource('live');
+    rerender(<App source={second.source} controls={fakeControls()} storage={fakeStorage()} />);
+
+    second.emit(raw(1, 'turn.started'));
+    expect(statusText()).toBe(VISUAL_SPEC.thinking.label);
+
+    first.emit(raw(99, 'agent.offline'));
+    first.emit({ broken: true });
+    expect(statusText()).toBe(VISUAL_SPEC.thinking.label);
+    expect(warn).not.toHaveBeenCalled();
+
+    second.emit(raw(2, 'tool.started', { tool: 'code' }));
+    second.emit(raw(3, 'tool.finished', { tool: 'code', outcome: 'ok' }));
+    expect(statusText()).toBe(VISUAL_SPEC.thinking.label);
+  });
+});

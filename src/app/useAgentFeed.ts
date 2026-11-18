@@ -1,4 +1,4 @@
-import { useEffect, useReducer } from 'react';
+import { useLayoutEffect, useReducer } from 'react';
 import type { AgentEventSource } from '../adapters/types';
 import type { AgentEvent } from '../core/agentEvent';
 import type { AgentViewState } from '../core/agentState';
@@ -32,9 +32,19 @@ const EMPTY_FEED: FeedState = { source: null, view: initialAgentState };
 export function useAgentFeed(source: AgentEventSource, onReject: RejectReporter = warnRejected): AgentViewState {
   const [feed, dispatch] = useReducer(feedReducer, EMPTY_FEED);
 
-  useEffect(() => {
+  // Layout effect: a source that emits synchronously on start (the demo) is applied before paint,
+  // so switching sources never flashes the "offline" placeholder.
+  useLayoutEffect(() => {
+    let active = true;
     const ingest = createIngest((event) => dispatch({ source, event }), onReject);
-    return source.start(ingest);
+    const stop = source.start((raw) => {
+      // Adapters may deliver late (e.g. an async unlisten). Once stopped, a source is ignored entirely.
+      if (active) ingest(raw);
+    });
+    return () => {
+      active = false;
+      stop();
+    };
   }, [source, onReject]);
 
   return feed.source === source ? feed.view : initialAgentState;
