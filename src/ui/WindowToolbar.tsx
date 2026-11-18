@@ -4,7 +4,7 @@ import type { ReactNode } from 'react';
 export interface ToolbarValues {
   readonly size: 's' | 'm' | 'l';
   readonly opacity: number;
-  readonly alwaysOnTop: boolean;
+  readonly floatOnTop: boolean;
   readonly motion: 'system' | 'reduced' | 'full';
 }
 
@@ -78,10 +78,10 @@ export function WindowToolbar({ values, onChange, onClose }: WindowToolbarProps)
       <button
         type="button"
         className="icon-button"
-        aria-label="항상 위에 표시"
-        title="항상 위에 표시"
-        aria-pressed={values.alwaysOnTop}
-        onClick={() => onChange({ alwaysOnTop: !values.alwaysOnTop })}
+        aria-label="위에 띄우기"
+        title="위에 띄우기 (끄면 바탕화면에 박힘)"
+        aria-pressed={values.floatOnTop}
+        onClick={() => onChange({ floatOnTop: !values.floatOnTop })}
       >
         <Glyph>
           <path d="M6 2.5h4l-.6 4 2.6 2.5H4L6.6 6.5z" />

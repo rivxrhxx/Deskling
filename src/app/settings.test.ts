@@ -20,7 +20,7 @@ function memoryStorage(initial: Record<string, string> = {}) {
 
 describe('parseSettings (FR-W6)', () => {
   it('accepts a complete valid object', () => {
-    const value = { size: 'l', opacity: 0.6, alwaysOnTop: false, motion: 'reduced', demoScript: 'core', tokenBudget: 500_000 };
+    const value = { size: 'l', opacity: 0.6, floatOnTop: false, motion: 'reduced', demoScript: 'core', tokenBudget: 500_000 };
     expect(parseSettings(value)).toEqual(value);
   });
 
@@ -29,7 +29,7 @@ describe('parseSettings (FR-W6)', () => {
   });
 
   it('falls back per field instead of discarding everything', () => {
-    expect(parseSettings({ size: 'xl', opacity: 0.5, alwaysOnTop: 'yes', motion: 'wild', demoScript: 'nope' })).toEqual({
+    expect(parseSettings({ size: 'xl', opacity: 0.5, floatOnTop: 'yes', motion: 'wild', demoScript: 'nope' })).toEqual({
       ...DEFAULT_SETTINGS,
       opacity: 0.5,
     });
@@ -48,6 +48,17 @@ describe('parseSettings (FR-W6)', () => {
 
   it('drops unknown keys', () => {
     expect(parseSettings({ ...DEFAULT_SETTINGS, token: 'SECRET' })).not.toHaveProperty('token');
+  });
+});
+
+describe('window layer default (FR-R7, ADR-021)', () => {
+  it('stays on the desktop (not floating on top) by default', () => {
+    expect(DEFAULT_SETTINGS.floatOnTop).toBe(false);
+  });
+
+  it('ignores the legacy alwaysOnTop flag, whose stored value came from the old default', () => {
+    expect(parseSettings({ alwaysOnTop: true, size: 'l' })).toMatchObject({ floatOnTop: false, size: 'l' });
+    expect(parseSettings({ alwaysOnTop: true })).not.toHaveProperty('alwaysOnTop');
   });
 });
 
@@ -94,23 +105,23 @@ describe('loadSettings / saveSettings (FR-W6, SEC-7)', () => {
 
   it('round-trips through a single storage key containing only settings fields', () => {
     const storage = memoryStorage();
-    const settings = { size: 's', opacity: 0.7, alwaysOnTop: false, motion: 'full', demoScript: 'core', tokenBudget: 100_000 } as const;
+    const settings = { size: 's', opacity: 0.7, floatOnTop: false, motion: 'full', demoScript: 'core', tokenBudget: 100_000 } as const;
     saveSettings(storage, { ...settings, extra: 'SECRET' } as typeof settings);
 
     expect([...storage.data.keys()]).toEqual([SETTINGS_KEY]);
     expect(storage.data.get(SETTINGS_KEY)).not.toContain('SECRET');
     expect(Object.keys(JSON.parse(storage.data.get(SETTINGS_KEY) ?? '{}')).sort()).toEqual(
-      ['alwaysOnTop', 'demoScript', 'motion', 'opacity', 'size', 'tokenBudget'].sort(),
+      ['floatOnTop', 'demoScript', 'motion', 'opacity', 'size', 'tokenBudget'].sort(),
     );
     expect(loadSettings(storage)).toEqual(settings);
   });
 });
 
-describe('windowSizeFor (FR-W4, ADR-017)', () => {
+describe('windowSizeFor (FR-W4, ADR-021)', () => {
   it.each([
-    ['s', 320, 224],
-    ['m', 400, 280],
-    ['l', 520, 364],
+    ['s', 384, 272],
+    ['m', 480, 340],
+    ['l', 624, 442],
   ] as const)('%s → %dx%d', (size, width, height) => {
     expect(windowSizeFor(size)).toEqual({ width, height });
   });

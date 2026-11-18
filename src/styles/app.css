@@ -12,8 +12,8 @@ body,
 }
 
 html {
-  /* 400px window → 10px. Everything uses rem, so S/M/L presets scale the whole scene (ADR-012, ADR-017). */
-  font-size: clamp(8px, calc(100vw / 40), 14px);
+  /* 480px window → 10px. Everything uses rem, so S/M/L presets scale the whole scene (ADR-012, ADR-021). */
+  font-size: clamp(8px, calc(100vw / 48), 14px);
   color-scheme: dark;
 }
 

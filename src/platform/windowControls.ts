@@ -9,6 +9,8 @@ import { getCurrentWindow, LogicalSize } from '@tauri-apps/api/window';
 export interface WindowControls {
   startDragging(): Promise<void>;
   setAlwaysOnTop(on: boolean): Promise<void>;
+  /** Keeps the window below every other window, on the desktop (ADR-021). */
+  setAlwaysOnBottom(on: boolean): Promise<void>;
   /** Logical pixels. */
   setSize(width: number, height: number): Promise<void>;
   close(): Promise<void>;
@@ -19,6 +21,7 @@ const resolved = () => Promise.resolve();
 export const noopWindowControls: WindowControls = Object.freeze({
   startDragging: resolved,
   setAlwaysOnTop: resolved,
+  setAlwaysOnBottom: resolved,
   setSize: resolved,
   close: resolved,
 });
@@ -34,6 +37,7 @@ function createTauriWindowControls(): WindowControls {
   return {
     startDragging: () => guarded('startDragging', () => win.startDragging()),
     setAlwaysOnTop: (on) => guarded('setAlwaysOnTop', () => win.setAlwaysOnTop(on)),
+    setAlwaysOnBottom: (on) => guarded('setAlwaysOnBottom', () => win.setAlwaysOnBottom(on)),
     setSize: (width, height) => guarded('setSize', () => win.setSize(new LogicalSize(width, height))),
     close: () => guarded('close', () => win.close()),
   };

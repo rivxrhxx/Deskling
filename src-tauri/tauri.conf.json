@@ -14,17 +14,18 @@
       {
         "label": "main",
         "title": "Deskling",
-        "width": 400,
-        "height": 280,
+        "width": 480,
+        "height": 340,
         "resizable": false,
         "maximizable": false,
         "fullscreen": false,
         "transparent": true,
         "decorations": false,
         "shadow": false,
-        "alwaysOnTop": true,
+        "alwaysOnTop": false,
         "visibleOnAllWorkspaces": true,
-        "acceptFirstMouse": true
+        "acceptFirstMouse": true,
+        "alwaysOnBottom": false
       }
     ],
     "security": {

@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { ToolbarValues } from './WindowToolbar';
 import { WindowToolbar } from './WindowToolbar';
 
-const values: ToolbarValues = { size: 'm', opacity: 0.8, alwaysOnTop: true, motion: 'system' };
+const values: ToolbarValues = { size: 'm', opacity: 0.8, floatOnTop: true, motion: 'system' };
 
 function setup(overrides: Partial<ToolbarValues> = {}) {
   const onChange = vi.fn();
@@ -32,12 +32,12 @@ describe('WindowToolbar (FR-W2, FR-W4, FR-W5, FR-W8, FR-M2)', () => {
     expect(onChange).toHaveBeenCalledWith({ opacity: 0.45 });
   });
 
-  it('toggles always-on-top', async () => {
+  it('toggles floating above other windows (off = embedded in the desktop)', async () => {
     const { onChange, toolbar } = setup();
-    const pin = within(toolbar).getByRole('button', { name: '항상 위에 표시' });
+    const pin = within(toolbar).getByRole('button', { name: '위에 띄우기' });
     expect(pin).toHaveAttribute('aria-pressed', 'true');
     await userEvent.click(pin);
-    expect(onChange).toHaveBeenCalledWith({ alwaysOnTop: false });
+    expect(onChange).toHaveBeenCalledWith({ floatOnTop: false });
   });
 
   it.each([

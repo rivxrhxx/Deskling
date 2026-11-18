@@ -5,25 +5,28 @@ import tauriConf from '../../src-tauri/tauri.conf.json';
 
 const mainWindow = tauriConf.app.windows.find((w) => w.label === 'main');
 
-describe('overlay window configuration (FR-W1, FR-W2, NFR-5)', () => {
+describe('desktop-embedded window configuration (FR-W1, FR-W2, FR-R7, NFR-5)', () => {
   it('declares a single main window', () => {
     expect(tauriConf.app.windows).toHaveLength(1);
     expect(mainWindow).toBeDefined();
   });
 
-  it('is transparent, frameless, shadowless and always on top', () => {
+  it('is transparent, frameless, shadowless and created at the normal level (ADR-021)', () => {
+    // Creating the window below the normal level kept macOS from ever ordering it on screen;
+    // the app lowers it to the desktop layer at runtime instead (App: setAlwaysOnBottom(true)).
     expect(mainWindow).toMatchObject({
       transparent: true,
       decorations: false,
       shadow: false,
-      alwaysOnTop: true,
+      alwaysOnTop: false,
+      alwaysOnBottom: false,
       visibleOnAllWorkspaces: true,
       acceptFirstMouse: true,
     });
   });
 
-  it('opens at the 400x280 base size and keeps its aspect via presets only (ADR-017)', () => {
-    expect(mainWindow).toMatchObject({ width: 400, height: 280, resizable: false });
+  it('opens at the 480x340 base size and keeps its aspect via presets only (ADR-021)', () => {
+    expect(mainWindow).toMatchObject({ width: 480, height: 340, resizable: false });
   });
 
   it('enables the macOS private API required for transparency (ADR-007)', () => {
@@ -49,11 +52,12 @@ describe('capabilities (SEC-5)', () => {
     expect(capability.windows).toEqual(['main']);
   });
 
-  it('grants only the four window permissions Deskling needs — no core:default bundle (review T34b)', () => {
+  it('grants only the five window permissions Deskling needs — no core:default bundle (review T34b, ADR-021)', () => {
     expect([...capability.permissions].sort()).toEqual(
       [
         'core:window:allow-close',
         'core:window:allow-set-always-on-top',
+        'core:window:allow-set-always-on-bottom',
         'core:window:allow-set-size',
         'core:window:allow-start-dragging',
       ].sort(),

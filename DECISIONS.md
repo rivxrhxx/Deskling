@@ -171,3 +171,6 @@
   3. capability에 `core:window:allow-set-always-on-bottom`을 추가한다(창 권한 5개).
   4. 미니룸에 맞춰 기본 창을 480×340으로 넓힌다(S 0.8 / M 1 / L 1.3).
 - **결과:** 바탕화면 위젯처럼 보인다. 다른 창이 덮고 있으면 바탕화면을 보여야 보인다(의도된 동작).
+- **구현 메모(검증으로 확인):** 창을 처음부터 `alwaysOnBottom: true`(BelowNormal 레벨)로 만들면 macOS가 창을 화면에 올리지 않아
+  WebKit이 그리기를 멈췄다(CGWindowList onscreen 없음, 캡처 100% 투명). 그래서 창은 보통 레벨로 만들고
+  앱이 시작 직후 `setAlwaysOnBottom(true)`로 내린다. 이렇게 하면 layer −1, onscreen, 정상 렌더링을 확인했다.

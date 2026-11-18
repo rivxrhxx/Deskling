@@ -183,6 +183,7 @@ function fakeControls() {
   return {
     startDragging: vi.fn(() => Promise.resolve()),
     setAlwaysOnTop: vi.fn<(on: boolean) => Promise<void>>(() => Promise.resolve()),
+    setAlwaysOnBottom: vi.fn<(on: boolean) => Promise<void>>(() => Promise.resolve()),
     setSize: vi.fn<(width: number, height: number) => Promise<void>>(() => Promise.resolve()),
     close: vi.fn(() => Promise.resolve()),
   };
@@ -200,10 +201,10 @@ function fakeStorage(initial?: object) {
 describe('App window settings (FR-W2, FR-W4–W6, FR-W8, FR-M2)', () => {
   it('applies stored settings to the native window and the scene on start', () => {
     const controls = fakeControls();
-    const storage = fakeStorage({ size: 'l', opacity: 0.6, alwaysOnTop: false, motion: 'reduced', demoScript: 'tour' });
+    const storage = fakeStorage({ size: 'l', opacity: 0.6, floatOnTop: false, motion: 'reduced', demoScript: 'tour' });
     render(<App source={manualSource().source} controls={controls} storage={storage} />);
 
-    expect(controls.setSize).toHaveBeenCalledWith(520, 364);
+    expect(controls.setSize).toHaveBeenCalledWith(624, 442);
     expect(controls.setAlwaysOnTop).toHaveBeenCalledWith(false);
     const root = screen.getByRole('region', { name: 'Deskling' });
     expect(root.style.getPropertyValue('--scene-opacity')).toBe('0.6');
@@ -219,10 +220,11 @@ describe('App window settings (FR-W2, FR-W4–W6, FR-W8, FR-M2)', () => {
     render(<App source={manualSource().source} controls={controls} storage={storage} />);
 
     await user.click(screen.getByRole('button', { name: '작게' }));
-    expect(controls.setSize).toHaveBeenLastCalledWith(320, 224);
+    expect(controls.setSize).toHaveBeenLastCalledWith(384, 272);
 
-    await user.click(screen.getByRole('button', { name: '항상 위에 표시' }));
-    expect(controls.setAlwaysOnTop).toHaveBeenLastCalledWith(false);
+    await user.click(screen.getByRole('button', { name: '위에 띄우기' }));
+    expect(controls.setAlwaysOnTop).toHaveBeenLastCalledWith(true);
+    expect(controls.setAlwaysOnBottom).toHaveBeenLastCalledWith(false);
 
     fireEvent.change(screen.getByRole('slider', { name: '불투명도' }), { target: { value: '50' } });
     expect(screen.getByRole('region', { name: 'Deskling' }).style.getPropertyValue('--scene-opacity')).toBe('0.5');
@@ -233,7 +235,7 @@ describe('App window settings (FR-W2, FR-W4–W6, FR-W8, FR-M2)', () => {
     expect(JSON.parse(storage.data.get('deskling.settings.v1') ?? '{}')).toEqual({
       size: 's',
       opacity: 0.5,
-      alwaysOnTop: false,
+      floatOnTop: true,
       motion: 'reduced',
       demoScript: 'tour',
       tokenBudget: 200_000,
@@ -362,12 +364,12 @@ describe('App settings updates (review T34g)', () => {
 
     act(() => {
       fireEvent.click(screen.getByRole('button', { name: '작게' }));
-      fireEvent.click(screen.getByRole('button', { name: '항상 위에 표시' }));
+      fireEvent.click(screen.getByRole('button', { name: '위에 띄우기' }));
     });
 
-    expect(JSON.parse(storage.data.get('deskling.settings.v1') ?? '{}')).toMatchObject({ size: 's', alwaysOnTop: false });
-    expect(controls.setSize).toHaveBeenLastCalledWith(320, 224);
-    expect(controls.setAlwaysOnTop).toHaveBeenLastCalledWith(false);
+    expect(JSON.parse(storage.data.get('deskling.settings.v1') ?? '{}')).toMatchObject({ size: 's', floatOnTop: true });
+    expect(controls.setSize).toHaveBeenLastCalledWith(384, 272);
+    expect(controls.setAlwaysOnTop).toHaveBeenLastCalledWith(true);
   });
 });
 
@@ -499,5 +501,23 @@ describe('App growing the desktop pet (FR-G1–G6, ADR-018)', () => {
     render(<App source={manualSource('demo').source} controls={fakeControls()} storage={fakeStorage()} />);
     fireEvent.click(screen.getByRole('button', { name: '최근 활동 보기' }));
     expect(within(screen.getByRole('group', { name: '펫' })).getByText('DEMO')).toBeInTheDocument();
+  });
+});
+
+describe('App window layer (FR-R7, ADR-021)', () => {
+  it('embeds the window in the desktop by default', () => {
+    const controls = fakeControls();
+    render(<App source={manualSource().source} controls={controls} storage={fakeStorage()} />);
+    expect(controls.setAlwaysOnTop).toHaveBeenLastCalledWith(false);
+    expect(controls.setAlwaysOnBottom).toHaveBeenLastCalledWith(true);
+  });
+
+  it('floats above other windows when the user asks for it', async () => {
+    const { fireEvent } = await import('@testing-library/react');
+    const controls = fakeControls();
+    render(<App source={manualSource().source} controls={controls} storage={fakeStorage()} />);
+    fireEvent.click(screen.getByRole('button', { name: '위에 띄우기' }));
+    expect(controls.setAlwaysOnBottom).toHaveBeenLastCalledWith(false);
+    expect(controls.setAlwaysOnTop).toHaveBeenLastCalledWith(true);
   });
 });

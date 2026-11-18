@@ -76,9 +76,17 @@ export function App({ source: providedSource, controls: providedControls, storag
     void controls.setSize(width, height);
   }, [controls, settings.size]);
 
+  // Embedded in the desktop by default; "위에 띄우기" floats it above other windows (ADR-021).
   useEffect(() => {
-    void controls.setAlwaysOnTop(settings.alwaysOnTop);
-  }, [controls, settings.alwaysOnTop]);
+    // Clear the opposite layer first; IPC calls are delivered in order.
+    if (settings.floatOnTop) {
+      void controls.setAlwaysOnBottom(false);
+      void controls.setAlwaysOnTop(true);
+    } else {
+      void controls.setAlwaysOnTop(false);
+      void controls.setAlwaysOnBottom(true);
+    }
+  }, [controls, settings.floatOnTop]);
 
   const view = useAgentFeed(source);
   const reducedMotion = useReducedMotion(settings.motion);

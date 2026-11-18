@@ -14,8 +14,8 @@ export const SIZE_PRESETS = { s: 0.8, m: 1, l: 1.3 } as const;
 export type SizePreset = keyof typeof SIZE_PRESETS;
 const SIZE_IDS = Object.keys(SIZE_PRESETS) as SizePreset[];
 
-/** Base (M) window size in logical pixels (ADR-017). */
-export const BASE_WINDOW = { width: 400, height: 280 } as const;
+/** Base (M) window size in logical pixels (ADR-021). */
+export const BASE_WINDOW = { width: 480, height: 340 } as const;
 /** Token budget choices for the energy reading (FR-V6, ADR-016). */
 export const TOKEN_BUDGETS = [50_000, 100_000, 200_000, 500_000, 1_000_000] as const;
 export type TokenBudget = (typeof TOKEN_BUDGETS)[number];
@@ -26,7 +26,8 @@ export const OPACITY_MAX = 1;
 export interface Settings {
   readonly size: SizePreset;
   readonly opacity: number;
-  readonly alwaysOnTop: boolean;
+  /** Float above other windows. Off = embedded in the desktop (ADR-021). Replaces the legacy `alwaysOnTop`, which is ignored. */
+  readonly floatOnTop: boolean;
   readonly motion: MotionSetting;
   readonly demoScript: DemoScriptId;
   readonly tokenBudget: TokenBudget;
@@ -35,7 +36,7 @@ export interface Settings {
 export const DEFAULT_SETTINGS: Settings = Object.freeze({
   size: 'm',
   opacity: 1,
-  alwaysOnTop: true,
+  floatOnTop: false,
   motion: 'system',
   demoScript: 'tour',
   tokenBudget: 200_000,
@@ -59,7 +60,7 @@ export function parseSettings(value: unknown): Settings {
   return {
     size: oneOf(SIZE_IDS, record.size, DEFAULT_SETTINGS.size),
     opacity: normalizeOpacity(record.opacity),
-    alwaysOnTop: typeof record.alwaysOnTop === 'boolean' ? record.alwaysOnTop : DEFAULT_SETTINGS.alwaysOnTop,
+    floatOnTop: typeof record.floatOnTop === 'boolean' ? record.floatOnTop : DEFAULT_SETTINGS.floatOnTop,
     motion: oneOf(MOTION_SETTINGS, record.motion, DEFAULT_SETTINGS.motion),
     demoScript: oneOf(DEMO_SCRIPT_IDS, record.demoScript, DEFAULT_SETTINGS.demoScript),
     tokenBudget: (TOKEN_BUDGETS as readonly unknown[]).includes(record.tokenBudget)

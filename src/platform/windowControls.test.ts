@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 const tauriWindow = {
   startDragging: vi.fn(() => Promise.resolve()),
   setAlwaysOnTop: vi.fn<(on: boolean) => Promise<void>>(() => Promise.resolve()),
+  setAlwaysOnBottom: vi.fn<(on: boolean) => Promise<void>>(() => Promise.resolve()),
   setSize: vi.fn<(size: unknown) => Promise<void>>(() => Promise.resolve()),
   close: vi.fn(() => Promise.resolve()),
 };
@@ -40,11 +41,13 @@ describe('createWindowControls (T27)', () => {
 
     await controls.startDragging();
     await controls.setAlwaysOnTop(false);
+    await controls.setAlwaysOnBottom(true);
     await controls.setSize(416, 364);
     await controls.close();
 
     expect(tauriWindow.startDragging).toHaveBeenCalledTimes(1);
     expect(tauriWindow.setAlwaysOnTop).toHaveBeenCalledWith(false);
+    expect(tauriWindow.setAlwaysOnBottom).toHaveBeenCalledWith(true);
     expect(tauriWindow.setSize).toHaveBeenCalledWith(expect.objectContaining({ width: 416, height: 364 }));
     expect(tauriWindow.close).toHaveBeenCalledTimes(1);
   });
