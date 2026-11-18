@@ -9,9 +9,10 @@ function scene() {
 }
 
 describe('Workshop scene (FR-S1, FR-S3, FR-S6)', () => {
-  it('draws a miniature developer room', () => {
+  it('draws a miniature room with a work corner and a bed (ADR-017)', () => {
     render(<Workshop state="idle" />);
-    for (const part of ['wall', 'window', 'shelf', 'floor', 'desk', 'monitor', 'keyboard', 'chair', 'mug', 'lamp', 'plant', 'character']) {
+    expect(scene()).toHaveAttribute('viewBox', '0 0 400 260');
+    for (const part of ['wall', 'window', 'shelf', 'floor', 'desk', 'monitor', 'keyboard', 'chair', 'mug', 'lamp', 'plant', 'bed', 'pillow', 'character']) {
       expect(scene().querySelector(`[data-part="${part}"]`), part).not.toBeNull();
     }
   });

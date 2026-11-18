@@ -203,7 +203,7 @@ describe('App window settings (FR-W2, FR-W4–W6, FR-W8, FR-M2)', () => {
     const storage = fakeStorage({ size: 'l', opacity: 0.6, alwaysOnTop: false, motion: 'reduced', demoScript: 'tour' });
     render(<App source={manualSource().source} controls={controls} storage={storage} />);
 
-    expect(controls.setSize).toHaveBeenCalledWith(416, 364);
+    expect(controls.setSize).toHaveBeenCalledWith(520, 364);
     expect(controls.setAlwaysOnTop).toHaveBeenCalledWith(false);
     const root = screen.getByRole('region', { name: 'Deskling' });
     expect(root.style.getPropertyValue('--scene-opacity')).toBe('0.6');
@@ -219,7 +219,7 @@ describe('App window settings (FR-W2, FR-W4–W6, FR-W8, FR-M2)', () => {
     render(<App source={manualSource().source} controls={controls} storage={storage} />);
 
     await user.click(screen.getByRole('button', { name: '작게' }));
-    expect(controls.setSize).toHaveBeenLastCalledWith(256, 224);
+    expect(controls.setSize).toHaveBeenLastCalledWith(320, 224);
 
     await user.click(screen.getByRole('button', { name: '항상 위에 표시' }));
     expect(controls.setAlwaysOnTop).toHaveBeenLastCalledWith(false);
@@ -366,7 +366,7 @@ describe('App settings updates (review T34g)', () => {
     });
 
     expect(JSON.parse(storage.data.get('deskling.settings.v1') ?? '{}')).toMatchObject({ size: 's', alwaysOnTop: false });
-    expect(controls.setSize).toHaveBeenLastCalledWith(256, 224);
+    expect(controls.setSize).toHaveBeenLastCalledWith(320, 224);
     expect(controls.setAlwaysOnTop).toHaveBeenLastCalledWith(false);
   });
 });

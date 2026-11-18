@@ -22,8 +22,8 @@ describe('overlay window configuration (FR-W1, FR-W2, NFR-5)', () => {
     });
   });
 
-  it('opens at the 320x280 base size and keeps its aspect via presets only (ADR-012)', () => {
-    expect(mainWindow).toMatchObject({ width: 320, height: 280, resizable: false });
+  it('opens at the 400x280 base size and keeps its aspect via presets only (ADR-017)', () => {
+    expect(mainWindow).toMatchObject({ width: 400, height: 280, resizable: false });
   });
 
   it('enables the macOS private API required for transparency (ADR-007)', () => {

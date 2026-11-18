@@ -106,11 +106,11 @@ describe('loadSettings / saveSettings (FR-W6, SEC-7)', () => {
   });
 });
 
-describe('windowSizeFor (FR-W4, ADR-012)', () => {
+describe('windowSizeFor (FR-W4, ADR-017)', () => {
   it.each([
-    ['s', 256, 224],
-    ['m', 320, 280],
-    ['l', 416, 364],
+    ['s', 320, 224],
+    ['m', 400, 280],
+    ['l', 520, 364],
   ] as const)('%s → %dx%d', (size, width, height) => {
     expect(windowSizeFor(size)).toEqual({ width, height });
   });

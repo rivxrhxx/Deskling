@@ -14,7 +14,8 @@ export const SIZE_PRESETS = { s: 0.8, m: 1, l: 1.3 } as const;
 export type SizePreset = keyof typeof SIZE_PRESETS;
 const SIZE_IDS = Object.keys(SIZE_PRESETS) as SizePreset[];
 
-export const BASE_WINDOW = { width: 320, height: 280 } as const;
+/** Base (M) window size in logical pixels (ADR-017). */
+export const BASE_WINDOW = { width: 400, height: 280 } as const;
 /** Token budget choices for the energy reading (FR-V6, ADR-016). */
 export const TOKEN_BUDGETS = [50_000, 100_000, 200_000, 500_000, 1_000_000] as const;
 export type TokenBudget = (typeof TOKEN_BUDGETS)[number];

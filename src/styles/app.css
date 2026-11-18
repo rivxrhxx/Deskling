@@ -12,8 +12,8 @@ body,
 }
 
 html {
-  /* 320px window → 10px. Everything uses rem, so S/M/L presets scale the whole scene (ADR-012). */
-  font-size: clamp(8px, calc(100vw / 32), 14px);
+  /* 400px window → 10px. Everything uses rem, so S/M/L presets scale the whole scene (ADR-012, ADR-017). */
+  font-size: clamp(8px, calc(100vw / 40), 14px);
   color-scheme: dark;
 }
 
@@ -135,13 +135,13 @@ body {
 }
 
 /* ---- Character hotspot -------------------------------------------------------------------- */
-/* Matches the character's box in the 320×260 viewBox (x 80–132, y 104–176); the SVG is 100vw wide. */
+/* Matches the character's box in the 400×260 viewBox (desk: x 160–212, y 104–176); the SVG is 100vw wide. */
 .character-hotspot {
   position: absolute;
-  left: calc(100vw * 80 / 320);
-  width: calc(100vw * 52 / 320);
-  bottom: calc(100vw * 84 / 320);
-  height: calc(100vw * 72 / 320);
+  left: calc(100vw * 160 / 400);
+  width: calc(100vw * 52 / 400);
+  bottom: calc(100vw * 84 / 400);
+  height: calc(100vw * 72 / 400);
   z-index: 2;
   padding: 0;
   border: 0;

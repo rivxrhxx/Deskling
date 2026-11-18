@@ -108,7 +108,7 @@ Tauri 런타임이면 `@tauri-apps/api/window` 구현, 아니면(브라우저·�
 ## 4. 네이티브 창 (src-tauri)
 
 - `tauri.conf.json`: `transparent: true`, `decorations: false`, `alwaysOnTop: true`, `shadow: false`,
-  `visibleOnAllWorkspaces: true`, 기본 320×280, `app.macOSPrivateApi: true`(macOS 투명 창에 필요, ADR-007).
+  `visibleOnAllWorkspaces: true`, 기본 400×280(ADR-017), `app.macOSPrivateApi: true`(macOS 투명 창에 필요, ADR-007).
 - `capabilities/default.json`: 창 드래그·항상 위·크기·닫기 권한 4개만. `core:default`는 쓰지 않는다(ADR-015).
 - Rust 측은 현재 Tauri 빌더만 실행한다. 로그 플러그인을 쓰지 않는다(ADR-009).
 
