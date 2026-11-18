@@ -112,3 +112,79 @@ describe('Workshop places the character in the room (FR-V7, FR-V8, ADR-017)', ()
     expect(bedWalker).not.toBe(deskWalker);
   });
 });
+
+describe('Workshop mood: energy and anger cues (FR-V4, DESIGN §4.1)', () => {
+  const count = (selector: string) => scene().querySelectorAll(selector).length;
+
+  it('marks the scene with unknown energy and anger by default', () => {
+    render(<Workshop state="coding" />);
+    expect(scene()).toHaveAttribute('data-energy', 'unknown');
+    expect(scene()).toHaveAttribute('data-anger', 'unknown');
+    expect(count('[data-part="energy-can"], [data-part="eyelid"], [data-part="brow"], [data-part="vein"], [data-part="steam-puff"]')).toBe(0);
+  });
+
+  it.each([
+    ['unknown', 0],
+    ['full', 0],
+    ['ok', 1],
+    ['low', 2],
+    ['empty', 3],
+  ] as const)('energy %s leaves %d empty cans on the desk', (energy, cans) => {
+    render(<Workshop state="coding" energy={energy} />);
+    expect(scene()).toHaveAttribute('data-energy', energy);
+    expect(count('[data-part="energy-can"]')).toBe(cans);
+  });
+
+  it.each([
+    ['full', 0],
+    ['low', 2],
+    ['empty', 2],
+  ] as const)('energy %s → %d eyelids at the desk', (energy, lids) => {
+    render(<Workshop state="coding" energy={energy} />);
+    expect(count('[data-part="eyelid"]')).toBe(lids);
+  });
+
+  it.each([
+    ['calm', 0, null, 0, 0],
+    ['annoyed', 2, 'flat', 0, 0],
+    ['angry', 2, 'angry', 1, 0],
+    ['furious', 2, 'angry', 1, 2],
+  ] as const)('anger %s → %d brows (%s), %d vein, %d steam puffs', (anger, brows, shape, veins, puffs) => {
+    render(<Workshop state="terminal" anger={anger} />);
+    expect(scene()).toHaveAttribute('data-anger', anger);
+    expect(count('[data-part="brow"]')).toBe(brows);
+    if (shape) expect(count(`[data-part="brow"][data-shape="${shape}"]`)).toBe(2);
+    expect(count('[data-part="vein"]')).toBe(veins);
+    expect(count('[data-part="steam-puff"]')).toBe(puffs);
+  });
+
+  it('shows mood while lounging in bed', () => {
+    render(<Workshop state="idle" energy="low" anger="furious" />);
+    expect(count('[data-part="eyelid"]')).toBe(2);
+    expect(count('[data-part="steam-puff"]')).toBe(2);
+  });
+
+  it('hides every mood mark while asleep', () => {
+    render(<Workshop state="offline" energy="empty" anger="furious" />);
+    expect(count('[data-part="eyelid"], [data-part="brow"], [data-part="vein"], [data-part="steam-puff"]')).toBe(0);
+  });
+
+  it('keeps the distressed brows of the error pose instead of adding anger brows', () => {
+    render(<Workshop state="error" anger="angry" />);
+    expect(count('[data-part="brow"]')).toBe(0);
+    expect(count('[data-part="vein"]')).toBe(1);
+  });
+
+  it('does not put eyelids over closed happy eyes', () => {
+    render(<Workshop state="success" energy="empty" />);
+    expect(count('[data-part="eyelid"]')).toBe(0);
+  });
+
+  it('still draws no text glyphs with every cue on', () => {
+    render(<Workshop state="coding" energy="empty" anger="furious" />);
+    const svg = scene();
+    expect(svg.querySelectorAll('text, tspan, foreignObject')).toHaveLength(0);
+    const title = svg.querySelector('title')?.textContent ?? '';
+    expect((svg.textContent ?? '').replace(title, '').trim()).toBe('');
+  });
+});

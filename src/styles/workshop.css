@@ -89,6 +89,22 @@
   animation: blink 5s infinite;
 }
 
+/* ---- Energy and anger (ADR-016, DESIGN §4.1) ---------------------------------------------- */
+/* The antenna bulb is the energy light. */
+.workshop[data-energy='low'] .character__bulb { opacity: 0.55; }
+.workshop[data-energy='low'] .character__bulb-glow { opacity: 0.12; }
+.workshop[data-energy='empty'] .character__bulb { opacity: 0.28; }
+.workshop[data-energy='empty'] .character__bulb-glow { opacity: 0; }
+/* Tired hands type slower. */
+.workshop[data-energy='low'] :is(.tap-a, .tap-b) { animation-duration: 0.6s; }
+.workshop[data-energy='empty'] :is(.tap-a, .tap-b) { animation-duration: 0.95s; }
+.workshop[data-energy='empty'] .character__breath { animation-duration: 6s; }
+
+.mood-vein { stroke: var(--mood-anger); }
+.workshop[data-anger='furious'] .character__cheek { fill: var(--mood-anger); opacity: 0.55; }
+.steam-puff--a { animation: puff 1.8s ease-out infinite; }
+.steam-puff--b { animation: puff 1.8s ease-out 0.9s infinite; }
+
 /* ---- Walking between desk and bed (ADR-017, FR-V8) ----------------------------------------- */
 .walker--bed { animation: walk-to-bed 700ms var(--ease-soft); }
 .walker--desk { animation: walk-to-desk 700ms var(--ease-soft); }
@@ -187,6 +203,7 @@
   75% { transform: translate(-22px, -2px); }
   100% { transform: translate(0, 0); opacity: 1; }
 }
+@keyframes puff { 0% { transform: translateY(2px); opacity: 0; } 30% { opacity: 0.85; } 100% { transform: translateY(-5px); opacity: 0; } }
 @keyframes lounge { 0%, 100% { transform: rotate(-2.5deg); } 50% { transform: rotate(2.5deg); } }
 @keyframes blanket-breathe { 0%, 100% { transform: scaleY(1); } 50% { transform: scaleY(1.04); } }
 @keyframes twinkle { 0%, 100% { opacity: 0.35; } 50% { opacity: 1; } }

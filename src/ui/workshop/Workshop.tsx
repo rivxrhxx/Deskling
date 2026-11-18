@@ -1,5 +1,6 @@
 import { useId } from 'react';
 import type { VisualState } from '../../core/agentEvent';
+import type { AngerLevel, EnergyLevel } from '../../core/mood';
 import type { PoseId } from '../visualSpec';
 import { VISUAL_SPEC } from '../visualSpec';
 import type { BedPoseId } from './BedCharacter';
@@ -14,11 +15,23 @@ const WORK_CORNER_X = 80;
 
 const isBedPose = (pose: PoseId): pose is BedPoseId => pose === 'lounging' || pose === 'asleep-in-bed';
 
+/** Empty energy-drink cans pile up on the desk as the token budget runs down (DESIGN §4.1). */
+const CANS: Readonly<Record<EnergyLevel, number>> = { unknown: 0, full: 0, ok: 1, low: 2, empty: 3 };
+const CAN_X = [177, 182.5, 188] as const;
+
 /**
  * A miniature night-time room we peek into (docs/DESIGN.md §3): a bed on the left, a work corner on the right.
  * Hand-written SVG primitives only. Everything outside the diorama is transparent so the desktop shows through.
  */
-export function Workshop({ state }: { state: VisualState }) {
+export interface WorkshopProps {
+  readonly state: VisualState;
+  /** Remaining-token energy (ADR-016). `unknown` draws nothing. */
+  readonly energy?: EnergyLevel;
+  /** Context-fill anger (ADR-016). `unknown` draws nothing. */
+  readonly anger?: AngerLevel;
+}
+
+export function Workshop({ state, energy = 'unknown', anger = 'unknown' }: WorkshopProps) {
   const spec = VISUAL_SPEC[state];
   const uid = useId().replace(/[^a-zA-Z0-9_-]/g, '');
   const id = (name: string) => `dl-${uid}-${name}`;
@@ -32,6 +45,8 @@ export function Workshop({ state }: { state: VisualState }) {
       data-state={state}
       data-tone={spec.tone}
       data-place={spec.place}
+      data-energy={energy}
+      data-anger={anger}
       preserveAspectRatio="xMidYMax meet"
     >
       <title id={id('title')}>{`미니어처 작업실 — ${spec.label}`}</title>
@@ -109,7 +124,7 @@ export function Workshop({ state }: { state: VisualState }) {
       {/* The walker is keyed by place: it re-mounts (and plays the walk-in) only when the character changes place. */}
       {isBedPose(spec.pose) && (
         <g key="bed" className="walker walker--bed">
-          <BedCharacter key={spec.pose} pose={spec.pose} skinGradientId={id('skin')} />
+          <BedCharacter key={spec.pose} pose={spec.pose} skinGradientId={id('skin')} energy={energy} anger={anger} />
         </g>
       )}
 
@@ -165,6 +180,14 @@ export function Workshop({ state }: { state: VisualState }) {
           </g>
         )}
 
+        {CAN_X.slice(0, CANS[energy]).map((x) => (
+          <g key={x} data-part="energy-can" className="energy-can">
+            <rect x={x} y="141" width="4.4" height="9" rx="1" fill="#5f54a6" />
+            <rect x={x} y="141" width="4.4" height="1.4" rx="0.6" fill="#c9cfe4" />
+            <rect x={x + 0.8} y="144.5" width="2.8" height="2.4" rx="0.4" fill="#a48df0" opacity="0.8" />
+          </g>
+        ))}
+
         <g data-part="mug">
           <path className="steam" d="M246 134 q-2 -3 0 -6 M250 134 q2 -3 0 -6" stroke="#c9cfe4" strokeWidth="1" fill="none" strokeLinecap="round" />
           <rect x="244" y="138" width="9" height="12" rx="1.5" fill="#4b5373" />
@@ -190,7 +213,13 @@ export function Workshop({ state }: { state: VisualState }) {
 
         {!isBedPose(spec.pose) && (
           <g key="desk" className="walker walker--desk">
-            <Character key={spec.pose} pose={spec.pose as DeskPoseId} skinGradientId={id('skin')} />
+            <Character
+              key={spec.pose}
+              pose={spec.pose as DeskPoseId}
+              skinGradientId={id('skin')}
+              energy={energy}
+              anger={anger}
+            />
           </g>
         )}
 

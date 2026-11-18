@@ -4,13 +4,21 @@
  * Drawn from primitives only; the "z"s are strokes, not text (FR-S6).
  */
 
+import type { AngerLevel, EnergyLevel } from '../../core/mood';
+import { MoodMarks } from './MoodMarks';
+
 export type BedPoseId = 'lounging' | 'asleep-in-bed';
 
 const EYE = '#171a27';
 
 const zee = (x: number, y: number, s: number) => `M${x} ${y} h${s} l${-s} ${s * 1.2} h${s}`;
 
-function Lounging({ skinGradientId }: { skinGradientId: string }) {
+interface Mood {
+  readonly energy: EnergyLevel;
+  readonly anger: AngerLevel;
+}
+
+function Lounging({ skinGradientId, energy, anger }: { skinGradientId: string } & Mood) {
   return (
     <g className="bed-body">
       <path className="character__antenna" d="M76 148 Q71 141 70 136" fill="none" stroke="#9aa3bd" strokeWidth="1.6" strokeLinecap="round" />
@@ -25,6 +33,7 @@ function Lounging({ skinGradientId }: { skinGradientId: string }) {
         <ellipse cx="86" cy="158" rx="1.8" ry="2.4" fill={EYE} />
       </g>
       <path className="character__mouth" d="M78.5 165.5 q2.8 2 5.6 0" fill="none" stroke={EYE} strokeWidth="1.3" strokeLinecap="round" />
+      <MoodMarks anchor={{ lx: 77, rx: 86, y: 158, open: true, brows: true }} energy={energy} anger={anger} />
       <g className="bed-book">
         <path d="M104 152 Q109 142 103 134" fill="none" stroke="#c3cadf" strokeWidth="5" strokeLinecap="round" />
         <rect x="94" y="122" width="16" height="11" rx="1.2" fill="#6a7bb8" transform="rotate(-10 102 127)" />
@@ -63,10 +72,25 @@ function Asleep({ skinGradientId }: { skinGradientId: string }) {
   );
 }
 
-export function BedCharacter({ pose, skinGradientId }: { pose: BedPoseId; skinGradientId: string }) {
+/** Asleep, the character shows no mood: sleep is not the moment to be tired or cross. */
+export function BedCharacter({
+  pose,
+  skinGradientId,
+  energy = 'unknown',
+  anger = 'unknown',
+}: {
+  pose: BedPoseId;
+  skinGradientId: string;
+  energy?: EnergyLevel;
+  anger?: AngerLevel;
+}) {
   return (
     <g data-part="character" data-pose={pose} data-place="bed" className={`character pose-${pose}`}>
-      {pose === 'lounging' ? <Lounging skinGradientId={skinGradientId} /> : <Asleep skinGradientId={skinGradientId} />}
+      {pose === 'lounging' ? (
+        <Lounging skinGradientId={skinGradientId} energy={energy} anger={anger} />
+      ) : (
+        <Asleep skinGradientId={skinGradientId} />
+      )}
     </g>
   );
 }

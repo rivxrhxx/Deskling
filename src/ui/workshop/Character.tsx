@@ -1,5 +1,8 @@
 import type { ReactNode } from 'react';
+import type { AngerLevel, EnergyLevel } from '../../core/mood';
 import type { PoseId } from '../visualSpec';
+import type { EyeAnchor } from './MoodMarks';
+import { MoodMarks } from './MoodMarks';
 
 /** Poses drawn at the desk. Bed poses live in BedCharacter (ADR-017). */
 export type DeskPoseId = Exclude<PoseId, 'asleep-in-bed' | 'lounging'>;
@@ -13,6 +16,8 @@ export type DeskPoseId = Exclude<PoseId, 'asleep-in-bed' | 'lounging'>;
 interface PoseArt {
   /** Transform applied to the whole character (lean, tilt). */
   readonly body?: string;
+  /** Where the eyes are, for energy/anger marks (DESIGN §4.1). */
+  readonly eyeAnchor: EyeAnchor;
   readonly eyes: ReactNode;
   readonly mouth: ReactNode;
   readonly arms: readonly ArmArt[];
@@ -51,6 +56,7 @@ const sparkle = (cx: number, cy: number, s: number) =>
 
 const POSES: Record<DeskPoseId, PoseArt> = {
   pondering: {
+    eyeAnchor: { lx: 104, rx: 114, y: 136, open: true, brows: true },
     eyes: openEyes(104, 114, 136),
     mouth: line('M104 148.5 h4.5'),
     arms: [
@@ -66,6 +72,7 @@ const POSES: Record<DeskPoseId, PoseArt> = {
     ),
   },
   typing: {
+    eyeAnchor: { lx: 103, rx: 113, y: 139, open: true, brows: true },
     eyes: openEyes(103, 113, 139, 1.5),
     mouth: line('M103.5 148 q2.2 1.2 4.4 0'),
     arms: [
@@ -74,6 +81,7 @@ const POSES: Record<DeskPoseId, PoseArt> = {
     ],
   },
   scrolling: {
+    eyeAnchor: { lx: 105, rx: 115, y: 136.5, open: true, brows: true },
     body: 'rotate(-6 105 172)',
     eyes: openEyes(105, 115, 136.5),
     mouth: line('M103 147.5 q2.8 1.8 5.6 0'),
@@ -83,6 +91,7 @@ const POSES: Record<DeskPoseId, PoseArt> = {
     ],
   },
   'leaning-in': {
+    eyeAnchor: { lx: 104, rx: 114, y: 139.5, open: true, brows: true },
     body: 'translate(5 1) rotate(8 105 172)',
     eyes: openEyes(104, 114, 139.5, 1.4),
     mouth: line('M104 148.5 h3.5'),
@@ -92,6 +101,7 @@ const POSES: Record<DeskPoseId, PoseArt> = {
     ],
   },
   'holding-folder': {
+    eyeAnchor: { lx: 104, rx: 114, y: 141.5, open: true, brows: true },
     eyes: openEyes(104, 114, 141.5),
     mouth: line('M102.5 147.5 q2.8 2 5.6 0'),
     arms: [
@@ -110,6 +120,7 @@ const POSES: Record<DeskPoseId, PoseArt> = {
     ),
   },
   'raising-hand': {
+    eyeAnchor: { lx: 99, rx: 110, y: 139, open: true, brows: true },
     eyes: (
       <g>
         {openEyes(99, 110, 139, 2.9, 2.1)}
@@ -132,6 +143,7 @@ const POSES: Record<DeskPoseId, PoseArt> = {
     ),
   },
   pointing: {
+    eyeAnchor: { lx: 96, rx: 106, y: 139, open: true, brows: true },
     eyes: openEyes(96, 106, 139),
     mouth: smile,
     arms: [
@@ -143,6 +155,7 @@ const POSES: Record<DeskPoseId, PoseArt> = {
     ),
   },
   cheering: {
+    eyeAnchor: { lx: 99, rx: 110, y: 140, open: false, brows: true },
     eyes: arcEyes(99, 110, 140, -3),
     mouth: <path className="character__mouth" d="M100.5 146.5 q4.5 5.5 9 0 z" fill={EYE} />,
     arms: [
@@ -159,6 +172,7 @@ const POSES: Record<DeskPoseId, PoseArt> = {
     ),
   },
   distressed: {
+    eyeAnchor: { lx: 99, rx: 110, y: 139.5, open: true, brows: false },
     eyes: (
       <g>
         {openEyes(99, 110, 139.5)}
@@ -175,7 +189,17 @@ const POSES: Record<DeskPoseId, PoseArt> = {
   },
 };
 
-export function Character({ pose, skinGradientId }: { pose: DeskPoseId; skinGradientId: string }) {
+export function Character({
+  pose,
+  skinGradientId,
+  energy = 'unknown',
+  anger = 'unknown',
+}: {
+  pose: DeskPoseId;
+  skinGradientId: string;
+  energy?: EnergyLevel;
+  anger?: AngerLevel;
+}) {
   const art = POSES[pose];
   return (
     <g data-part="character" data-pose={pose} data-place="desk" className={`character pose-${pose}`}>
@@ -191,6 +215,7 @@ export function Character({ pose, skinGradientId }: { pose: DeskPoseId; skinGrad
           <ellipse className="character__cheek" cx="115" cy="146" rx="2.6" ry="1.4" />
           {art.eyes}
           {art.mouth}
+          <MoodMarks anchor={art.eyeAnchor} energy={energy} anger={anger} />
         </g>
         {art.arms.map((arm) => (
           <g key={arm.d} className={`character__arm ${arm.className ?? ''}`.trim()}>
