@@ -65,3 +65,25 @@ describe('demo script: tour (FR-D3)', () => {
     expect(DEMO_SCRIPTS.tour.session).not.toBe(DEMO_SCRIPTS.core.session);
   });
 });
+
+describe('demo events use the real normalization path (FR-D6)', () => {
+  it.each(Object.values(DEMO_SCRIPTS).map((s) => [s.id, s] as const))(
+    '%s: every event normalizes, is marked demo and has a unique id',
+    (_id, script) => {
+      const ids = new Set<string>();
+      let seq = 0;
+      for (const step of script.steps) {
+        for (const spec of step.events) {
+          seq += 1;
+          const result = normalizeAgentEvent(demoEvent(spec, { session: script.session, seq, at: seq }));
+          expect(result.ok).toBe(true);
+          if (result.ok) {
+            expect(result.event.source).toEqual({ kind: 'demo', session: script.session });
+            ids.add(result.event.id);
+          }
+        }
+      }
+      expect(ids.size).toBe(seq);
+    },
+  );
+});
