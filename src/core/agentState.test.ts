@@ -226,3 +226,41 @@ describe('reduceAgentState — tools, approvals and delegation (EVENT_PROTOCOL �
     },
   );
 });
+
+describe('reduceAgentState — ordering and sessions (FR-E5)', () => {
+  it('ignores a duplicate seq within a session and returns the same state', () => {
+    const state = run(ev('agent.online', { seq: 1 }), ev('turn.started', { seq: 2 }));
+    const replayed = reduceAgentState(state, ev('turn.succeeded', { seq: 2 }));
+    expect(replayed).toBe(state);
+  });
+
+  it('ignores an out-of-order (older) seq within a session', () => {
+    const state = run(ev('agent.online', { seq: 5 }), ev('turn.started', { seq: 6 }));
+    expect(reduceAgentState(state, ev('agent.offline', { seq: 3 }))).toBe(state);
+  });
+
+  it('accepts gaps in seq', () => {
+    expect(run(ev('agent.online', { seq: 1 }), ev('turn.started', { seq: 10 })).lastSeq).toBe(10);
+  });
+
+  it('accepts a new session even with a lower seq and resets the previous session facts', () => {
+    const before = run(
+      ev('agent.online', { session: 'a', seq: 50 }),
+      ev('turn.started', { session: 'a', seq: 51 }),
+      ev('tool.started', { session: 'a', seq: 52, tool: 'code' }),
+      ev('approval.requested', { session: 'a', seq: 53 }),
+    );
+    expect(before.visual).toBe('waiting-approval');
+
+    const after = reduceAgentState(before, ev('agent.online', { session: 'b', seq: 1 }));
+    expect(after.session).toBe('b');
+    expect(after.lastSeq).toBe(1);
+    expect(after.facts).toMatchObject({ connection: 'online', activeTools: [], pendingApprovals: 0, turnActive: false });
+    expect(after.visual).toBe('idle');
+  });
+
+  it('drops the previous session outcome on a session change', () => {
+    const before = run(ev('turn.started', { session: 'a' }), ev('turn.succeeded', { session: 'a' }));
+    expect(reduceAgentState(before, ev('agent.online', { session: 'b', seq: 1 })).visual).toBe('idle');
+  });
+});

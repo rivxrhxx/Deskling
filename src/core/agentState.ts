@@ -108,7 +108,13 @@ function applyFacts(facts: AgentFacts, event: AgentEvent): AgentFacts {
 
 /** Pure reducer: (state, normalized event) → state (FR-E4). */
 export function reduceAgentState(state: AgentViewState, event: AgentEvent): AgentViewState {
-  const facts = applyFacts(state.facts, event);
+  const sameSession = state.session === event.source.session;
+  // FR-E5: duplicates and stale events within a session are ignored entirely.
+  if (sameSession && state.lastSeq !== null && event.seq <= state.lastSeq) {
+    return state;
+  }
+  // A new session starts from scratch; facts from another session are not carried over.
+  const facts = applyFacts(sameSession ? state.facts : OFFLINE_FACTS, event);
   return {
     facts,
     visual: deriveVisualState(facts),
