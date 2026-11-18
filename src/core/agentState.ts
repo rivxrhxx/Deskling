@@ -1,4 +1,4 @@
-import type { AgentEvent, SourceKind, ToolCategory, ToolOutcome, AgentEventType, VisualState } from './agentEvent';
+import type { AgentEvent, AgentEventType, SourceKind, ToolCategory, ToolOutcome, UsageReport, VisualState } from './agentEvent';
 import { TOOL_VISUAL } from './agentEvent';
 
 /** Facts the reducer tracks. Only events change them; time never does (ADR-004, FR-E6). */
@@ -26,6 +26,14 @@ export interface RecentEntry {
   readonly outcome?: ToolOutcome;
 }
 
+/** Latest usage numbers reported in this session (ADR-016). null = never reported. */
+export interface UsageSnapshot {
+  readonly tokens: NonNullable<UsageReport['tokens']> | null;
+  readonly context: NonNullable<UsageReport['context']> | null;
+}
+
+const NO_USAGE: UsageSnapshot = Object.freeze({ tokens: null, context: null });
+
 export interface AgentViewState {
   readonly facts: AgentFacts;
   readonly visual: VisualState;
@@ -37,6 +45,7 @@ export interface AgentViewState {
   readonly recent: readonly RecentEntry[];
   /** How many entries have ever been recorded; the source of RecentEntry keys. */
   readonly entryCount: number;
+  readonly usage: UsageSnapshot;
 }
 
 export const RECENT_LIMIT = 12;
@@ -66,6 +75,7 @@ export const initialAgentState: AgentViewState = Object.freeze({
   updatedAt: null,
   recent: Object.freeze([]),
   entryCount: 0,
+  usage: NO_USAGE,
 });
 
 /** EVENT_PROTOCOL §5 — the first matching rule wins. */
@@ -133,14 +143,33 @@ export function reduceAgentState(state: AgentViewState, event: AgentEvent): Agen
   }
   // A new session starts from scratch; facts from another session are not carried over.
   const facts = applyFacts(sameSession ? state.facts : OFFLINE_FACTS, event);
-  return {
+  const usage = sameSession ? state.usage : NO_USAGE;
+  const common = {
     facts,
     visual: deriveVisualState(facts),
     session: event.source.session,
     sourceKind: event.source.kind,
     lastSeq: event.seq,
     updatedAt: event.at,
+  };
+
+  // Usage reports are measurements, not activity: they update the snapshot but never the recent list.
+  if (event.type === 'usage.reported') {
+    return {
+      ...common,
+      recent: state.recent,
+      entryCount: state.entryCount,
+      usage: {
+        tokens: event.usage.tokens ?? usage.tokens,
+        context: event.usage.context ?? usage.context,
+      },
+    };
+  }
+
+  return {
+    ...common,
     recent: [toRecentEntry(event, state.entryCount + 1), ...state.recent].slice(0, RECENT_LIMIT),
     entryCount: state.entryCount + 1,
+    usage,
   };
 }

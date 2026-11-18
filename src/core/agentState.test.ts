@@ -322,3 +322,59 @@ describe('reduceAgentState — recent entry identity (review T34d)', () => {
     expect(state.recent.map((entry) => entry.key)).toEqual([2, 1]);
   });
 });
+
+function usage(
+  report: { tokens?: { used: number }; context?: { used: number; limit: number } },
+  extra: { session?: string; seq?: number } = {},
+): AgentEvent {
+  seq = extra.seq ?? seq + 1;
+  return {
+    schema: 'deskling.agent-event',
+    version: 2,
+    id: `u-${seq}`,
+    seq,
+    at: 1_000 * seq,
+    source: { kind: 'demo', session: extra.session ?? 's-1' },
+    type: 'usage.reported',
+    usage: report,
+  };
+}
+
+describe('reduceAgentState — usage snapshot (FR-V1, ADR-016)', () => {
+  it('starts with no usage known', () => {
+    expect(initialAgentState.usage).toEqual({ tokens: null, context: null });
+  });
+
+  it('stores the latest reported numbers', () => {
+    const state = run(ev('agent.online'), usage({ tokens: { used: 1000 }, context: { used: 10, limit: 100 } }));
+    expect(state.usage).toEqual({ tokens: { used: 1000 }, context: { used: 10, limit: 100 } });
+  });
+
+  it('merges partial reports, keeping fields that were not reported', () => {
+    const state = run(usage({ tokens: { used: 1000 }, context: { used: 10, limit: 100 } }), usage({ tokens: { used: 2500 } }));
+    expect(state.usage).toEqual({ tokens: { used: 2500 }, context: { used: 10, limit: 100 } });
+  });
+
+  it('does not change the visual state or the recent activity list', () => {
+    const before = run(ev('agent.online'), ev('turn.started'), ev('tool.started', { tool: 'code' }));
+    const after = reduceAgentState(before, usage({ context: { used: 90, limit: 100 } }));
+    expect(after.visual).toBe('coding');
+    expect(after.recent).toBe(before.recent);
+    expect(after.entryCount).toBe(before.entryCount);
+  });
+
+  it('keeps usage while the agent goes idle or offline in the same session', () => {
+    const state = run(usage({ tokens: { used: 5 } }), ev('agent.idle'), ev('agent.offline'));
+    expect(state.usage.tokens).toEqual({ used: 5 });
+  });
+
+  it('clears usage when a new session starts', () => {
+    const state = run(usage({ tokens: { used: 5 } }, { session: 'a' }), ev('agent.online', { session: 'b', seq: 1 }));
+    expect(state.usage).toEqual({ tokens: null, context: null });
+  });
+
+  it('ignores stale usage reports', () => {
+    const state = run(usage({ tokens: { used: 9 } }, { seq: 5 }));
+    expect(reduceAgentState(state, usage({ tokens: { used: 1 } }, { seq: 4 })).usage.tokens).toEqual({ used: 9 });
+  });
+});
