@@ -371,3 +371,19 @@ body {
   outline: 2px solid var(--tone-violet);
   outline-offset: 1px;
 }
+
+/* ---- Render failure notice (ErrorBoundary) ------------------------------------------------ */
+.deskling-fallback {
+  position: absolute;
+  left: 50%;
+  bottom: 2rem;
+  max-width: 24rem;
+  padding: 0.6rem 1rem;
+  border-radius: 0.8rem;
+  border: 1px solid var(--glass-edge);
+  background: var(--glass);
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-size: 1.05rem;
+  transform: translateX(-50%);
+}

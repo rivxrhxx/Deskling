@@ -94,9 +94,12 @@ describe('normalizeAgentEvent — valid input (FR-E1, FR-E3)', () => {
     expect(event).not.toHaveProperty('outcome');
   });
 
-  it('accepts the largest safe integer for seq and at', () => {
-    const event = expectOk({ ...base, seq: Number.MAX_SAFE_INTEGER, at: Number.MAX_SAFE_INTEGER, type: 'agent.idle' });
-    expect(event.seq).toBe(Number.MAX_SAFE_INTEGER);
+  it('accepts the largest safe integer for seq', () => {
+    expect(expectOk({ ...base, seq: Number.MAX_SAFE_INTEGER, type: 'agent.idle' }).seq).toBe(Number.MAX_SAFE_INTEGER);
+  });
+
+  it('accepts the largest timestamp a Date can represent', () => {
+    expect(expectOk({ ...base, at: 8_640_000_000_000_000, type: 'agent.idle' }).at).toBe(8_640_000_000_000_000);
   });
 
   it('accepts objects without a prototype (e.g. parsed by a strict decoder)', () => {
@@ -133,6 +136,8 @@ describe('normalizeAgentEvent — invalid input (EVENT_PROTOCOL §8)', () => {
     ['an infinite timestamp', { ...valid, at: Number.POSITIVE_INFINITY }, 'bad-timestamp'],
     ['a fractional timestamp', { ...valid, at: 1.5 }, 'bad-timestamp'],
     ['an ISO string timestamp', { ...valid, at: '2026-01-01T00:00:00Z' }, 'bad-timestamp'],
+    ['a timestamp beyond the Date range', { ...valid, at: 8_640_000_000_000_001 }, 'bad-timestamp'],
+    ['the largest safe integer as a timestamp', { ...valid, at: Number.MAX_SAFE_INTEGER }, 'bad-timestamp'],
     ['a missing source', { ...valid, source: undefined }, 'bad-source'],
     ['an array source', { ...valid, source: ['demo', 's'] }, 'bad-source'],
     ['an unknown source kind', { ...valid, source: { kind: 'evil', session: 's-1' } }, 'bad-source'],

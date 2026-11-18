@@ -11,6 +11,9 @@ import {
 /** Opaque identifiers only: no spaces, slashes or anything path- or prose-shaped. */
 const IDENTIFIER = /^[A-Za-z0-9._:-]{1,64}$/;
 
+/** The largest epoch-millisecond value a JavaScript Date can represent. */
+export const MAX_TIMESTAMP = 8_640_000_000_000_000;
+
 export const NORMALIZE_ERRORS = [
   'not-object',
   'bad-schema',
@@ -86,7 +89,7 @@ function normalize(input: unknown): NormalizeResult {
   if (!isNonNegativeSafeInteger(seq)) return fail('bad-seq');
 
   const at = own(input, 'at');
-  if (!isNonNegativeSafeInteger(at)) return fail('bad-timestamp');
+  if (!isNonNegativeSafeInteger(at) || at > MAX_TIMESTAMP) return fail('bad-timestamp');
 
   const rawSource = own(input, 'source');
   if (!isPlainRecord(rawSource)) return fail('bad-source');

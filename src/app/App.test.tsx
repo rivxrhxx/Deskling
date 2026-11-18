@@ -316,3 +316,15 @@ describe('App demo scenario (FR-D2, FR-D3)', () => {
     expect(screen.queryByRole('group', { name: '데모 시나리오' })).toBeNull();
   });
 });
+
+describe('App resilience (review T34a)', () => {
+  it('opens the panel safely even after the largest accepted timestamp', async () => {
+    const { fireEvent } = await import('@testing-library/react');
+    const live = manualSource('live');
+    render(<App source={live.source} controls={fakeControls()} storage={fakeStorage()} />);
+    live.emit({ ...raw(1, 'agent.online'), at: 8_640_000_000_000_000 });
+    live.emit({ ...raw(2, 'turn.started'), at: Number.MAX_SAFE_INTEGER });
+    fireEvent.click(screen.getByRole('button', { name: '최근 활동 보기' }));
+    expect(screen.getByRole('dialog', { name: '최근 활동' })).toHaveTextContent('에이전트 연결됨');
+  });
+});

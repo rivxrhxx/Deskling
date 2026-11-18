@@ -31,7 +31,7 @@ Deskling이 이해하는 유일한 입력 형식. provider(Hermes Agent 등)에 
 | `version` | number | 정확히 `1` |
 | `id` | string | `^[A-Za-z0-9._:-]{1,64}$` |
 | `seq` | integer | `0` 이상 safe integer. 세션 안에서 단조 증가 |
-| `at` | integer | Unix epoch 밀리초, `0` 이상 safe integer |
+| `at` | integer | Unix epoch 밀리초, `0` 이상 `8.64e15` 이하 정수 (JavaScript Date가 표현할 수 있는 범위) |
 | `source.kind` | string | `"demo"` \| `"hermes"` \| `"custom"` |
 | `source.session` | string | `^[A-Za-z0-9._:-]{1,64}$` — 내용 없는 불투명 세션 ID |
 | `type` | string | §3의 이벤트 타입 |
