@@ -1,11 +1,18 @@
 import { useEffect, useRef } from 'react';
 import type { RecentEntry } from '../core/agentState';
-import { activityKind, describeActivity, formatClock } from './activityText';
+import type { Vitals } from '../core/mood';
+import { ANGER_LABEL, ENERGY_LABEL, activityKind, describeActivity, formatClock, formatTokens } from './activityText';
 import { StateIcon } from './icons';
 
 export interface DemoPicker {
   readonly options: ReadonlyArray<{ readonly value: string; readonly label: string; readonly selected: boolean }>;
   readonly onSelect: (value: string) => void;
+}
+
+export interface BudgetPicker {
+  readonly value: number;
+  readonly options: readonly number[];
+  readonly onChange: (value: number) => void;
 }
 
 export interface ActivityPanelProps {
@@ -14,10 +21,75 @@ export interface ActivityPanelProps {
   readonly formatTime?: (at: number) => string;
   /** Present only while a demo source runs. */
   readonly demo?: DemoPicker;
+  /** Energy and context numbers (FR-V5). The scene never shows numbers; this panel does. */
+  readonly vitals?: Vitals;
+  readonly budget?: BudgetPicker;
+}
+
+function Meter({ label, percent }: { label: string; percent: number }) {
+  return (
+    <div className="vital__meter" role="meter" aria-label={label} aria-valuemin={0} aria-valuemax={100} aria-valuenow={percent}>
+      <div className="vital__fill" style={{ width: `${percent}%` }} />
+    </div>
+  );
+}
+
+function VitalsSection({ vitals, budget }: { vitals: Vitals; budget?: BudgetPicker }) {
+  const { energy, anger } = vitals;
+  const energyPercent = energy.ratio === null ? null : Math.round(energy.ratio * 100);
+  const contextPercent = anger.ratio === null ? null : Math.round(anger.ratio * 100);
+  return (
+    <div className="activity-panel__vitals" role="group" aria-label="에너지와 컨텍스트">
+      <div className="vital" data-vital="energy" data-level={energy.level}>
+        <div className="vital__row">
+          <span className="vital__name">에너지</span>
+          {energy.remaining === null ? (
+            <span className="vital__value">보고 없음</span>
+          ) : (
+            <span className="vital__value">
+              남은 토큰 {formatTokens(energy.remaining)} / {formatTokens(energy.budget)}
+              <span className="vital__level"> · {ENERGY_LABEL[energy.level]}</span>
+            </span>
+          )}
+        </div>
+        {energyPercent !== null && <Meter label="남은 에너지" percent={energyPercent} />}
+        {budget && (
+          <label className="vital__budget">
+            <span>예산</span>
+            <select
+              aria-label="토큰 예산"
+              value={budget.value}
+              onChange={(event) => budget.onChange(Number(event.currentTarget.value))}
+            >
+              {budget.options.map((option) => (
+                <option key={option} value={option}>
+                  {formatTokens(option)}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+      </div>
+      <div className="vital" data-vital="context" data-level={anger.level}>
+        <div className="vital__row">
+          <span className="vital__name">컨텍스트</span>
+          {anger.used === null || anger.limit === null ? (
+            <span className="vital__value">보고 없음</span>
+          ) : (
+            <span className="vital__value">
+              {formatTokens(anger.used)} / {formatTokens(anger.limit)} · {contextPercent}%
+              <span className="vital__level"> · {ANGER_LABEL[anger.level]}</span>
+            </span>
+          )}
+        </div>
+        {contextPercent !== null && <Meter label="컨텍스트 사용량" percent={contextPercent} />}
+      </div>
+    </div>
+  );
 }
 
 /** A small log screen pinned to the wall: recent facts, newest first (FR-P1–P4). Read-only. */
-export function ActivityPanel({ entries, onClose, formatTime = formatClock, demo }: ActivityPanelProps) {
+export function ActivityPanel({ entries, onClose, formatTime = formatClock, demo, vitals, budget }: ActivityPanelProps) {
   const closeRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
@@ -45,6 +117,7 @@ export function ActivityPanel({ entries, onClose, formatTime = formatClock, demo
           </svg>
         </button>
       </header>
+      {vitals && <VitalsSection vitals={vitals} budget={budget} />}
       {entries.length === 0 ? (
         <p className="activity-panel__empty">아직 기록된 활동이 없습니다.</p>
       ) : (

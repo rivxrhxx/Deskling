@@ -61,3 +61,14 @@ export function formatClock(at: number): string {
   const date = new Date(at);
   return `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
 }
+
+/** 1500 → "1.5k", 80000 → "80k", 2250000 → "2.3M". Token counts only. */
+export function formatTokens(value: number): string {
+  const trim = (n: number) => String(Math.round(n * 10) / 10);
+  if (value >= 1_000_000) return `${trim(value / 1_000_000)}M`;
+  if (value >= 1_000) return `${trim(value / 1_000)}k`;
+  return String(value);
+}
+
+export const ENERGY_LABEL = { unknown: '보고 없음', full: '충분', ok: '보통', low: '부족', empty: '바닥' } as const;
+export const ANGER_LABEL = { unknown: '보고 없음', calm: '평온', annoyed: '짜증', angry: '화남', furious: '폭발 직전' } as const;

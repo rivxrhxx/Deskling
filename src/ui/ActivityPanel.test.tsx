@@ -3,8 +3,9 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import type { RecentEntry } from '../core/agentState';
 import { EVENT_TYPES, TOOL_CATEGORIES } from '../core/agentEvent';
+import type { Vitals } from '../core/mood';
 import { ActivityPanel } from './ActivityPanel';
-import { describeActivity } from './activityText';
+import { describeActivity, formatTokens } from './activityText';
 
 const entries: RecentEntry[] = [
   { key: 3, seq: 3, at: 3000, type: 'tool.finished', tool: 'terminal', outcome: 'error' },
@@ -118,5 +119,71 @@ describe('ActivityPanel demo scenario picker (FR-D3)', () => {
     expect(within(group).getByRole('button', { name: '전체 상태' })).toHaveAttribute('aria-pressed', 'true');
     await userEvent.click(within(group).getByRole('button', { name: '기본 흐름' }));
     expect(onSelect).toHaveBeenCalledWith('core');
+  });
+});
+
+describe('formatTokens', () => {
+  it.each([
+    [0, '0'],
+    [999, '999'],
+    [1_500, '1.5k'],
+    [80_000, '80k'],
+    [156_400, '156.4k'],
+    [1_000_000, '1M'],
+    [2_250_000, '2.3M'],
+  ])('%d → %s', (value, text) => {
+    expect(formatTokens(value)).toBe(text);
+  });
+});
+
+describe('ActivityPanel vitals (FR-V5, FR-V6)', () => {
+  const vitals: Vitals = {
+    energy: { level: 'ok', used: 120_000, remaining: 80_000, budget: 200_000, ratio: 0.4 },
+    anger: { level: 'angry', used: 156_000, limit: 200_000, ratio: 0.78 },
+  };
+  const budget = { value: 200_000, options: [50_000, 100_000, 200_000, 500_000, 1_000_000], onChange: vi.fn() };
+
+  it('shows nothing about vitals unless they are given', () => {
+    render(<ActivityPanel entries={entries} onClose={vi.fn()} formatTime={formatTime} />);
+    expect(screen.queryByRole('group', { name: '에너지와 컨텍스트' })).toBeNull();
+  });
+
+  it('shows remaining tokens against the budget and the context fill as numbers', () => {
+    render(<ActivityPanel entries={entries} onClose={vi.fn()} formatTime={formatTime} vitals={vitals} budget={budget} />);
+    const group = screen.getByRole('group', { name: '에너지와 컨텍스트' });
+    expect(group).toHaveTextContent('남은 토큰 80k / 200k');
+    expect(group).toHaveTextContent('보통');
+    expect(group).toHaveTextContent('156k / 200k · 78%');
+    expect(group).toHaveTextContent('화남');
+    expect(within(group).getByRole('meter', { name: '남은 에너지' })).toHaveAttribute('aria-valuenow', '40');
+    expect(within(group).getByRole('meter', { name: '컨텍스트 사용량' })).toHaveAttribute('aria-valuenow', '78');
+  });
+
+  it('says when nothing has been reported', () => {
+    const unknown: Vitals = {
+      energy: { level: 'unknown', used: null, remaining: null, budget: 200_000, ratio: null },
+      anger: { level: 'unknown', used: null, limit: null, ratio: null },
+    };
+    render(<ActivityPanel entries={entries} onClose={vi.fn()} formatTime={formatTime} vitals={unknown} budget={budget} />);
+    const group = screen.getByRole('group', { name: '에너지와 컨텍스트' });
+    expect(within(group).getAllByText('보고 없음')).toHaveLength(2);
+    expect(within(group).queryByRole('meter')).toBeNull();
+  });
+
+  it('lets the user pick the token budget', async () => {
+    const onChange = vi.fn();
+    render(
+      <ActivityPanel
+        entries={entries}
+        onClose={vi.fn()}
+        formatTime={formatTime}
+        vitals={vitals}
+        budget={{ ...budget, onChange }}
+      />,
+    );
+    const select = screen.getByRole('combobox', { name: '토큰 예산' });
+    expect(within(select).getAllByRole('option').map((o) => o.textContent)).toEqual(['50k', '100k', '200k', '500k', '1M']);
+    await userEvent.selectOptions(select, '500k');
+    expect(onChange).toHaveBeenCalledWith(500_000);
   });
 });
