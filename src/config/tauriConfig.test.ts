@@ -49,16 +49,21 @@ describe('capabilities (SEC-5)', () => {
     expect(capability.windows).toEqual(['main']);
   });
 
-  it('grants only the window permissions Deskling needs', () => {
+  it('grants only the four window permissions Deskling needs — no core:default bundle (review T34b)', () => {
     expect([...capability.permissions].sort()).toEqual(
       [
-        'core:default',
         'core:window:allow-close',
         'core:window:allow-set-always-on-top',
         'core:window:allow-set-size',
         'core:window:allow-start-dragging',
       ].sort(),
     );
+  });
+
+  it('grants nothing outside the window plugin (no path, tray, menu, event or app APIs)', () => {
+    for (const permission of capability.permissions) {
+      expect(permission).toMatch(/^core:window:allow-/);
+    }
   });
 
   it('has no shell, filesystem, http or process plugin permissions', () => {
