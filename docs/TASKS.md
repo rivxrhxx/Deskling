@@ -102,6 +102,17 @@
 - [x] **T55** 패널 "펫" 영역: 이름 짓기, 하트, 쓰다듬기·간식 버튼, DEMO 표시 — FR-G4~G6
 - [x] **T56** App 통합, 화면 검증, 문서·상태 갱신
 
+## M9 미니룸: 헤르메스의 사생활 (ADR-019, ADR-020, ADR-021)
+
+- [x] **T57** ADR-019/020/021, REQUIREMENTS FR-R*·FR-W2·SEC-5, DESIGN §9 문서화
+- [ ] **T58** 바탕화면에 박힌 창: 항상 아래 기본, Dock 숨김, 480×340, 위에 띄우기 토글 — FR-R7
+- [ ] **T59** `src/core/room.ts`: 아이소메트릭 좌표·깊이, 방 배치(장소·통로·문) — FR-R1
+- [ ] **T60** `src/core/life.ts`: 상태별 필수 행동, 대기 일상·친구 방문, 걷기 경로·시간(시드 고정) — FR-R2~R6
+- [ ] **T61** 픽셀 스프라이트: ASCII 맵 → SVG, 헤르메스·친구 포즈, 이모트 — FR-R1, FR-R2
+- [ ] **T62** `MiniRoom` 장면: 방·가구·깊이 정렬·캐릭터·친구·이모트·밤·성장·소품 — FR-R1~R5, FR-G2~G4, FR-V4
+- [ ] **T63** App 통합: 일상 엔진 구동(틱·reduced-motion), 친구 초대, 기존 작업실 제거, visualSpec·DESIGN 정리
+- [ ] **T64** 화면 검증(WebKit·네이티브), 문서·상태, verify·build, push
+
 ## 백로그 (vertical slice 이후, 각각 ADR 먼저)
 
 - [ ] Hermes Agent adapter: 전송 방식·위치 결정 ADR

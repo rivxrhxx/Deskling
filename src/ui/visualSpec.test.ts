@@ -50,7 +50,9 @@ describe('visualSpec (FR-S3)', () => {
 
 describe('visualSpec matches docs/DESIGN.md §4', () => {
   const rows = new Map<string, string[]>();
-  for (const line of designDoc.split('\n')) {
+  // Only §4 holds the state table; other sections (e.g. §9.3) have their own tables.
+  const section = designDoc.slice(designDoc.indexOf('## 4. 상태별 사양'), designDoc.indexOf('## 5. UI 요소'));
+  for (const line of section.split('\n')) {
     const cells = line.split('|').map((cell) => cell.trim());
     const state = cells[1];
     if (state && (VISUAL_STATES as readonly string[]).includes(state)) {
