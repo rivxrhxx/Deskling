@@ -4,6 +4,7 @@ import { createDemoSource } from '../adapters/demo/demoSource';
 import type { DemoScriptId } from '../adapters/demo/scripts';
 import { DEMO_SCRIPT_IDS, DEMO_SCRIPTS } from '../adapters/demo/scripts';
 import type { AgentEventSource } from '../adapters/types';
+import { deriveVitals } from '../core/mood';
 import type { WindowControls } from '../platform/windowControls';
 import { createWindowControls } from '../platform/windowControls';
 import { ActivityPanel } from '../ui/ActivityPanel';
@@ -14,7 +15,7 @@ import { VISUAL_SPEC } from '../ui/visualSpec';
 import { WindowToolbar } from '../ui/WindowToolbar';
 import { Workshop } from '../ui/workshop/Workshop';
 import type { Settings } from './settings';
-import { loadSettings, parseSettings, saveSettings, windowSizeFor } from './settings';
+import { TOKEN_BUDGETS, loadSettings, parseSettings, saveSettings, windowSizeFor } from './settings';
 import { useAgentFeed } from './useAgentFeed';
 import { useReducedMotion } from './useReducedMotion';
 
@@ -80,6 +81,8 @@ export function App({ source: providedSource, controls: providedControls, storag
 
   const view = useAgentFeed(source);
   const reducedMotion = useReducedMotion(settings.motion);
+  // Energy and anger: fixed readings of reported numbers against the user's budget (ADR-016).
+  const vitals = deriveVitals(view.usage, settings.tokenBudget);
 
   const [panelOpen, setPanelOpen] = useState(false);
   const hotspotRef = useRef<HTMLButtonElement>(null);
@@ -111,7 +114,7 @@ export function App({ source: providedSource, controls: providedControls, storag
       <div className="stage" onMouseDown={startDrag}>
         {source.mode === 'demo' && <DemoBadge />}
         <StatusBubble state={view.visual} />
-        <Workshop state={view.visual} />
+        <Workshop state={view.visual} energy={vitals.energy.level} anger={vitals.anger.level} />
         <CharacterHotspot
           expanded={panelOpen}
           onActivate={togglePanel}
@@ -122,6 +125,12 @@ export function App({ source: providedSource, controls: providedControls, storag
           <ActivityPanel
             entries={view.recent}
             onClose={closePanel}
+            vitals={vitals}
+            budget={{
+              value: settings.tokenBudget,
+              options: TOKEN_BUDGETS,
+              onChange: (value) => updateSettings({ tokenBudget: value as Settings['tokenBudget'] }),
+            }}
             demo={
               source.mode === 'demo' && !providedSource
                 ? {

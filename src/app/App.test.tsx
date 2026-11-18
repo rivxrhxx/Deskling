@@ -382,3 +382,49 @@ describe('App hotspot follows the character (FR-V7)', () => {
     expect(hotspot).toHaveAttribute('data-place', 'desk');
   });
 });
+
+describe('App vitals: usage → energy/anger → scene and panel (FR-V2–V6)', () => {
+  const usageRaw = (seq: number, usage: object) => ({ ...raw(seq, 'usage.reported'), version: 2, usage });
+  const scene = () => screen.getByRole('img', { name: /미니어처 작업실/ });
+
+  it('turns reported usage into scene moods without numbers in the scene', () => {
+    const live = manualSource('live');
+    render(<App source={live.source} controls={fakeControls()} storage={fakeStorage()} />);
+    live.emit(raw(1, 'turn.started'));
+    expect(scene()).toHaveAttribute('data-energy', 'unknown');
+
+    live.emit(usageRaw(2, { tokens: { used: 150_000 }, context: { used: 185_000, limit: 200_000 } }));
+    expect(scene()).toHaveAttribute('data-energy', 'low');
+    expect(scene()).toHaveAttribute('data-anger', 'furious');
+    expect(scene().textContent).not.toMatch(/\d/);
+  });
+
+  it('shows the numbers in the panel and keeps usage out of the activity list', async () => {
+    const { fireEvent } = await import('@testing-library/react');
+    const live = manualSource('live');
+    render(<App source={live.source} controls={fakeControls()} storage={fakeStorage()} />);
+    live.emit(raw(1, 'turn.started'));
+    live.emit(usageRaw(2, { tokens: { used: 120_000 }, context: { used: 156_000, limit: 200_000 } }));
+    fireEvent.click(screen.getByRole('button', { name: '최근 활동 보기' }));
+
+    const dialog = screen.getByRole('dialog', { name: '최근 활동' });
+    expect(dialog).toHaveTextContent('남은 토큰 80k / 200k');
+    expect(dialog).toHaveTextContent('156k / 200k · 78%');
+    expect(dialog).not.toHaveTextContent('사용량 보고');
+  });
+
+  it('re-reads energy when the user changes the token budget, and remembers it', async () => {
+    const { fireEvent } = await import('@testing-library/react');
+    const live = manualSource('live');
+    const storage = fakeStorage();
+    render(<App source={live.source} controls={fakeControls()} storage={storage} />);
+    live.emit(usageRaw(1, { tokens: { used: 150_000 } }));
+    expect(scene()).toHaveAttribute('data-energy', 'low');
+
+    fireEvent.click(screen.getByRole('button', { name: '최근 활동 보기' }));
+    fireEvent.change(screen.getByRole('combobox', { name: '토큰 예산' }), { target: { value: '1000000' } });
+
+    expect(scene()).toHaveAttribute('data-energy', 'full');
+    expect(JSON.parse(storage.data.get('deskling.settings.v1') ?? '{}')).toMatchObject({ tokenBudget: 1_000_000 });
+  });
+});
