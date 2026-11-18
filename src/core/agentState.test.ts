@@ -117,3 +117,112 @@ describe('reduceAgentState — connection, turns and outcomes (FR-E4, FR-E6)', (
     expect(late).toEqual(early);
   });
 });
+
+describe('reduceAgentState — tools, approvals and delegation (EVENT_PROTOCOL §5)', () => {
+  it.each([
+    ['code', 'coding'],
+    ['browser', 'browsing'],
+    ['terminal', 'terminal'],
+    ['file', 'file-work'],
+  ] as const)('shows tool %s as %s', (tool, visual) => {
+    expect(run(ev('agent.online'), ev('turn.started'), ev('tool.started', { tool })).visual).toBe(visual);
+  });
+
+  it('returns to thinking when the only tool finishes during a turn', () => {
+    expect(
+      visuals(ev('agent.online'), ev('turn.started'), ev('tool.started', { tool: 'code' }), ev('tool.finished', { tool: 'code' })),
+    ).toEqual(['idle', 'thinking', 'coding', 'thinking']);
+  });
+
+  it('also returns to thinking after a failed tool — a tool error is not a failed turn', () => {
+    const state = run(
+      ev('turn.started'),
+      ev('tool.started', { tool: 'terminal' }),
+      ev('tool.finished', { tool: 'terminal', outcome: 'error' }),
+    );
+    expect(state.visual).toBe('thinking');
+  });
+
+  it('shows the most recently started of overlapping tools', () => {
+    expect(
+      visuals(
+        ev('turn.started'),
+        ev('tool.started', { tool: 'code' }),
+        ev('tool.started', { tool: 'terminal' }),
+        ev('tool.finished', { tool: 'terminal' }),
+        ev('tool.finished', { tool: 'code' }),
+      ),
+    ).toEqual(['thinking', 'coding', 'terminal', 'coding', 'thinking']);
+  });
+
+  it('removes the latest matching tool when the same category runs twice', () => {
+    const state = run(
+      ev('turn.started'),
+      ev('tool.started', { tool: 'file' }),
+      ev('tool.started', { tool: 'code' }),
+      ev('tool.started', { tool: 'file' }),
+      ev('tool.finished', { tool: 'file' }),
+    );
+    expect(state.facts.activeTools).toEqual(['file', 'code']);
+    expect(state.visual).toBe('coding');
+  });
+
+  it('ignores a finish for a tool that is not running', () => {
+    const state = run(ev('turn.started'), ev('tool.started', { tool: 'code' }), ev('tool.finished', { tool: 'browser' }));
+    expect(state.facts.activeTools).toEqual(['code']);
+    expect(state.visual).toBe('coding');
+  });
+
+  it('shows a tool even if no turn.started was observed, then idles when it ends', () => {
+    expect(visuals(ev('agent.online'), ev('tool.started', { tool: 'browser' }), ev('tool.finished', { tool: 'browser' }))).toEqual([
+      'idle',
+      'browsing',
+      'idle',
+    ]);
+  });
+
+  it('puts a pending approval above any running tool', () => {
+    expect(
+      visuals(ev('turn.started'), ev('tool.started', { tool: 'terminal' }), ev('approval.requested'), ev('approval.resolved')),
+    ).toEqual(['thinking', 'terminal', 'waiting-approval', 'terminal']);
+  });
+
+  it('keeps waiting while any approval is still pending', () => {
+    const state = run(ev('turn.started'), ev('approval.requested'), ev('approval.requested'), ev('approval.resolved'));
+    expect(state.facts.pendingApprovals).toBe(1);
+    expect(state.visual).toBe('waiting-approval');
+  });
+
+  it('never lets counters go below zero', () => {
+    const state = run(ev('turn.started'), ev('approval.resolved'), ev('delegation.finished'));
+    expect(state.facts.pendingApprovals).toBe(0);
+    expect(state.facts.delegations).toBe(0);
+    expect(state.visual).toBe('thinking');
+  });
+
+  it('shows delegated while a sub-agent works, under any own tool', () => {
+    expect(
+      visuals(
+        ev('turn.started'),
+        ev('delegation.started'),
+        ev('tool.started', { tool: 'file' }),
+        ev('tool.finished', { tool: 'file' }),
+        ev('delegation.finished'),
+      ),
+    ).toEqual(['thinking', 'delegated', 'file-work', 'delegated', 'thinking']);
+  });
+
+  it.each(['turn.succeeded', 'turn.failed', 'agent.idle', 'agent.offline'] as const)(
+    '%s clears tools, approvals and delegations',
+    (type) => {
+      const state = run(
+        ev('turn.started'),
+        ev('tool.started', { tool: 'code' }),
+        ev('approval.requested'),
+        ev('delegation.started'),
+        ev(type),
+      );
+      expect(state.facts).toMatchObject({ activeTools: [], pendingApprovals: 0, delegations: 0, turnActive: false });
+    },
+  );
+});

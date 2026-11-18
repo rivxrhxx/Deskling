@@ -70,6 +70,12 @@ function settled(connection: AgentFacts['connection'], lastOutcome: AgentFacts['
   return { ...OFFLINE_FACTS, connection, lastOutcome };
 }
 
+/** Removes the most recently started tool of this category; unknown finishes change nothing. */
+function withoutLatest(tools: readonly ToolCategory[], tool: ToolCategory): readonly ToolCategory[] {
+  const index = tools.lastIndexOf(tool);
+  return index === -1 ? tools : [...tools.slice(0, index), ...tools.slice(index + 1)];
+}
+
 function applyFacts(facts: AgentFacts, event: AgentEvent): AgentFacts {
   const online: AgentFacts = facts.connection === 'online' ? facts : { ...facts, connection: 'online' };
   switch (event.type) {
@@ -85,8 +91,18 @@ function applyFacts(facts: AgentFacts, event: AgentEvent): AgentFacts {
       return settled('online', 'success');
     case 'turn.failed':
       return settled('online', 'error');
-    default:
-      return online;
+    case 'tool.started':
+      return { ...online, activeTools: [...online.activeTools, event.tool] };
+    case 'tool.finished':
+      return { ...online, activeTools: withoutLatest(online.activeTools, event.tool) };
+    case 'approval.requested':
+      return { ...online, pendingApprovals: online.pendingApprovals + 1 };
+    case 'approval.resolved':
+      return { ...online, pendingApprovals: Math.max(0, online.pendingApprovals - 1) };
+    case 'delegation.started':
+      return { ...online, delegations: online.delegations + 1 };
+    case 'delegation.finished':
+      return { ...online, delegations: Math.max(0, online.delegations - 1) };
   }
 }
 
