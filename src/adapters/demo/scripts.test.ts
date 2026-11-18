@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { VisualState } from '../../core/agentEvent';
+import { VISUAL_STATES } from '../../core/agentEvent';
 import type { AgentViewState } from '../../core/agentState';
 import { initialAgentState, reduceAgentState } from '../../core/agentState';
 import { normalizeAgentEvent } from '../../core/normalize';
@@ -41,5 +42,26 @@ describe('demo script: core (FR-D2)', () => {
       expect(Number.isInteger(step.dwellMs)).toBe(true);
       expect(step.dwellMs).toBeGreaterThan(0);
     }
+  });
+});
+
+describe('demo script: tour (FR-D3)', () => {
+  it('visits all 11 visual states in protocol order', () => {
+    expect(play(DEMO_SCRIPTS.tour)).toEqual([...VISUAL_STATES]);
+  });
+
+  it('repeats the same tour when looped (FR-D4)', () => {
+    expect(play(DEMO_SCRIPTS.tour, 2)).toEqual([...VISUAL_STATES, ...VISUAL_STATES]);
+  });
+
+  it('uses fixed, positive dwell times (FR-D1)', () => {
+    for (const step of DEMO_SCRIPTS.tour.steps) {
+      expect(Number.isInteger(step.dwellMs)).toBe(true);
+      expect(step.dwellMs).toBeGreaterThan(0);
+    }
+  });
+
+  it('runs in its own session so switching scripts starts fresh', () => {
+    expect(DEMO_SCRIPTS.tour.session).not.toBe(DEMO_SCRIPTS.core.session);
   });
 });

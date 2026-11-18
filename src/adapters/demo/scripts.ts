@@ -46,7 +46,28 @@ const core: DemoScript = {
   ],
 };
 
-export const DEMO_SCRIPTS = { core } as const satisfies Record<string, DemoScript>;
+/** Every visual state, in protocol order (FR-D3). Each step is a plausible sequence of real event kinds. */
+const tour: DemoScript = {
+  id: 'tour',
+  session: 'demo-tour',
+  steps: [
+    step(2400, { type: 'agent.offline' }), // offline
+    step(2400, { type: 'agent.online' }), // idle
+    step(2400, { type: 'turn.started' }), // thinking
+    step(3000, toolStart('code')), // coding
+    step(3000, toolDone('code'), toolStart('browser')), // browsing
+    step(3000, toolDone('browser'), toolStart('terminal')), // terminal
+    step(3000, toolDone('terminal'), toolStart('file')), // file-work
+    step(3200, toolDone('file'), { type: 'approval.requested' }), // waiting-approval
+    step(3200, { type: 'approval.resolved' }, { type: 'delegation.started' }), // delegated
+    step(2800, { type: 'delegation.finished' }, { type: 'turn.succeeded' }), // success
+    step(2800, { type: 'turn.started' }, { type: 'turn.failed' }), // error
+  ],
+};
+
+export const DEMO_SCRIPTS = { core, tour } as const satisfies Record<string, DemoScript>;
+export type DemoScriptId = keyof typeof DEMO_SCRIPTS;
+export const DEMO_SCRIPT_IDS = Object.keys(DEMO_SCRIPTS) as DemoScriptId[];
 
 /** Turns a spec into a raw protocol object. It still goes through normalizeAgentEvent like any provider event. */
 export function demoEvent(
