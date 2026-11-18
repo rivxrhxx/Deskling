@@ -20,6 +20,12 @@ describe('isometric projection (FR-R1, ADR-019)', () => {
 });
 
 describe('room layout', () => {
+  it('seats people on the sofa facing into the room (faces visible)', () => {
+    expect(SPOTS.sofa.face).toBe('front-right');
+    expect(SPOTS['sofa-2'].face).toBe('front-right');
+    expect(FURNITURE.sofa.x0).toBe(0);
+  });
+
   it('keeps every footprint and spot inside the floor (the door outside spot excepted)', () => {
     for (const item of Object.values(FURNITURE)) {
       expect(item.x0).toBeGreaterThanOrEqual(0);

@@ -125,6 +125,7 @@ const friendSheet = (prefix: string, head: readonly string[], back: readonly str
   [`${prefix}-back-walk-b`]: [...back, ...withLegs(BODY_BACK, LEGS_WALK_B)],
   [`${prefix}-sit-back`]: [...back, ...SIT_BACK.slice(9)],
   [`${prefix}-sit-back-type`]: [...back, ...SIT_BACK_TYPE.slice(9)],
+  [`${prefix}-sit-front`]: [...head, ...SIT_FRONT.slice(9)],
 });
 
 export const SPRITES: Readonly<Record<string, PixelMap>> = {

@@ -68,7 +68,7 @@ describe('sprite sheets are well-formed', () => {
   });
 
   it('has the poses the room needs', () => {
-    for (const pose of ['front', 'front-walk-a', 'front-walk-b', 'back', 'back-walk-a', 'back-walk-b', 'sit-back', 'sit-back-type', 'sit-front', 'sleep', 'shower', 'friend-a-front', 'friend-b-front']) {
+    for (const pose of ['front', 'front-walk-a', 'front-walk-b', 'back', 'back-walk-a', 'back-walk-b', 'sit-back', 'sit-back-type', 'sit-front', 'sleep', 'shower', 'friend-a-front', 'friend-b-front', 'friend-a-sit-front', 'friend-b-sit-front']) {
       expect(SPRITES, pose).toHaveProperty(pose);
     }
   });

@@ -39,13 +39,15 @@ export const FURNITURE = {
   // Left wall (x = 0)
   bed: { x0: 0, y0: 1, x1: 2, y1: 3 },
   bookshelf: { x0: 0, y0: 4.2, x1: 0.7, y1: 5 },
-  tv: { x0: 0, y0: 5.6, x1: 0.7, y1: 6.6 },
+  /** Against the left wall, facing into the room so the people on it face the viewer. */
+  sofa: { x0: 0, y0: 5.2, x1: 0.8, y1: 7.5 },
   // Right wall (y = 0)
   desk: { x0: 1, y0: 0, x1: 3, y1: 1 },
   fridge: { x0: 3.6, y0: 0, x1: 4.5, y1: 0.8 },
   shower: { x0: 5, y0: 0, x1: 6.5, y1: 1.5 },
   // Floor
-  sofa: { x0: 2.2, y0: 5.2, x1: 3, y1: 7 },
+  /** A low TV stand facing the sofa (the viewer sees its back). */
+  tv: { x0: 2.6, y0: 5.6, x1: 3, y1: 6.6 },
   table: { x0: 5.2, y0: 4.6, x1: 6.2, y1: 5.6 },
   plant: { x0: 8.2, y0: 3.6, x1: 8.8, y1: 4.2 },
 } as const satisfies Record<string, Footprint>;
@@ -69,8 +71,8 @@ const spots = {
   fridge: { at: { x: 4.05, y: 1.35 }, face: 'back-right' },
   shower: { at: { x: 5.75, y: 0.75 }, face: 'front-left', furniture: 'shower' },
   table: { at: { x: 5.7, y: 4.2 }, face: 'front-left' },
-  sofa: { at: { x: 2.6, y: 5.7 }, face: 'back-left', furniture: 'sofa' },
-  'sofa-2': { at: { x: 2.6, y: 6.6 }, face: 'back-left', furniture: 'sofa' },
+  sofa: { at: { x: 0.5, y: 5.7 }, face: 'front-right', furniture: 'sofa' },
+  'sofa-2': { at: { x: 0.5, y: 7.05 }, face: 'front-right', furniture: 'sofa' },
   bookshelf: { at: { x: 1.3, y: 4.6 }, face: 'back-left' },
   window: { at: { x: 0.9, y: 3.6 }, face: 'back-left' },
   plant: { at: { x: 7.7, y: 3.9 }, face: 'front-right' },
