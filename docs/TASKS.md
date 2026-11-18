@@ -64,7 +64,7 @@
 - [x] **T31** `npm run verify` 전체 통과 — NFR-4
 - [x] **T35** 원본 앱 아이콘으로 Tauri 기본 로고 교체 — NFR-3
   - 검증: `src-tauri/icons/*` 재생성, `npm run build:app`
-- [ ] **T32** `npm run build:app` macOS 번들 빌드 — NFR-1
+- [x] **T32** `npm run build:app` macOS 번들 빌드 — NFR-1
 - [ ] **T33** `npm run tauri dev` 실행 + 스크린샷으로 투명 오버레이·장면 확인 — TEST_PLAN §5
 - [ ] **T34** 독립 리뷰(보안·정확성) 후 지적 반영
 
