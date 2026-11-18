@@ -370,3 +370,15 @@ describe('App settings updates (review T34g)', () => {
     expect(controls.setAlwaysOnTop).toHaveBeenLastCalledWith(false);
   });
 });
+
+describe('App hotspot follows the character (FR-V7)', () => {
+  it('sits over the bed while idle and over the desk while working', () => {
+    const live = manualSource('live');
+    render(<App source={live.source} controls={fakeControls()} storage={fakeStorage()} />);
+    const hotspot = screen.getByRole('button', { name: '최근 활동 보기' });
+    live.emit(raw(1, 'agent.online'));
+    expect(hotspot).toHaveAttribute('data-place', 'bed');
+    live.emit(raw(2, 'turn.started'));
+    expect(hotspot).toHaveAttribute('data-place', 'desk');
+  });
+});

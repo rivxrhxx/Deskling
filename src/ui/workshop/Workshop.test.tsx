@@ -74,3 +74,41 @@ describe('Workshop scene (FR-S1, FR-S3, FR-S6)', () => {
     expect(new Set(ids).size).toBe(ids.length);
   });
 });
+
+describe('Workshop places the character in the room (FR-V7, FR-V8, ADR-017)', () => {
+  const character = () => scene().querySelector('[data-part="character"]');
+
+  it.each([
+    ['idle', 'bed', 'lounging'],
+    ['offline', 'bed', 'asleep-in-bed'],
+    ['coding', 'desk', 'typing'],
+    ['waiting-approval', 'desk', 'raising-hand'],
+  ] as const)('%s → %s (%s)', (state, place, pose) => {
+    render(<Workshop state={state} />);
+    expect(scene()).toHaveAttribute('data-place', place);
+    expect(character()).toHaveAttribute('data-place', place);
+    expect(character()).toHaveAttribute('data-pose', pose);
+    expect(Boolean(character()?.closest('.work-corner'))).toBe(place === 'desk');
+  });
+
+  it('tucks the character under the blanket only while asleep', () => {
+    const { rerender } = render(<Workshop state="offline" />);
+    expect(scene().querySelector('[data-part="bed-blanket"]')).not.toBeNull();
+    expect(scene().querySelector('[data-part="blanket"]')).toBeNull();
+    rerender(<Workshop state="idle" />);
+    expect(scene().querySelector('[data-part="bed-blanket"]')).toBeNull();
+    expect(scene().querySelector('[data-part="blanket"]')).not.toBeNull();
+  });
+
+  it('wraps the character in a walker that is re-mounted only when the place changes', () => {
+    const { rerender } = render(<Workshop state="coding" />);
+    const deskWalker = scene().querySelector('.walker');
+    expect(deskWalker).toHaveClass('walker--desk');
+    rerender(<Workshop state="terminal" />);
+    expect(scene().querySelector('.walker')).toBe(deskWalker);
+    rerender(<Workshop state="idle" />);
+    const bedWalker = scene().querySelector('.walker');
+    expect(bedWalker).toHaveClass('walker--bed');
+    expect(bedWalker).not.toBe(deskWalker);
+  });
+});

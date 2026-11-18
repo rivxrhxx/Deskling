@@ -22,8 +22,8 @@ export type IconId =
   | 'alert';
 
 export type PoseId =
-  | 'sleeping'
-  | 'resting'
+  | 'asleep-in-bed'
+  | 'lounging'
   | 'pondering'
   | 'typing'
   | 'scrolling'
@@ -49,6 +49,9 @@ export type ScreenId =
 
 export type Gaze = 'monitor' | 'viewer' | 'closed' | 'up';
 
+/** Where the character is in the room (ADR-017). Derived from the state only — never from elapsed time. */
+export type Place = 'desk' | 'bed';
+
 export interface VisualSpec {
   /** Short status text shown in the bubble. */
   readonly label: string;
@@ -59,6 +62,7 @@ export interface VisualSpec {
   readonly tone: Tone;
   readonly screen: ScreenId;
   readonly gaze: Gaze;
+  readonly place: Place;
 }
 
 export const VISUAL_SPEC: Readonly<Record<VisualState, VisualSpec>> = Object.freeze({
@@ -66,19 +70,21 @@ export const VISUAL_SPEC: Readonly<Record<VisualState, VisualSpec>> = Object.fre
     label: '오프라인',
     description: '에이전트와 연결되어 있지 않습니다.',
     icon: 'plug',
-    pose: 'sleeping',
+    pose: 'asleep-in-bed',
     tone: 'dim',
     screen: 'off',
     gaze: 'closed',
+    place: 'bed',
   },
   idle: {
     label: '대기 중',
     description: '에이전트가 연결되어 있고 진행 중인 작업이 없습니다.',
     icon: 'cup',
-    pose: 'resting',
+    pose: 'lounging',
     tone: 'cool',
     screen: 'screensaver',
-    gaze: 'monitor',
+    gaze: 'up',
+    place: 'bed',
   },
   thinking: {
     label: '생각 중',
@@ -88,6 +94,7 @@ export const VISUAL_SPEC: Readonly<Record<VisualState, VisualSpec>> = Object.fre
     tone: 'violet',
     screen: 'editor-dim',
     gaze: 'up',
+    place: 'desk',
   },
   coding: {
     label: '코딩 중',
@@ -97,6 +104,7 @@ export const VISUAL_SPEC: Readonly<Record<VisualState, VisualSpec>> = Object.fre
     tone: 'cool',
     screen: 'editor',
     gaze: 'monitor',
+    place: 'desk',
   },
   browsing: {
     label: '웹 탐색 중',
@@ -106,6 +114,7 @@ export const VISUAL_SPEC: Readonly<Record<VisualState, VisualSpec>> = Object.fre
     tone: 'cool',
     screen: 'browser',
     gaze: 'monitor',
+    place: 'desk',
   },
   terminal: {
     label: '터미널 작업 중',
@@ -115,6 +124,7 @@ export const VISUAL_SPEC: Readonly<Record<VisualState, VisualSpec>> = Object.fre
     tone: 'cool',
     screen: 'terminal',
     gaze: 'monitor',
+    place: 'desk',
   },
   'file-work': {
     label: '파일 작업 중',
@@ -124,6 +134,7 @@ export const VISUAL_SPEC: Readonly<Record<VisualState, VisualSpec>> = Object.fre
     tone: 'cool',
     screen: 'files',
     gaze: 'monitor',
+    place: 'desk',
   },
   'waiting-approval': {
     label: '승인 대기 중',
@@ -133,6 +144,7 @@ export const VISUAL_SPEC: Readonly<Record<VisualState, VisualSpec>> = Object.fre
     tone: 'amber',
     screen: 'dialog',
     gaze: 'viewer',
+    place: 'desk',
   },
   delegated: {
     label: '위임됨',
@@ -142,6 +154,7 @@ export const VISUAL_SPEC: Readonly<Record<VisualState, VisualSpec>> = Object.fre
     tone: 'violet',
     screen: 'handoff',
     gaze: 'monitor',
+    place: 'desk',
   },
   success: {
     label: '완료',
@@ -151,6 +164,7 @@ export const VISUAL_SPEC: Readonly<Record<VisualState, VisualSpec>> = Object.fre
     tone: 'mint',
     screen: 'check',
     gaze: 'viewer',
+    place: 'desk',
   },
   error: {
     label: '오류',
@@ -160,5 +174,6 @@ export const VISUAL_SPEC: Readonly<Record<VisualState, VisualSpec>> = Object.fre
     tone: 'ember',
     screen: 'alert',
     gaze: 'viewer',
+    place: 'desk',
   },
 });

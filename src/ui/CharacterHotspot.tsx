@@ -8,10 +8,13 @@ export function CharacterHotspot({
   expanded,
   onActivate,
   buttonRef,
+  place,
 }: {
   expanded: boolean;
   onActivate: () => void;
   buttonRef?: Ref<HTMLButtonElement>;
+  /** Follows the character between desk and bed (ADR-017). */
+  place: 'desk' | 'bed';
 }) {
   return (
     <button
@@ -22,6 +25,7 @@ export function CharacterHotspot({
       aria-haspopup="dialog"
       aria-expanded={expanded}
       onClick={onActivate}
+      data-place={place}
       data-no-drag=""
     />
   );

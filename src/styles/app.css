@@ -150,6 +150,14 @@ body {
   cursor: pointer;
 }
 
+/* In bed the character lies across the pillow end (x 60–120, y 124–180). */
+.character-hotspot[data-place='bed'] {
+  left: calc(100vw * 60 / 400);
+  width: calc(100vw * 60 / 400);
+  bottom: calc(100vw * 80 / 400);
+  height: calc(100vw * 56 / 400);
+}
+
 .character-hotspot:focus-visible {
   outline: 2px solid var(--tone-violet);
   outline-offset: 2px;

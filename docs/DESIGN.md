@@ -58,8 +58,8 @@
 
 | 상태 | 라벨 | 아이콘 | 포즈 | 톤 | 모니터 화면 | 애니메이션 | 위치 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| offline | 오프라인 | plug | `sleeping` 고개 기울임, 눈 감음, z | dim | 꺼짐(반사광만) | z 떠오름 | desk |
-| idle | 대기 중 | cup | `resting` 팔 내림, 기대앉음 | cool | 화면보호기 로고 | 숨쉬기, 머그 김 | desk |
+| offline | 오프라인 | plug | `asleep-in-bed` 불 끈 방, 이불 덮고 잠, z | dim | 꺼짐(반사광만) | z 떠오름, 이불 숨쉬기 | bed |
+| idle | 대기 중 | cup | `lounging` 침대 위에서 책 들고 뒹굴 | cool | 화면보호기 로고 | 느린 뒹굴, 머그 김 | bed |
 | thinking | 생각 중 | dots | `pondering` 손을 턱에 | violet | 어두운 편집기 + 커서 | 생각 점 깜빡임 | desk |
 | coding | 코딩 중 | brackets | `typing` 키보드로 팔 뻗음, 집중 눈 | cool | 코드 줄(추상 막대) | 타이핑, 줄 생성 | desk |
 | browsing | 웹 탐색 중 | globe | `scrolling` 뒤로 기대 마우스, 위를 봄 | cool | 브라우저 틀 + 블록 | 콘텐츠 스크롤 | desk |

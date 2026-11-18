@@ -32,6 +32,14 @@ describe('visualSpec (FR-S3)', () => {
     expect(specs.filter((spec) => spec.tone === 'ember')).toHaveLength(1);
   });
 
+  it('rests in bed while idle or offline and works at the desk otherwise (FR-V7, ADR-017)', () => {
+    for (const state of VISUAL_STATES) {
+      expect(VISUAL_SPEC[state].place, state).toBe(state === 'idle' || state === 'offline' ? 'bed' : 'desk');
+    }
+    expect(VISUAL_SPEC.idle.pose).toBe('lounging');
+    expect(VISUAL_SPEC.offline.pose).toBe('asleep-in-bed');
+  });
+
   it('faces the viewer for states that need the user, the monitor while working', () => {
     expect(VISUAL_SPEC['waiting-approval'].gaze).toBe('viewer');
     expect(VISUAL_SPEC.error.gaze).toBe('viewer');
@@ -59,5 +67,6 @@ describe('visualSpec matches docs/DESIGN.md §4', () => {
     expect(icon).toBe(spec.icon);
     expect(pose?.match(/`([^`]+)`/)?.[1]).toBe(spec.pose);
     expect(tone).toBe(spec.tone);
+    expect(row?.[7]).toBe(spec.place);
   });
 });

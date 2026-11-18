@@ -84,8 +84,27 @@
 .zzz__b { animation: float-z 2.8s ease-in-out 1.4s infinite; }
 
 .eyes-blink {
-  transform-origin: 108px 139px;
+  transform-box: fill-box;
+  transform-origin: center;
   animation: blink 5s infinite;
+}
+
+/* ---- Walking between desk and bed (ADR-017, FR-V8) ----------------------------------------- */
+.walker--bed { animation: walk-to-bed 700ms var(--ease-soft); }
+.walker--desk { animation: walk-to-desk 700ms var(--ease-soft); }
+
+/* ---- In bed ------------------------------------------------------------------------------- */
+.pose-lounging .bed-body {
+  transform-origin: 90px 176px;
+  animation: lounge 4.5s ease-in-out infinite;
+}
+
+.bed-book { animation: bob 2.6s ease-in-out infinite alternate; }
+
+.bed-blanket {
+  transform-box: fill-box;
+  transform-origin: bottom;
+  animation: blanket-breathe 3.8s ease-in-out infinite;
 }
 
 .thought__a { animation: thought 1.8s ease-in-out infinite; }
@@ -154,6 +173,22 @@
 
 /* ---- Keyframes ---------------------------------------------------------------------------- */
 @keyframes state-in { from { opacity: 0.35; } to { opacity: 1; } }
+@keyframes walk-to-bed {
+  0% { transform: translate(90px, 0); opacity: 0.6; }
+  25% { transform: translate(68px, -2px); }
+  50% { transform: translate(45px, 0); }
+  75% { transform: translate(22px, -2px); }
+  100% { transform: translate(0, 0); opacity: 1; }
+}
+@keyframes walk-to-desk {
+  0% { transform: translate(-90px, 0); opacity: 0.6; }
+  25% { transform: translate(-68px, -2px); }
+  50% { transform: translate(-45px, 0); }
+  75% { transform: translate(-22px, -2px); }
+  100% { transform: translate(0, 0); opacity: 1; }
+}
+@keyframes lounge { 0%, 100% { transform: rotate(-2.5deg); } 50% { transform: rotate(2.5deg); } }
+@keyframes blanket-breathe { 0%, 100% { transform: scaleY(1); } 50% { transform: scaleY(1.04); } }
 @keyframes twinkle { 0%, 100% { opacity: 0.35; } 50% { opacity: 1; } }
 @keyframes sway { 0%, 100% { transform: rotate(-2deg); } 50% { transform: rotate(2deg); } }
 @keyframes steam { 0% { transform: translateY(1px); opacity: 0; } 40% { opacity: 0.55; } 100% { transform: translateY(-3px); opacity: 0; } }

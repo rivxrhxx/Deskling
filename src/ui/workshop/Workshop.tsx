@@ -1,12 +1,18 @@
 import { useId } from 'react';
 import type { VisualState } from '../../core/agentEvent';
+import type { PoseId } from '../visualSpec';
 import { VISUAL_SPEC } from '../visualSpec';
+import type { BedPoseId } from './BedCharacter';
+import { BedCharacter } from './BedCharacter';
+import type { DeskPoseId } from './Character';
 import { Character } from './Character';
 import { Helper } from './Helper';
 import { MonitorScreen } from './MonitorScreen';
 
 /** The work corner is drawn in its own coordinates and shifted right to make room for the bed (ADR-017). */
 const WORK_CORNER_X = 80;
+
+const isBedPose = (pose: PoseId): pose is BedPoseId => pose === 'lounging' || pose === 'asleep-in-bed';
 
 /**
  * A miniature night-time room we peek into (docs/DESIGN.md §3): a bed on the left, a work corner on the right.
@@ -25,6 +31,7 @@ export function Workshop({ state }: { state: VisualState }) {
       aria-labelledby={id('title')}
       data-state={state}
       data-tone={spec.tone}
+      data-place={spec.place}
       preserveAspectRatio="xMidYMax meet"
     >
       <title id={id('title')}>{`미니어처 작업실 — ${spec.label}`}</title>
@@ -96,7 +103,15 @@ export function Workshop({ state }: { state: VisualState }) {
         <path d="M49 172.5 H149" stroke="#4b5378" strokeWidth="1" />
       </g>
       <rect data-part="pillow" x="49" y="163" width="26" height="10" rx="5" fill="#cdd3e8" />
-      <rect data-part="blanket" className="blanket--folded" x="112" y="169" width="40" height="15" rx="4" fill="#574c8c" />
+      {spec.pose !== 'asleep-in-bed' && (
+        <rect data-part="blanket" className="blanket--folded" x="112" y="169" width="40" height="15" rx="4" fill="#574c8c" />
+      )}
+      {/* The walker is keyed by place: it re-mounts (and plays the walk-in) only when the character changes place. */}
+      {isBedPose(spec.pose) && (
+        <g key="bed" className="walker walker--bed">
+          <BedCharacter key={spec.pose} pose={spec.pose} skinGradientId={id('skin')} />
+        </g>
+      )}
 
       {/* Work corner */}
       <g className="work-corner" transform={`translate(${WORK_CORNER_X} 0)`}>
@@ -173,7 +188,11 @@ export function Workshop({ state }: { state: VisualState }) {
           <rect x="78" y="170" width="46" height="6" rx="3" fill="#313752" />
         </g>
 
-        <Character key={spec.pose} pose={spec.pose} skinGradientId={id('skin')} />
+        {!isBedPose(spec.pose) && (
+          <g key="desk" className="walker walker--desk">
+            <Character key={spec.pose} pose={spec.pose as DeskPoseId} skinGradientId={id('skin')} />
+          </g>
+        )}
 
         {state === 'delegated' && <Helper />}
       </g>

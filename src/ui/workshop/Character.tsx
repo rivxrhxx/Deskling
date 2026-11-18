@@ -1,10 +1,13 @@
 import type { ReactNode } from 'react';
 import type { PoseId } from '../visualSpec';
 
+/** Poses drawn at the desk. Bed poses live in BedCharacter (ADR-017). */
+export type DeskPoseId = Exclude<PoseId, 'asleep-in-bed' | 'lounging'>;
+
 /**
  * Deskling's own character: a small jelly-bean body, dot eyes, a state-coloured antenna bulb
  * and a restrained violet scarf. Every pose is a distinct drawing, not a recolour (FR-S3).
- * Coordinates live in the Workshop viewBox (0 0 320 260); the character sits on the chair at x≈105.
+ * Coordinates are the work corner's own space (shifted right inside the 400×260 room); the character sits on the chair at x≈105.
  */
 
 interface PoseArt {
@@ -46,36 +49,7 @@ const sparkle = (cx: number, cy: number, s: number) =>
   `M${cx} ${cy - s} L${cx + s * 0.3} ${cy - s * 0.3} L${cx + s} ${cy} L${cx + s * 0.3} ${cy + s * 0.3} ` +
   `L${cx} ${cy + s} L${cx - s * 0.3} ${cy + s * 0.3} L${cx - s} ${cy} L${cx - s * 0.3} ${cy - s * 0.3} Z`;
 
-/** A "z" drawn as a stroke, so the scene contains no text glyphs (FR-S6). */
-const zee = (x: number, y: number, s: number) => `M${x} ${y} h${s} l${-s} ${s * 1.2} h${s}`;
-
-const restingArms: readonly ArmArt[] = [
-  { d: 'M91 152 Q84 159 86 167', hand: [86, 167] },
-  { d: 'M119 152 Q126 159 124 167', hand: [124, 167] },
-];
-
-const POSES: Record<PoseId, PoseArt> = {
-  sleeping: {
-    body: 'rotate(9 105 172)',
-    eyes: arcEyes(99, 110, 140, 2),
-    mouth: line('M103.5 148 h3'),
-    arms: [
-      { d: 'M91 152 Q85 160 87 168', hand: [87, 168] },
-      { d: 'M119 152 Q125 160 123 168', hand: [123, 168] },
-    ],
-    extras: (
-      <g className="zzz" fill="none" stroke="#c9cfe4" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-        <path className="zzz__a" d={zee(124, 108, 5)} />
-        <path className="zzz__b" d={zee(133, 96, 7)} />
-      </g>
-    ),
-  },
-  resting: {
-    body: 'rotate(-3 105 172)',
-    eyes: <g className="eyes-blink">{openEyes(103, 113, 139)}</g>,
-    mouth: smile,
-    arms: restingArms,
-  },
+const POSES: Record<DeskPoseId, PoseArt> = {
   pondering: {
     eyes: openEyes(104, 114, 136),
     mouth: line('M104 148.5 h4.5'),
@@ -201,10 +175,10 @@ const POSES: Record<PoseId, PoseArt> = {
   },
 };
 
-export function Character({ pose, skinGradientId }: { pose: PoseId; skinGradientId: string }) {
+export function Character({ pose, skinGradientId }: { pose: DeskPoseId; skinGradientId: string }) {
   const art = POSES[pose];
   return (
-    <g data-part="character" data-pose={pose} className={`character pose-${pose}`}>
+    <g data-part="character" data-pose={pose} data-place="desk" className={`character pose-${pose}`}>
       <g className="character__pose" transform={art.body}>
         <g className="character__breath">
           <path className="character__antenna" d="M105 125 Q104 117 108 111" fill="none" stroke="#9aa3bd" strokeWidth="1.6" strokeLinecap="round" />

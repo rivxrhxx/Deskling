@@ -10,6 +10,7 @@ import { ActivityPanel } from '../ui/ActivityPanel';
 import { CharacterHotspot } from '../ui/CharacterHotspot';
 import { DemoBadge } from '../ui/DemoBadge';
 import { StatusBubble } from '../ui/StatusBubble';
+import { VISUAL_SPEC } from '../ui/visualSpec';
 import { WindowToolbar } from '../ui/WindowToolbar';
 import { Workshop } from '../ui/workshop/Workshop';
 import type { Settings } from './settings';
@@ -111,7 +112,12 @@ export function App({ source: providedSource, controls: providedControls, storag
         {source.mode === 'demo' && <DemoBadge />}
         <StatusBubble state={view.visual} />
         <Workshop state={view.visual} />
-        <CharacterHotspot expanded={panelOpen} onActivate={togglePanel} buttonRef={hotspotRef} />
+        <CharacterHotspot
+          expanded={panelOpen}
+          onActivate={togglePanel}
+          buttonRef={hotspotRef}
+          place={VISUAL_SPEC[view.visual].place}
+        />
         {panelOpen && (
           <ActivityPanel
             entries={view.recent}
