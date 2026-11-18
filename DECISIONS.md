@@ -82,3 +82,15 @@
 - **맥락:** 최신 Vitest 5, jsdom 31, ESLint 10은 `node ^20.19 || ^22.13 || >=24`를 요구한다. 개발 머신 기본 `node`는 EOL된 23.11이고, Homebrew `node@24`(24.22.1, keg-only)가 함께 설치돼 있다. npm 10.9는 Vitest 5 설치 중 arborist 버그(`edgesOut` null)로 실패했다.
 - **결정:** 프로젝트 기준은 Node 24 LTS(`.node-version` = 24, `engines.node` = `^22.13.0 || >=24`)다. 의존성을 구버전으로 낮추지 않는다. 검증은 Node 24에서 하고, 기본 셸의 Node 23에서도 `verify:fast`가 동작하는지 따로 확인한다.
 - **결과:** Node 23에서는 `npm install` 시 EBADENGINE 경고가 난다. 사용자에게 Node 24를 PATH에 올리기를 권장한다(`brew link --overwrite node@24` 등). 셸 설정은 이 저장소에서 바꾸지 않는다.
+
+## ADR-014 단일 (session, seq) 커서 — 세션 교차는 Hermes adapter ADR에서 결정 — 채택 (2026-11-18)
+
+- **맥락:** 독립 리뷰(T34)에서 지적: 리듀서는 마지막 세션 하나의 `(session, seq)`만 기억한다. 재연결·버퍼링으로 두 세션의 이벤트가 번갈아 오면, 전환할 때마다 사실이 초기화되고 이미 본 `seq`가 다시 수용된다.
+- **결정:** v1 리듀서는 그대로 둔다(데모·단일 세션에서는 정확). 대신 Hermes adapter ADR에서 다음 중 하나를 반드시 정한다: (a) adapter가 한 번에 한 세션만 내보내도록 보장, (b) 리듀서가 떠난 세션의 이벤트를 무시, (c) 세션별 커서 맵.
+- **결과:** EVENT_PROTOCOL §6에 한계를 명시했다. 실제 provider 연결 전까지 사용자 영향은 없다.
+
+## ADR-015 capability는 창 권한 4개만, `core:default` 제외 — 채택 (2026-11-18)
+
+- **맥락:** 독립 보안 리뷰(T34)에서 `core:default`가 경로 조회(홈 디렉터리 노출), 트레이·메뉴, 이벤트, devtools 토글까지 webview에 허용한다는 지적.
+- **결정:** `core:window:allow-start-dragging`, `allow-set-always-on-top`, `allow-set-size`, `allow-close`만 허용한다. `getCurrentWindow()`는 IPC를 쓰지 않으므로 추가 권한이 필요 없다.
+- **결과:** 축소된 capability로 dev 빌드에서 실제 크기 변경(416×364)과 항상 위 해제(window layer 0)를 확인했다. 새 창 API를 쓰려면 이 ADR을 갱신하고 `tauriConfig.test.ts`를 함께 바꾼다.

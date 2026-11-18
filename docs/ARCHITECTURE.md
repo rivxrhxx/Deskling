@@ -64,6 +64,9 @@ Deskling은 Tauri 2 셸 안에서 React 프런트엔드가 동작하는 데스�
 내부 사실(연결, 진행 중 턴, 실행 중 도구 스택, 승인 대기, 위임 수, 마지막 결과)을 갱신하고
 `deriveVisualState()`가 우선순위 규칙으로 시각 상태 하나를 계산한다(규칙은 EVENT_PROTOCOL §5).
 
+### 3.3.1 피드 수명
+`useAgentFeed`는 소스를 layout effect에서 시작하고(첫 이벤트가 그려지기 전에 적용), cleanup 이후 같은 소스가 늦게 보낸 원시 입력은 정규화하지 않고 버린다. 소스가 바뀌면 상태는 초기값에서 다시 시작한다.
+
 ### 3.4 `src/core/ingest.ts`
 `createIngest(dispatch, onReject)` — 원시 입력을 정규화해 성공하면 dispatch, 실패하면 에러 코드만 onReject로 넘긴다.
 
@@ -106,7 +109,7 @@ Tauri 런타임이면 `@tauri-apps/api/window` 구현, 아니면(브라우저·�
 
 - `tauri.conf.json`: `transparent: true`, `decorations: false`, `alwaysOnTop: true`, `shadow: false`,
   `visibleOnAllWorkspaces: true`, 기본 320×280, `app.macOSPrivateApi: true`(macOS 투명 창에 필요, ADR-007).
-- `capabilities/default.json`: `core:default` + 창 드래그·항상 위·크기·닫기 권한만.
+- `capabilities/default.json`: 창 드래그·항상 위·크기·닫기 권한 4개만. `core:default`는 쓰지 않는다(ADR-015).
 - Rust 측은 현재 Tauri 빌더만 실행한다. 로그 플러그인을 쓰지 않는다(ADR-009).
 
 ## 5. 테스트 가능성

@@ -2,8 +2,9 @@
 
 AI 에이전트가 실제로 일하는 모습을 바탕화면 위 작은 캐릭터와 미니어처 작업실 애니메이션으로 보여주는 macOS 데스크톱 앱.
 
-> **상태:** 첫 vertical slice 개발 중. 아직 실제 에이전트와 연결되지 않았고 결정적(deterministic) **데모 이벤트**로만 동작한다.
-> 데모로 동작하는 동안 화면에는 항상 `DEMO` 배지가 표시된다.
+> **상태:** vertical slice와 MVP 화면(11개 상태, 활동 패널, 창 설정)이 동작한다. 아직 실제 에이전트(Hermes 등)와는 연결되지 않았고
+> 결정적(deterministic) **데모 이벤트**로만 동작한다. 데모로 동작하는 동안 화면에는 항상 `DEMO` 배지가 표시된다.
+> 진행 상황과 검증 기록은 [PROJECT_STATE.md](PROJECT_STATE.md)에 있다.
 
 ![Deskling 작업실 — 대기 중](docs/images/workshop-idle.png)
 
@@ -61,7 +62,7 @@ npm run tauri dev      # 네이티브 오버레이 창 실행
 | `npm run verify:fast` | typecheck + lint + test |
 | `npm run verify` | verify:fast + build + Rust fmt/clippy/test |
 | `npm run tauri dev` | 개발 모드로 앱 실행 |
-| `npm run build:app` | macOS 앱 번들 빌드 |
+| `npm run build:app` | macOS 앱 번들 빌드 → `src-tauri/target/release/bundle/macos/Deskling.app` |
 
 ## 구조
 
