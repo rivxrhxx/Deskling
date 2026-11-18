@@ -44,7 +44,7 @@
 - [x] **T18** `visualSpec`: 11개 상태의 고유 라벨·아이콘·포즈·톤 — FR-S3
 - [x] **T19** `StatusBubble`: 아이콘 + 라벨, `role=status` — FR-S4
 - [x] **T20** `DemoBadge` — FR-D5
-- [ ] **T21** `Workshop` SVG: 상태별 포즈·모니터 화면, 텍스트 노드 없음 — FR-S1, FR-S6
+- [x] **T21** `Workshop` SVG: 상태별 포즈·모니터 화면, 텍스트 노드 없음 — FR-S1, FR-S6
 - [ ] **T22** `useReducedMotion`: 시스템 설정 + 사용자 설정 → `data-motion` — FR-M1, FR-M3
 - [ ] **T23** App 통합: 데모 `core` 시나리오가 화면에 순서대로, 모든 상태에서 DEMO 배지 — FR-D2, FR-D5
 - [ ] **T24** 작업실 아트·상태 애니메이션 CSS, reduced-motion CSS 규칙 — DESIGN §3~§6
