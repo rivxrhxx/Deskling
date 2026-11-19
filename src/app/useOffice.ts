@@ -72,8 +72,8 @@ export function useOffice({ members, conversations, reducedMotion, seed, now = m
     return () => clearInterval(id);
   }, [gliding]);
 
-  // Keyed on values, not on the arrays: callers build fresh arrays every render.
-  const who = members.map((m) => `${m.key}\u0000${m.visual}`).join('\u0001');
+  // Keyed on values, not on the arrays: callers build fresh arrays every render. A level rise is staged at once (ADR-028 §4).
+  const who = members.map((m) => `${m.key}\u0000${m.visual}\u0000${m.level ?? 1}`).join('\u0001');
   const newestMessage = conversations?.reduce((max, c) => Math.max(max, c.key), -1) ?? null;
   useLayoutEffect(() => {
     advance();

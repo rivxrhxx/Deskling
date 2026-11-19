@@ -17,6 +17,8 @@ export interface MemberInput {
   readonly kind: SourceKind;
   readonly ordinal: number;
   readonly visual: VisualState;
+  /** The member's level from its own completed tasks (ADR-028); 1 when not given. */
+  readonly level?: number;
 }
 
 /** The fact that session `from` sent a message, to `to` or to someone unknown (ADR-023). Keys increase and are not negative. */
@@ -58,6 +60,8 @@ export const CHEER_MS = 3_000;
 export const IDLE_SETTLE_MS = 1_500;
 /** How long a member rests at one lounge spot before it walks on to another (ms; seeded between the two, ADR-027 §1). */
 export const LOUNGE_STAY_MS = { min: 8_000, max: 16_000 } as const;
+/** How long a level-up shows after a present member's level rises (ms; engine clock, not a fact — ADR-028 §4). */
+export const LEVEL_UP_MS = 2_500;
 /** Tiles per second. */
 export const WALK_SPEED = 1.8;
 
@@ -94,6 +98,9 @@ export interface MemberState extends Walk {
   readonly cheerUntil: number | null;
   /** In the lounge: when the member walks on to another spot (ADR-027 §1); null elsewhere. */
   readonly stayUntil: number | null;
+  readonly level: number;
+  /** When the level-up for its latest rise ends (ADR-028 §4); null before any rise. */
+  readonly levelUpUntil: number | null;
 }
 
 /** A conversation emote on show. `a`/`b` are member keys; a letter has no `b`. */
@@ -129,6 +136,9 @@ export interface MemberView {
   readonly chat: Chat['kind'] | null;
   /** The little helper bot beside the desk while work is delegated. */
   readonly helper: boolean;
+  readonly level: number;
+  /** The level has just risen (ADR-028 §4). */
+  readonly levelUp: boolean;
 }
 
 const UNSEEN = Number.NEGATIVE_INFINITY;
@@ -213,7 +223,10 @@ function withFacts(member: MemberState, input: MemberInput, now: number): Member
   if (visual !== 'success') cheerUntil = null;
   // A new success: cheered at the desk, once the member is there (one in the lounge walks back first).
   else if (member.visual !== 'success') cheerUntil = Math.max(now, member.spot === member.desk ? member.arriveAt : now) + CHEER_MS;
-  return { ...member, kind: input.kind, ordinal: input.ordinal, visual, restSince, cheerUntil };
+  // A level that rises while the member is here is staged; one it walks in with is not (ADR-028 §4).
+  const level = input.level ?? 1;
+  const levelUpUntil = level > member.level ? now + LEVEL_UP_MS : member.levelUpUntil;
+  return { ...member, kind: input.kind, ordinal: input.ordinal, visual, restSince, cheerUntil, level, levelUpUntil };
 }
 
 const cheering = (member: MemberState, now: number) => member.cheerUntil !== null && now < member.cheerUntil;
@@ -296,6 +309,8 @@ export function stepOffice(state: OfficeState, input: OfficeInput): OfficeState 
       restSince: resting(want.visual) ? now : null,
       cheerUntil: want.visual === 'success' ? walk.arriveAt + CHEER_MS : null,
       stayUntil: null,
+      level: want.level ?? 1,
+      levelUpUntil: null,
     };
     members.push(newcomer);
   }
@@ -378,6 +393,8 @@ export function memberViewsAt(state: OfficeState, now: number): MemberView[] {
       activity,
       chat: chat?.kind ?? null,
       helper: activity === 'delegate',
+      level: member.level,
+      levelUp: member.levelUpUntil !== null && now < member.levelUpUntil,
     };
   });
 }

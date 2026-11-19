@@ -41,6 +41,8 @@ const member = (desk: DeskId, visual: VisualState, extra: Partial<MemberView> = 
   activity: DESK_ACTIVITY[visual],
   chat: null,
   helper: visual === 'delegated',
+  level: 1,
+  levelUp: false,
   ...extra,
 });
 

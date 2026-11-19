@@ -60,6 +60,14 @@ describe('useOffice (ADR-025 §3)', () => {
     expect(result.current.members[0]).toMatchObject({ phase: 'present', walking: false, at: SPOTS['desk-1'].at, activity: 'work' });
   });
 
+  it('takes a level rise at once and shows the level-up (ADR-028 §4)', () => {
+    const { result, rerender } = setup({ members: [{ ...A, level: 2 }] });
+    advance(5_000);
+    expect(result.current.members[0]).toMatchObject({ level: 2, levelUp: false });
+    rerender({ ...BASE, members: [{ ...A, level: 3 }] });
+    expect(result.current.members[0]).toMatchObject({ level: 3, levelUp: true });
+  });
+
   it('takes changes to the members and their facts at once, not on the next tick', () => {
     const { result, rerender } = setup({ members: [A] });
     advance(15_000);

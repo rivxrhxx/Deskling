@@ -7,6 +7,7 @@ import type { DemoScriptId } from '../adapters/demo/scripts';
 import { DEMO_SCRIPT_IDS, DEMO_SCRIPTS } from '../adapters/demo/scripts';
 import type { AgentEventSource } from '../adapters/types';
 import type { OfficeDecorId } from '../core/growth';
+import { memberLevel } from '../core/growth';
 import type { Vitals } from '../core/mood';
 import { deriveVitals } from '../core/mood';
 import type { ConversationInput, MemberInput } from '../core/office';
@@ -141,15 +142,6 @@ export function App({ source: providedSource, controls: providedControls, storag
   const [feed, setFeed] = useState({ source, id: 0 });
   if (feed.source !== source) setFeed({ source, id: feed.id + 1 });
 
-  // Present sessions in arrival order. Memoised so the office (ticking every 300 ms) sees the same array until the next event.
-  const members = useMemo<MemberInput[]>(
-    () =>
-      room.memberKeys.flatMap((key) => {
-        const session = room.sessions[key];
-        return session ? [{ key, kind: session.kind, ordinal: session.ordinal, visual: session.visual }] : [];
-      }),
-    [room.memberKeys, room.sessions],
-  );
   // Energy and anger per member: fixed readings of its own reported numbers against the user's budget (ADR-016, ADR-025 §6).
   const vitals = useMemo<Record<SessionKey, Vitals>>(
     () =>
@@ -170,6 +162,19 @@ export function App({ source: providedSource, controls: providedControls, storag
     feedKey: source,
     storage,
   });
+
+  // Present sessions in arrival order, each at its own level (ADR-028).
+  // Memoised so the office (ticking every 300 ms) sees the same array until the next event.
+  const { memberXp } = progress;
+  const members = useMemo<MemberInput[]>(
+    () =>
+      room.memberKeys.flatMap((key) => {
+        const session = room.sessions[key];
+        if (!session) return [];
+        return [{ key, kind: session.kind, ordinal: session.ordinal, visual: session.visual, level: memberLevel(memberXp(key)).level }];
+      }),
+    [room.memberKeys, room.sessions, memberXp],
+  );
 
   const [panelOpen, setPanelOpen] = useState(false);
   const bubbleRef = useRef<HTMLButtonElement>(null);

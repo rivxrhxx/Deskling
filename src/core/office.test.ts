@@ -1,7 +1,17 @@
 import { describe, expect, it } from 'vitest';
 import type { SourceKind, VisualState } from './agentEvent';
 import type { ConversationInput, MemberInput, MemberView, OfficeInput, OfficeState } from './office';
-import { CHAT_MS, CHEER_MS, IDLE_SETTLE_MS, LOUNGE_STAY_MS, WALK_SPEED, initialOffice, memberViewsAt, stepOffice } from './office';
+import {
+  CHAT_MS,
+  CHEER_MS,
+  IDLE_SETTLE_MS,
+  LEVEL_UP_MS,
+  LOUNGE_STAY_MS,
+  WALK_SPEED,
+  initialOffice,
+  memberViewsAt,
+  stepOffice,
+} from './office';
 import type { LoungeSpot, Tile } from './room';
 import { DESK_IDS, LOUNGE_SPOTS, SPOTS, pathBetween, pathLength } from './room';
 
@@ -74,6 +84,8 @@ describe('arriving (ADR-025 §3)', () => {
       activity: 'work',
       chat: null,
       helper: false,
+      level: 1,
+      levelUp: false,
     });
     expect(step(state, T0 + duration, [A]).members[0]?.phase).toBe('present');
   });
@@ -618,5 +630,61 @@ describe('wandering the lounge (ADR-027 §1)', () => {
     state = run(state, T0 + 250, T0 + SETTLED, everyone);
     const reader = memberViewsAt(state, T0 + SETTLED).find((v) => loungeSpotOf(v) === 'books');
     expect(reader).toMatchObject({ activity: 'books', walking: false, face: 'back-left' });
+  });
+});
+
+describe('levelling up (ADR-028 §4)', () => {
+  const at = (level: number, visual: VisualState = 'success'): MemberInput => ({ ...A, visual, level });
+
+  it('shows each member’s level, Lv 1 when none is given', () => {
+    const state = seated([A, { ...B, level: 7 }]);
+    expect(viewOf(state, T0, A.key).level).toBe(1);
+    expect(viewOf(state, T0, B.key).level).toBe(7);
+  });
+
+  it(`stages a level-up for ${LEVEL_UP_MS} ms when a present member’s level rises`, () => {
+    expect(LEVEL_UP_MS).toBe(2_500);
+    let state = seated([at(2, 'coding')]);
+    expect(viewOf(state, T0 + 500, A.key).levelUp).toBe(false);
+    const rise = T0 + 1_000;
+    state = step(state, rise, [at(3)]);
+    expect(viewOf(state, rise, A.key)).toMatchObject({ level: 3, levelUp: true });
+    expect(viewOf(state, rise + LEVEL_UP_MS - 1, A.key).levelUp).toBe(true);
+    expect(viewOf(state, rise + LEVEL_UP_MS, A.key).levelUp).toBe(false);
+  });
+
+  it('does not stage one for a member that walks in at a high level', () => {
+    const state = step(initialOffice(1, T0), T0, [at(9)]);
+    expect(viewOf(state, T0, A.key)).toMatchObject({ level: 9, levelUp: false });
+  });
+
+  it('does not stage one when the level stays the same or reads lower', () => {
+    let state = seated([at(3)]);
+    state = step(state, T0 + 1_000, [at(3)]);
+    expect(viewOf(state, T0 + 1_000, A.key).levelUp).toBe(false);
+    state = step(state, T0 + 2_000, [at(2)]);
+    expect(viewOf(state, T0 + 2_000, A.key)).toMatchObject({ level: 2, levelUp: false });
+  });
+
+  it('starts again when the level rises again during one', () => {
+    let state = seated([at(2)]);
+    state = step(state, T0 + 1_000, [at(3)]);
+    state = step(state, T0 + 2_000, [at(4)]);
+    expect(viewOf(state, T0 + 1_000 + LEVEL_UP_MS + 100, A.key)).toMatchObject({ level: 4, levelUp: true });
+    expect(viewOf(state, T0 + 2_000 + LEVEL_UP_MS, A.key).levelUp).toBe(false);
+  });
+
+  it('shows the same level-up with reduced motion', () => {
+    let state = seated([at(1)]);
+    state = step(state, T0 + 1_000, [at(2)], { reducedMotion: true });
+    expect(viewOf(state, T0 + 1_000, A.key).levelUp).toBe(true);
+    expect(viewOf(state, T0 + 1_000 + LEVEL_UP_MS, A.key).levelUp).toBe(false);
+  });
+
+  it('levels up one member only', () => {
+    let state = seated([at(1), { ...B, level: 1 }]);
+    state = step(state, T0 + 1_000, [at(2), { ...B, level: 1 }]);
+    expect(viewOf(state, T0 + 1_000, A.key).levelUp).toBe(true);
+    expect(viewOf(state, T0 + 1_000, B.key).levelUp).toBe(false);
   });
 });
