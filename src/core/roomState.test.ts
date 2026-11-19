@@ -13,6 +13,7 @@ import { SOURCE_KINDS, VISUAL_STATES } from './agentEvent';
 import { RECENT_LIMIT } from './agentState';
 import type { OfficeCounts, RoomViewState } from './roomState';
 import {
+  COMPLETED_LIMIT,
   CONVERSATION_LIMIT,
   ENDED_CURSOR_LIMIT,
   initialRoomState,
@@ -101,6 +102,7 @@ describe('reduceRoom — per-session cursors, facts and usage (FR-MS4, EVENT_PRO
       recent: [],
       entryCount: 0,
       completedTurns: 0,
+      completedBy: {},
       conversations: [],
       conversationCount: 0,
       endedCursors: {},
@@ -530,6 +532,45 @@ describe('reduceRoom — office XP across sessions (ADR-025 §7)', () => {
     state = reduceRoom(state, ev(claude('a'), 'turn.succeeded', { seq: 3 }));
     state = reduceRoom(state, ev(HERMES, 'turn.succeeded', { seq: 1 }));
     expect(state.completedTurns).toBe(5);
+  });
+});
+
+describe('reduceRoom — completed tasks per session, the source of member XP (ADR-028 §2)', () => {
+  it('counts accepted turn.succeeded per session key, never duplicates or other events', () => {
+    let state = run(
+      ev(claude('a'), 'turn.succeeded', { seq: 1 }),
+      ev(claude('a'), 'turn.failed', { seq: 2 }),
+      ev(claude('a'), 'turn.succeeded', { seq: 3 }),
+      ev(codex('a'), 'turn.succeeded', { seq: 1 }),
+      ev(DEMO, 'tool.started', { seq: 1, tool: 'code' }),
+    );
+    expect(state.completedBy).toEqual({ 'claude-code:a': 2, 'codex:a': 1 });
+    const same = reduceRoom(state, ev(claude('a'), 'turn.succeeded', { seq: 3 }));
+    expect(same).toBe(state);
+    state = reduceRoom(state, ev(DEMO, 'turn.succeeded', { seq: 2 }));
+    expect(state.completedBy).toEqual({ 'claude-code:a': 2, 'codex:a': 1, 'demo:demo-1': 1 });
+  });
+
+  it('keeps the count of a session that left, and goes on from it when the session comes back', () => {
+    let state = run(ev(claude('a'), 'turn.succeeded', { seq: 1 }), ev(claude('a'), 'agent.offline', { seq: 2 }));
+    expect(state.sessions['claude-code:a']).toBeUndefined();
+    expect(state.completedBy).toEqual({ 'claude-code:a': 1 });
+    state = reduceRoom(state, ev(claude('a'), 'turn.succeeded', { seq: 3 }));
+    expect(state.completedBy).toEqual({ 'claude-code:a': 2 });
+  });
+
+  it(`keeps the ${COMPLETED_LIMIT} sessions that completed most recently`, () => {
+    expect(COMPLETED_LIMIT).toBe(64);
+    let state = initialRoomState;
+    for (let i = 0; i <= COMPLETED_LIMIT; i += 1) state = reduceRoom(state, ev(claude(`s${i}`), 'turn.succeeded', { seq: 1 }));
+    expect(Object.keys(state.completedBy)).toHaveLength(COMPLETED_LIMIT);
+    expect(state.completedBy['claude-code:s0']).toBeUndefined();
+    // Completing again makes a session the newest, so it outlives the others.
+    state = reduceRoom(state, ev(claude('s1'), 'turn.succeeded', { seq: 2 }));
+    state = reduceRoom(state, ev(claude('new'), 'turn.succeeded', { seq: 1 }));
+    expect(state.completedBy['claude-code:s1']).toBe(2);
+    expect(state.completedBy['claude-code:s2']).toBeUndefined();
+    expect(Object.keys(state.completedBy).at(-1)).toBe('claude-code:new');
   });
 });
 

@@ -56,6 +56,11 @@ export interface RoomViewState {
   readonly entryCount: number;
   /** Accepted turn.succeeded across all sessions — the source of office XP (ADR-025 §7). */
   readonly completedTurns: number;
+  /**
+   * Accepted turn.succeeded per session, including sessions that left — the source of member XP (ADR-028 §2).
+   * The most recently completed last, at most COMPLETED_LIMIT.
+   */
+  readonly completedBy: Readonly<Record<SessionKey, number>>;
   /** Newest first, at most CONVERSATION_LIMIT. */
   readonly conversations: readonly Conversation[];
   readonly conversationCount: number;
@@ -65,6 +70,7 @@ export interface RoomViewState {
 
 export const CONVERSATION_LIMIT = 8;
 export const ENDED_CURSOR_LIMIT = 64;
+export const COMPLETED_LIMIT = 64;
 
 export const initialRoomState: RoomViewState = Object.freeze({
   sessions: Object.freeze({}),
@@ -72,6 +78,7 @@ export const initialRoomState: RoomViewState = Object.freeze({
   recent: Object.freeze([]),
   entryCount: 0,
   completedTurns: 0,
+  completedBy: Object.freeze({}),
   conversations: Object.freeze([]),
   conversationCount: 0,
   endedCursors: Object.freeze({}),
@@ -88,6 +95,11 @@ function withEnded(
   seq: number,
 ): Record<SessionKey, number> {
   return Object.fromEntries([...Object.entries(without(cursors, key)), [key, seq]].slice(-ENDED_CURSOR_LIMIT));
+}
+
+/** One more completed task for `key`, which becomes the newest; the oldest fall off past the limit. */
+function withCompleted(counts: Readonly<Record<SessionKey, number>>, key: SessionKey): Record<SessionKey, number> {
+  return Object.fromEntries([...Object.entries(without(counts, key)), [key, (counts[key] ?? 0) + 1]].slice(-COMPLETED_LIMIT));
 }
 
 /** The smallest positive integer no present session of this kind uses. */
@@ -188,6 +200,7 @@ export function reduceRoom(state: RoomViewState, event: AgentEvent): RoomViewSta
       : state.recent,
     entryCount: state.entryCount + (recorded ? 1 : 0),
     completedTurns: state.completedTurns + (event.type === 'turn.succeeded' ? 1 : 0),
+    completedBy: event.type === 'turn.succeeded' ? withCompleted(state.completedBy, key) : state.completedBy,
     conversations: message
       ? [
           { key: state.conversationCount + 1, from: key, to: event.to ? sessionKey(event.to) : null },

@@ -27,3 +27,30 @@ export function nextUnlock(xp: number): { readonly id: OfficeDecorId; readonly x
   const level = asXp(xp);
   return OFFICE_DECOR.find((decor) => level < decor.xp) ?? null;
 }
+
+/** The highest member level (ADR-028 §1). */
+export const MAX_LEVEL = 99;
+
+export interface MemberLevel {
+  readonly level: number;
+  /** The member's XP, read as a count. */
+  readonly xp: number;
+  /** XP where this level starts. */
+  readonly floor: number;
+  /** XP where the next level starts; null at MAX_LEVEL. */
+  readonly next: number | null;
+}
+
+/** XP a member needs for level n: n(n−1)/2, so Lv2 at 1, Lv3 at 3, Lv4 at 6, Lv5 at 10 … */
+const floorOf = (level: number) => (level * (level - 1)) / 2;
+
+/**
+ * One member's level from its own completed tasks (ADR-028 §1): accepted turn.succeeded of its session, nothing else.
+ * Pure; anything but a non-negative integer counts as none.
+ */
+export function memberLevel(xp: number): MemberLevel {
+  const count = asXp(xp);
+  let level = 1;
+  while (level < MAX_LEVEL && count >= floorOf(level + 1)) level += 1;
+  return { level, xp: count, floor: floorOf(level), next: level < MAX_LEVEL ? floorOf(level + 1) : null };
+}
