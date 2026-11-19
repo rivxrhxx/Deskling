@@ -139,6 +139,13 @@
 - [x] **T80** ui/app: 사무실 장면, 요약 말풍선 버튼, 세션별 에너지·화남, 패널(세션 줄 숫자·사무실 성장), 640×440, 데모 갱신, 헤르메스·침실 제거, DESIGN — §2–§8
 - [x] **T81** 화면 검증·문서·verify·build·push·실행
 
+## M13 Codex 실제 연결 (ADR-026)
+
+- [x] **T82** ADR-026, TASKS
+- [ ] **T83** Codex 훅 스크립트·매핑, 레코드 `agent: codex`·`interrupt`, Rust 브리지·TS 번역기 확장
+- [ ] **T84** Codex 설치기(`~/.codex/hooks.json`, 백업·덧붙이기·되돌리기) + 문서
+- [ ] **T85** 동의 후 설치, `/hooks` 신뢰 안내, 실제 Codex 세션으로 확인, verify·build·push
+
 ## 백로그 (vertical slice 이후, 각각 ADR 먼저)
 
 - [ ] Hermes Agent adapter: 전송 방식·위치 결정 ADR

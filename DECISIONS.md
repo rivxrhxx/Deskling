@@ -258,3 +258,20 @@ ADR-019의 침실, ADR-020의 펫 일상, ADR-018의 펫 키우기, ADR-022의 �
      성장 단계(크기)·이름·쓰다듬기·간식·애정도는 없앤다. 저장은 데모/실제 따로(`deskling.pet.v1`의 xp를 이어받아 `deskling.office.v1`).
   8. 헤르메스 전용 스프라이트·침실 가구·일상 엔진·위임 NPC 친구는 지운다.
 - **결과:** EVENT_PROTOCOL은 그대로(v3). 리듀서는 집주인 없이 세션 목록만 가진다. DESIGN·REQUIREMENTS를 사무실 기준으로 고친다.
+
+## ADR-026 Codex 실제 연결: Codex 훅 → 같은 소켓 브리지 — 채택 (2026-11-19)
+
+- **맥락:** 사용자 요청 — Codex도 실제로 연결. 조사(2026-11-19, codex-cli 0.164.0 설치됨, 공식 문서 learn.chatgpt.com/docs/hooks): Codex에도
+  `~/.codex/hooks.json` 훅이 있고(기본 켜짐), stdin JSON에 `session_id`, `hook_event_name`, `tool_name`이 온다. 사용자의 hooks.json에는 다른 도구의 훅이 이미 있다.
+  사용자가 직접 넣지 않은 훅은 Codex TUI의 `/hooks`에서 **신뢰(trust)해야 실행**된다. notify(턴 완료만, 하나뿐, 이미 사용 중)와 OTel(도구 인자·출력 미리보기가 섞임)은 쓰지 않는다.
+- **결정:**
+  1. 훅 스크립트 `integrations/codex/deskling-codex-hook.mjs`: ADR-024와 같은 규칙(화이트리스트 필드만, 출력 없음, 항상 exit 0, 300ms 안).
+     매핑: SessionStart→session-start, SessionEnd→session-end, UserPromptSubmit→prompt, PreToolUse→tool-start, PostToolUse→tool-end(ok true),
+     PermissionRequest→approval, Stop→stop, Interrupt→**interrupt**(새 레코드 이벤트). 도구: Bash·exec_command→terminal, apply_patch·Edit·Write→code,
+     spawn_agent·Agent→delegate, 그 밖(update_plan, mcp__*, …)은 보내지 않음. `prompt`, `tool_input`, `tool_response`, `last_assistant_message`, `transcript_path`, `cwd`는 읽지 않는다.
+  2. 훅 레코드 v1에 `agent: "codex"`와 이벤트 `interrupt`를 더한다(추가만, 버전 유지). Rust 브리지·TS 번역기가 받아들인다.
+     번역: agent codex → `source.kind: "codex"`, interrupt → (승인 대기 해제) + `agent.idle`(턴이 결과 없이 끝남).
+  3. 설치기(`npm run hooks:codex:*`)는 Claude와 같은 규칙: 동의 후에만, 백업, 덧붙이기만, 다른 훅 그대로, 되돌리기 제공. 동기 실행(async 아님, 순서 보장), timeout 2초.
+     도구 matcher `^(Bash|exec_command|apply_patch|Edit|Write|spawn_agent|Agent)$`. 설치 후 사용자가 Codex에서 `/hooks`로 신뢰해야 한다고 안내한다.
+  4. Codex의 토큰 수치(PostModelRequest의 token_usage)는 다음 단계로 미룬다(이번에는 보내지 않음). 세션이 비정상 종료되면 SessionEnd가 없을 수 있다(알려진 한계).
+- **결과:** Codex 세션도 사무실에 "Codex n" 직원으로 들어온다. 웹 검색 같은 호스팅 도구는 Codex 훅에 잡히지 않아 표시되지 않는다.
