@@ -52,11 +52,15 @@
 | FR-V5, FR-V6 | `src/ui/ActivityPanel.test.tsx`, `src/app/settings.test.ts`, `src/app/App.test.tsx` | 보고된 숫자만, 예산 선택·저장·재계산 |
 | FR-G1, FR-G6 | `src/app/officeProgress.test.ts`, `src/app/useOfficeProgress.test.tsx`, `src/app/App.test.tsx` | 증가분만 경험치, 데모/실제 분리, `pet.v1` 이전, 저장·재시작 |
 | FR-G3 | `src/core/growth.test.ts`, `src/ui/office/OfficeRoom.test.tsx` | 해금 경계값, 소품 렌더링 |
+| FR-G7 | `src/core/growth.test.ts`, `src/core/roomState.test.ts`, `src/app/officeProgress.test.ts`, `src/app/useOfficeProgress.test.tsx`, `src/app/App.test.tsx` | 레벨 곡선·최대·잘못된 값, 세션별 완료 수(떠난 세션 포함, 64개), 해시 id·64명·이전 책 읽기, 증가분만·피드별 기억(두 번 세지 않음), 재시작·재입장 |
+| FR-G8 | `src/ui/office/pixelText.test.ts`, `src/ui/office/OfficeRoom.test.tsx`, `src/ui/visualSpec.test.ts` | 픽셀 글자, 배지 레벨·폭·판 색, 맨 앞 층, 장면에 글자 없음, DESIGN §4.3 표 대조 |
+| FR-G9 | `src/core/office.test.ts`, `src/app/useOffice.test.tsx`, `src/ui/office/OfficeRoom.test.tsx`, `src/styles/styles.test.ts`, `src/app/App.test.tsx` | 오를 때만 2.5초, 들어올 때 없음, 다시 오르면 다시, 동작 줄이기, 이모트 순위, 문구가 배지 위, CSS |
+| FR-G10 | `src/ui/ActivityPanel.test.tsx`, `src/app/App.test.tsx` | "Lv n · 다음까지 k", "Lv 99 · 최고" |
 | FR-M1~M3 | `src/app/useReducedMotion.test.tsx`, `src/app/App.test.tsx`, `src/styles/styles.test.ts` | `data-motion` 값, reduced에서 애니메이션 끔 |
 | FR-P1, FR-P3, FR-P4 | `src/ui/StatusBubble.test.tsx`, `src/ui/ActivityPanel.test.tsx`, `src/app/App.test.tsx` | 열기/닫기, Esc, 포커스 복귀, 고정 문구 |
 | FR-W3 | `src/app/App.test.tsx` | 빈 영역 mousedown → startDragging, 말풍선·컨트롤은 아님 |
 | FR-W4, W5, W8 | `src/ui/WindowToolbar.test.tsx`, `src/app/App.test.tsx`, `src/platform/windowControls.test.ts` | controls 호출 인자, Tauri 밖 no-op |
-| FR-W6, SEC-7 | `src/app/settings.test.ts`, `src/app/officeProgress.test.ts` | 검증·폴백·이전, 저장 키 두 개 |
+| FR-W6, SEC-7 | `src/app/settings.test.ts`, `src/app/officeProgress.test.ts` | 검증·폴백·이전, 저장 키 두 개, 직원 id는 해시(세션 id 없음) |
 | FR-W1, SEC-5 | `src/config/tauriConfig.test.ts` | transparent/decorations/alwaysOnTop/shadow/macOSPrivateApi/CSP, 권한 7개 목록 |
 | SEC-6 | `src/config/boundaries.test.ts` | ui에서 adapters·tauri import 시 린트 에러, 동적 import·`__TAURI*` 금지 |
 | FR-CC1 | `integrations/claude-code/hookRecord.test.mjs`, `integrations/claude-code/deskling-hook.test.mjs`, `integrations/codex/codexRecord.test.mjs`, `integrations/codex/deskling-codex-hook.test.mjs` | 레코드 필드만, 도구 범주 매핑, 출력 없음·exit 0·시간 상한 |

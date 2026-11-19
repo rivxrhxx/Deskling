@@ -2,12 +2,12 @@ import { describe, expect, it } from 'vitest';
 import designDoc from '../../docs/DESIGN.md?raw';
 import type { VisualState } from '../core/agentEvent';
 import { VISUAL_STATES } from '../core/agentEvent';
-import { OFFICE_DECOR } from '../core/growth';
+import { MAX_LEVEL, OFFICE_DECOR } from '../core/growth';
 import type { MemberActivity } from '../core/office';
 import { initialOffice, memberViewsAt, stepOffice } from '../core/office';
 import { LOUNGE_SPOTS } from '../core/room';
 import { memberEmote } from './office/emote';
-import { memberPose } from './office/pose';
+import { levelTier, memberPose } from './office/pose';
 import { VISUAL_SPEC } from './visualSpec';
 
 const specs = VISUAL_STATES.map((state) => VISUAL_SPEC[state]);
@@ -136,6 +136,25 @@ describe('docs/DESIGN.md §3.3 matches the member poses and emotes', () => {
     const signs = new Set(visualsFor(activity).map((visual) => memberEmote({ ...calm, visual, activity })).filter((sign) => sign !== null));
     expect(visualsFor(activity).length, activity).toBeGreaterThan(0);
     expect(codes(emote)).toEqual(signs);
+  });
+});
+
+describe('docs/DESIGN.md §4.3 matches the member level badges', () => {
+  const TIERS = ['rookie', 'pro', 'star'] as const;
+  const rows = tableRows('### 4.3', '## 5. UI 요소', TIERS.map((tier) => `\`${tier}\``));
+
+  it.each(TIERS)('%s covers the levels its row says, and only those', (tier) => {
+    const row = rows.get(`\`${tier}\``);
+    expect(row, `DESIGN.md §4.3 has no row for ${tier}`).toBeDefined();
+    const [from, to] = (row?.[1] ?? '').split('–').map(Number);
+    expect(levelTier(from ?? 0)).toBe(tier);
+    expect(levelTier(to ?? 0)).toBe(tier);
+    if (from !== undefined && from > 1) expect(levelTier(from - 1)).not.toBe(tier);
+    if (to !== undefined && to < MAX_LEVEL) expect(levelTier(to + 1)).not.toBe(tier);
+  });
+
+  it('ends the last plate at the top level', () => {
+    expect(rows.get('`star`')?.[1]).toBe(`10–${MAX_LEVEL}`);
   });
 });
 

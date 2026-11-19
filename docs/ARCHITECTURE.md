@@ -93,6 +93,8 @@ Deskling은 Tauri 2 셸 안에서 React 프런트엔드가 동작하는 데스�
 ### 3.5 분위기와 성장 — `src/core/mood.ts`, `src/core/growth.ts`
 - `deriveVitals(usage, budget)`: 세션이 보고한 토큰·컨텍스트 숫자 → 에너지(full/ok/low/empty)·화남(calm/annoyed/angry/furious), 보고 없으면 unknown.
 - `OFFICE_DECOR`, `unlockedDecor(xp)`, `nextUnlock(xp)`: 경험치 2·4·7·10·15·25에서 포스터·책상 화분·줄 조명·라운지 러그·책장 가득·트로피 선반.
+- `memberLevel(xp)`: 한 직원의 경험치(그 세션의 완료 수) → 레벨(n은 누적 n(n−1)/2부터, 최대 `MAX_LEVEL` 99)과 이번·다음 레벨 경계(ADR-028).
+  방 상태는 세션별 완료 수 `completedBy`(떠난 세션 포함 최근 64개)를 세고, 사무실 엔진은 레벨이 오르면 `LEVEL_UP_MS` 동안 `levelUp`을 켠다.
 
 ### 3.6 이벤트 소스 — `src/adapters/`
 ```ts
@@ -129,7 +131,8 @@ interface WindowControls {
   자동 = 실제 피드에 수용된 이벤트가 생기기 전까지 데모. 보이는 피드가 바뀌면 사무실을 새로 만든다(`key`).
 - `useAgentFeed.ts`: 소스 구독 → ingest → `reduceRoom`. layout effect에서 시작하고, stop 이후 늦게 온 입력은 정규화하지 않고 버린다.
 - `useOffice.ts`: 사무실 엔진에 시계와 300ms 틱을 공급한다. 상태 변화는 틱을 기다리지 않고 그리기 전에 반영하고, reduced-motion이면 순간 이동.
-- `useOfficeProgress.ts`, `officeProgress.ts`: `completedTurns` 증가분 → 경험치. 데모/실제 따로 `deskling.office.v1`에 저장(예전 `deskling.pet.v1`은 한 번 읽기만).
+- `useOfficeProgress.ts`, `officeProgress.ts`: `completedTurns`·`completedBy` 증가분 → 사무실 경험치와 직원별 경험치(ADR-028). 피드마다 본 수를 따로 기억해 두 번 세지 않는다.
+  데모/실제 따로 `deskling.office.v1`에 저장 — 직원은 세션 키의 FNV-1a 해시 id로, 모드마다 최근 64명(예전 `deskling.pet.v1`은 한 번 읽기만).
 - `settings.ts`: 크기·투명도·위에 띄우기·모션·토큰 예산·보기·데모 시나리오 검증·로드·저장(`deskling.settings.v1`, try/catch, 기본값 폴백).
 - `useReducedMotion.ts`: `prefers-reduced-motion` 구독 + 사용자 설정 결합. `ErrorBoundary.tsx`: 렌더 오류 시 고정 대체 화면.
 
@@ -137,7 +140,8 @@ interface WindowControls {
 - `visualSpec.ts`: 상태별 라벨·설명·아이콘·톤·모니터 화면 표(단일 진실 공급원). DESIGN §4·§3.3·§4.2 표와 테스트로 대조.
 - `activityText.ts`: 패널·요약·알림 줄의 고정 문구(`describeOffice`, `describeRoomActivity`, `describeUsage`, `officeLook`).
 - `office/`: `OfficeRoom`(셸·가구·직원·소품 합성), `Shell`, `Furniture`, `Member`, `MonitorScreen`, `IsoBox`, `PixelSprite`,
-  순수 함수 `pose`·`emote`·`deskFrame`·`isoMath`, ASCII 픽셀 맵 `sprites`(모습 3종 × 포즈 20개, 도우미 봇, 이모트).
+  순수 함수 `pose`·`emote`·`deskFrame`·`isoMath`, ASCII 픽셀 맵 `sprites`(모습 3종 × 포즈 20개, 도우미 봇, 이모트), 3×5 픽셀 글자 `pixelText`.
+  `LevelBadge`(직원 레벨 배지)와 "LEVEL UP!"은 가구 위 맨 앞 층에 그린다(ADR-028).
 - `StatusBubble`(사무실 요약 + 패널 버튼), `AttentionLine`(승인 대기·오류 직원 이름), `DemoBadge`, `ActivityPanel`, `WindowToolbar`, `icons`.
 
 ## 4. 네이티브 (src-tauri)

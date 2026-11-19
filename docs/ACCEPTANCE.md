@@ -34,7 +34,7 @@
 | MVP-9 | ~~오프라인이면 불 꺼진 방에서 잔다 …~~ **대체됨(ADR-025):** 아무도 없으면 사무실 불이 꺼진다. 작업 중인 직원은 자기 책상, 대기 중인 직원은 라운지. | office·useOffice·App 테스트 + 창 캡처 |
 | MVP-10 | 보고된 토큰 사용량이 예산을 소모할수록 그 직원의 에너지 단계가 full → ok → low → empty로 바뀌고 책상 위 빈 캔·배터리 이모트가 달라진다. | mood·OfficeRoom·App 테스트 |
 | MVP-11 | 컨텍스트가 찰수록 그 직원의 화남 단계가 calm → annoyed → angry → furious로 바뀌고 땀·핏줄·김 이모트로 보인다. | mood·OfficeRoom 테스트 |
-| MVP-12 | 숫자는 활동 패널의 세션 줄에만 있고 장면에는 없다. 예산을 바꾸면 에너지가 다시 계산되고 저장된다. | ActivityPanel·App 테스트 |
+| MVP-12 | 토큰·컨텍스트 숫자는 활동 패널의 세션 줄에만 있고 장면에는 없다(장면의 숫자는 직원 레벨 배지뿐 — ADR-028). 예산을 바꾸면 에너지가 다시 계산되고 저장된다. | ActivityPanel·App·OfficeRoom 테스트 |
 | MVP-13 | 완료한 작업 수만큼 사무실 경험치가 쌓이고 앱을 다시 켜도 유지된다. (원래 펫 성장 단계 → ADR-025 §7) | growth·officeProgress·useOfficeProgress·App 테스트 |
 | MVP-14 | 경험치 2·4·7·10·15·25에 포스터·책상 화분·줄 조명·라운지 러그·책장 가득·트로피 선반이 하나씩 생긴다. | growth·OfficeRoom·visualSpec 테스트 |
 | MVP-15 | ~~이름 짓기·쓰다듬기·간식~~ **대체됨(ADR-025 §7):** 돌보기 기능은 없다. | — |
@@ -64,10 +64,20 @@
 | CC-5 | 설치기는 동의 후 직접 실행할 때만 쓰고, 먼저 백업하며, 다른 도구의 훅을 그대로 두고, 제거하면 Deskling 훅만 빠진다. | install 테스트(Claude Code·Codex) + 실제 설치 기록 |
 | CC-6 | 실제 Claude Code 세션과 Codex 훅 경로가 사무실에 직원으로 들어오고 나간다. | 네이티브 창 캡처(PROJECT_STATE "네이티브 확인 내역") |
 
-## E. 보안 수용 기준 (항상)
+## E. 직원 레벨 (M15, ADR-028)
+
+| ID | 기준 | 검증 방법 |
+| --- | --- | --- |
+| LV-1 | 한 세션이 작업을 끝낼 때마다 그 직원만 경험치를 얻고 레벨이 Lv1 → 2(1) → 3(3) → 4(6) → 5(10)처럼 오른다. 다른 직원의 레벨은 그대로다. | growth·roomState·useOfficeProgress·App 테스트 |
+| LV-2 | 레벨은 앱을 다시 켜도, 같은 세션이 다시 들어와도 이어진다. 저장소에는 세션 id 대신 해시 id와 숫자만 있다. 데모/실제 따로. | officeProgress·useOfficeProgress·App 테스트 |
+| LV-3 | 장면의 직원마다 "Lv n" 픽셀 배지가 단계별 색(흰·하늘·금)으로 보이고 책상·모니터에 가리지 않는다. | OfficeRoom·visualSpec 테스트 + 장면 스냅샷 |
+| LV-4 | 사무실에 있는 동안 레벨이 오르면 2.5초 동안 "LEVEL UP!"이 뜨고 배지가 반짝인다. 들어올 때는 뜨지 않는다. | office·useOffice·OfficeRoom·App·styles 테스트 |
+| LV-5 | 패널 세션 줄에 "Lv n · 다음까지 k"가 보인다. | ActivityPanel·App 테스트 |
+
+## F. 보안 수용 기준 (항상)
 
 - 정규화 결과에는 EVENT_PROTOCOL §2 필드만 존재한다.
 - 검증 실패 로그 문자열에 입력값이 포함되지 않는다(TS·Rust 모두 코드만).
 - 훅 레코드에는 `v`, `agent`, `session`, `event`, `tool`, `ok`, `at`만 있다. 프롬프트·도구 입력/결과·경로·명령·transcript는 읽지도 않는다.
-- localStorage에는 `deskling.settings.v1`(설정 스키마)과 `deskling.office.v1`(데모/실제 경험치 숫자) 두 키만 쓴다. `deskling.pet.v1`은 읽기만 한다(SEC-7).
+- localStorage에는 `deskling.settings.v1`(설정 스키마)과 `deskling.office.v1`(데모/실제 경험치 숫자, 직원별 해시 id → 숫자) 두 키만 쓴다. 세션 id는 저장하지 않는다. `deskling.pet.v1`은 읽기만 한다(SEC-7).
 - Tauri capability에 셸·파일시스템·HTTP·emit 권한이 없다. 소켓은 0600, 폴더는 0700이다.

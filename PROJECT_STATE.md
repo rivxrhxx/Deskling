@@ -4,7 +4,7 @@ _마지막 갱신: 2026-11-19_
 
 ## 현재 단계
 
-- **M0–M14 완료.** vertical slice, MVP 화면, 독립 리뷰 반영(T34), 생활감(M7: 에너지·화남·침대·하루 일과 데모),
+- **M0–M15 완료.** vertical slice, MVP 화면, 독립 리뷰 반영(T34), 생활감(M7: 에너지·화남·침대·하루 일과 데모),
   키우기(M8: 완료한 작업 = 경험치, 아기→어린이→어른, 방 꾸미기 해금, 이름·쓰다듬기·간식)가 동작한다.
 - **M9 미니룸(ADR-019~021):** 어두운 작업실을 밝은 아이소메트릭 픽셀 미니룸으로 교체했다. 헤르메스가 방을 걸어 다니며 대기 중 일상(샤워·밥·TV·책·창밖·스트레칭·물주기·낮잠·친구 초대)을 살고,
   에이전트 상태가 필수 행동을 정한다(작업 → 책상, 승인 대기 → 방 앞에서 손 흔들기, 위임 → 친구 도우미, 오프라인 → 불 끄고 잠). 일상은 펫의 생활이며 에이전트에 대한 주장이 아니다(ADR-020).
@@ -22,6 +22,10 @@ _마지막 갱신: 2026-11-19_
   제거는 `npm run hooks:codex:uninstall`.
 - **M14 사무실 움직임(ADR-027):** 쉬는 직원이 8–16초마다 다른 라운지 자리로 걸어가고(책장 앞 자리 추가, 7곳), 걷는 동안 50ms마다 위치를 다시 읽어 미끄럽게 걷는다.
   걷기 b 프레임 1px 뜀, 활동별 작은 반복 동작(숨쉬기·한 모금·흔들림·끄덕임, 직원마다 다른 박자), 창밖 구름·화분 잎. 동작 줄이기면 모두 꺼지고 돌아다니지도 않는다.
+- **M15 직원마다 레벨(ADR-028):** 세션마다 그 세션의 완료 수가 직원 경험치가 되어 레벨이 오른다(n은 누적 n(n−1)/2부터, 최대 99).
+  머리 옆 "Lv n" 픽셀 배지(Lv1–4 흰·5–9 하늘·10+ 금, 가구 위 맨 앞 층), 오를 때 2.5초 "LEVEL UP!"과 배지 반짝임, 패널 세션 줄 "Lv n · 다음까지 k".
+  `deskling.office.v1`의 모드별 `members`에 세션 키의 해시 id → 숫자로 저장(세션 id 없음, 최근 64명). 같은 세션이 다시 오면 레벨을 이어 간다.
+  보기를 데모↔실제로 바꿨다 돌아오면 같은 완료를 다시 세던 사무실 경험치 버그도 피드별 기억으로 함께 고쳤다.
 - 이벤트 규격은 v3(v2 `usage.reported`, v3 `claude-code`·`codex` 종류와 `session.message`). 방 모양은 ADR-019가 ADR-017을 대체했다(이전 400×260 디오라마).
 - 실제 연결은 Claude Code와 Codex. Hermes 등 다른 에이전트는 아직 연결되지 않았다(데모로 표현). 데모가 보이는 동안에는 항상 DEMO 배지를 보인다.
 - 프로젝트 문서(PRODUCT·ARCHITECTURE·ACCEPTANCE·TEST_PLAN·EVENT_PROTOCOL §3.2)를 사무실·실제 연결 기준으로 다시 썼고, Claude Code용 `CLAUDE.md`(AGENTS.md를 불러옴 + 문서 지도)를 추가했다.
@@ -40,12 +44,15 @@ _마지막 갱신: 2026-11-19_
 
 | 명령 | 결과 |
 | --- | --- |
-| `npm run verify` (Node 24) | 통과 — typecheck, lint(경고 0), **1676 tests**, vite build, cargo fmt·clippy(`-D warnings`)·**test 23개** (M14 완료 시점, 2026-11-19) |
+| `npm run verify` (Node 24) | 통과 — typecheck, lint(경고 0), **1779 tests**, vite build, cargo fmt·clippy(`-D warnings`)·**test 23개** (M15 완료 시점, 2026-11-19) |
 | `npm run verify:fast` (Node 23.11) | 통과 — 334 tests (T34 이전 시점). Node 23은 EBADENGINE 경고만 남 |
-| `npm run build:app` | 통과 — `src-tauri/target/release/bundle/macos/Deskling.app` (9.7 MiB, arm64, 번들 ad-hoc 서명 + hardened runtime, `codesign --verify --deep --strict` 통과, M9 실행·렌더링·바탕화면 층 확인, 2026-11-19) |
+| `npm run build:app` | 통과 — `src-tauri/target/release/bundle/macos/Deskling.app` (9.76 MiB, arm64, 번들 ad-hoc 서명 + hardened runtime, `codesign --verify --deep --strict` 통과, M15 시점 2026-11-19) |
 | `npm run tauri dev` | 실행됨 — 투명 창, layer 5(항상 위), M6 시점 11개 상태 네이티브 캡처, M7은 DOM 프로브 |
 
 ### 네이티브 확인 내역
+
+- **M15 (장면 스냅샷):** 실제 `OfficeRoom` 마크업+CSS를 WebKit(qlmanage)으로 그려 직원 8명의 배지(Lv1·2 흰, 5·7 하늘, 12·24·99 금)와 "LEVEL UP!"을 확인.
+  처음 그림에서 앞 책상 모니터가 배지를 가리고 옆 직원 배지가 "LEVEL UP!"을 덮는 것을 발견해, 배지와 문구를 가구 위 맨 앞 층으로 옮겨 고쳤다.
 
 - **M14 (release 번들 + dev):** 새 번들 실행(창 layer −1). 사용자의 앱 설정이 `motion: "reduced"`(동작 줄이기)라 release 창에서는 설계대로 직원이 순간 이동하고
   돌아다니지 않음을 확인(시험 세션 3개를 소켓으로 넣고 40초 캡처 5장, 위치 그대로 → SessionEnd로 내보냄). 같은 코드의 dev 빌드(설정 기본값 = 시스템, 데모 "사무실 하루")를
@@ -97,7 +104,7 @@ _마지막 갱신: 2026-11-19_
 
 ## 다음 작업
 
-1. 사람이 직접: 툴바의 모션을 "전체" 또는 "시스템"으로 바꿔 움직임 확인(지금 사용자 설정은 "줄이기").
+1. 사람이 직접: 툴바의 모션을 "전체" 또는 "시스템"으로 바꿔 움직임·레벨업 떠오름 확인(지금 사용자 설정은 "줄이기" — 이때 "LEVEL UP!"은 움직이지 않고 2.5초 보인다).
 2. 사람이 직접: 실제 Codex 세션 입장(`/hooks` 신뢰 후), 드래그·핀·크기·모션 버튼 — TEST_PLAN §5의 남은 항목.
 3. Hermes Agent adapter ADR — 전송 방식(같은 소켓 + 새 agent 값 / 별도 경로), 인증, `usage.reported` 매핑.
 4. 백로그: 메뉴 막대 아이콘, 창 위치 기억, 클릭 통과 모드, 전체 화면 Space 위 표시, 비정상 종료 세션 정리.
