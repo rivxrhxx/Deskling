@@ -1,10 +1,11 @@
+import type { CSSProperties } from 'react';
 import type { MemberActivity, MemberView } from '../../core/office';
 import type { AngerLevel, EnergyLevel } from '../../core/mood';
 import { toScreen } from '../../core/room';
 import { memberEmote } from './emote';
 import { INK } from './isoMath';
 import { PixelSprite } from './PixelSprite';
-import { LOOK_OF, MEMBER_SCALE, deskFacesAway, memberPose } from './pose';
+import { LOOK_OF, MEMBER_SCALE, beatOf, deskFacesAway, memberPose } from './pose';
 import { EMOTES, SPRITES, guestPalette } from './sprites';
 
 /** Standing on the floor (not on a chair or the sofa): these get a shadow. */
@@ -73,7 +74,10 @@ export function Member({ view, frame, energy = 'unknown', anger = 'unknown', row
       className={`member member--${look}`}
     >
       {(view.walking || STANDING.has(view.activity)) && <ellipse cx={feet.x} cy={feet.y} rx={5 * MEMBER_SCALE} ry={1.6 * MEMBER_SCALE} fill={INK} opacity="0.18" />}
-      {map && <PixelSprite part="sprite" map={map} palette={guestPalette(look, view.ordinal)} x={x} y={y} scale={MEMBER_SCALE} flip={pose.flip} />}
+      {/* The body carries the small CSS loops by activity (breathing, a sip, a sway, a nod); the sprite keeps its own transform. */}
+      <g data-part="body" className="member__body" style={{ '--beat': beatOf(view.key).toFixed(3) } as CSSProperties}>
+        {map && <PixelSprite part="sprite" map={map} palette={guestPalette(look, view.ordinal)} x={x} y={y} scale={MEMBER_SCALE} flip={pose.flip} />}
+      </g>
       <EmoteSign id={emote} centerX={feet.x} headTop={y} />
     </g>
   );

@@ -21,6 +21,16 @@ export const MEMBER_SCALE = 2.25;
 /** How far the sofa cushion lifts a sitter off the floor (px). */
 const SOFA_LIFT = 4;
 
+/**
+ * A member's own beat in [0, 1) from its session key, so the small loops (ADR-027 §3) do not all run in step.
+ * Stable: the same key gives the same beat on every render.
+ */
+export function beatOf(key: string): number {
+  let hash = 2166136261;
+  for (let i = 0; i < key.length; i += 1) hash = Math.imul(hash ^ key.charCodeAt(i), 16777619);
+  return ((hash >>> 0) % 1000) / 1000;
+}
+
 /** Desks whose chair has its back to the viewer, so we see the monitor beyond the member (1, 2, 5, 6). */
 export const deskFacesAway = (desk: DeskId) => SPOTS[desk].face.startsWith('back');
 
@@ -55,7 +65,8 @@ export function memberPose({ look, activity, walking, face, frame, away }: PoseI
 
   if (walking) {
     const back = face.startsWith('back');
-    return pose(`${back ? 'back-walk' : 'walk'}-${odd ? 'b' : 'a'}`, back);
+    // A step up on the second frame (ADR-027 §3).
+    return pose(`${back ? 'back-walk' : 'walk'}-${odd ? 'b' : 'a'}`, back, odd ? -1 : 0);
   }
   switch (activity) {
     case 'work':

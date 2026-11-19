@@ -94,6 +94,7 @@ describe('memberPose (ADR-025 §3)', () => {
     ['sofa', true, 0, 'claude-sit-sofa'],
     ['window', true, 0, 'claude-back'],
     ['plant', false, 1, 'claude-back'],
+    ['books', true, 0, 'claude-back'],
   ] as const)('%s (back to the viewer: %s), frame %d → %s', (activity, away, frame, name) => {
     expect(pose(activity, { away, frame }).name).toBe(name);
   });
@@ -119,6 +120,13 @@ describe('memberPose (ADR-025 §3)', () => {
   it('sits up on the sofa cushion', () => {
     expect(pose('sofa').lift).toBeGreaterThan(0);
     expect(pose('work').lift).toBe(0);
+  });
+
+  it('bobs up a pixel on the second walking frame, facing either way (ADR-027 §3)', () => {
+    for (const face of ['front-right', 'back-left'] as const) {
+      expect(pose('work', { walking: true, face, frame: 0 }).bob).toBe(0);
+      expect(pose('work', { walking: true, face, frame: 1 }).bob).toBe(-1);
+    }
   });
 
   it('walks with alternating frames, its back turned when walking away, mirrored when walking left', () => {
@@ -455,3 +463,49 @@ describe('OfficeRoom (ADR-025 §2)', () => {
     expect((svg.textContent ?? '').replace(title, '').trim()).toBe('');
   });
 });
+
+describe('small loops (ADR-027 §3)', () => {
+  it('draws each member\'s sprite inside a body that the stylesheet animates, by what it does', () => {
+    const svg = office({ members: [member('desk-1', 'thinking'), lounging('desk-2', 'window', 'window')] });
+    for (const m of svg.querySelectorAll('[data-part="member"]')) {
+      const body = m.querySelector('[data-part="body"]');
+      expect(body).toHaveClass('member__body');
+      expect(body?.querySelector('[data-part="sprite"]')).not.toBeNull();
+      // The emote floats on its own, outside the body.
+      expect(body?.querySelector('[data-part="emote"]')).toBeNull();
+    }
+  });
+
+  it('gives every member its own beat, the same on every render, so they do not all move at once', () => {
+    const keys = ['claude-code:a', 'claude-code:b', 'codex:a', 'codex:b', 'demo:x'];
+    const beats = (members: MemberView[]) => {
+      const svg = office({ members });
+      const found = [...svg.querySelectorAll('[data-part="body"]')].map((b) => (b as SVGElement).style.getPropertyValue('--beat'));
+      cleanup();
+      return found;
+    };
+    const everyone = keys.map((key, i) => member(DESK_IDS[i] as DeskId, 'idle', { key }));
+    const first = beats(everyone);
+    expect(first).toHaveLength(keys.length);
+    for (const beat of first) {
+      expect(Number(beat)).toBeGreaterThanOrEqual(0);
+      expect(Number(beat)).toBeLessThan(1);
+    }
+    expect(new Set(first).size).toBe(keys.length);
+    expect(beats(everyone)).toEqual(first);
+  });
+
+  it('lets clouds drift past the window by day; at night there are none', () => {
+    expect(office({ members: [member('desk-1', 'coding')] }).querySelector('[data-part="clouds"]')).toHaveClass('cloud-drift');
+    cleanup();
+    expect(office().querySelector('[data-part="clouds"]')).toBeNull();
+  });
+
+  it('sways the leaves of both floor plants', () => {
+    const svg = office({ members: [member('desk-1', 'coding')] });
+    const plants = [...svg.querySelectorAll('[data-part="plant"]')];
+    expect(plants).toHaveLength(2);
+    for (const plant of plants) expect(plant.querySelector('.plant-sway ellipse')).not.toBeNull();
+  });
+});
+

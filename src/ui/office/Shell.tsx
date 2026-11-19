@@ -119,11 +119,11 @@ export const Window = memo(function Window({ night }: { night: boolean }) {
             ))}
           </>
         ) : (
-          <>
+          <g data-part="clouds" className="cloud-drift">
             <ellipse cx="14" cy="10" rx="7" ry="3" fill="#ffffff" />
             <ellipse cx="20" cy="8" rx="5" ry="3" fill="#ffffff" />
             <ellipse cx="44" cy="15" rx="6" ry="2.4" fill="#ffffff" opacity="0.85" />
-          </>
+          </g>
         )}
         {towers.map(([x, h, w]) => (
           <g key={x}>

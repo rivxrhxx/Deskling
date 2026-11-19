@@ -318,10 +318,13 @@ export const Plant = memo(function Plant({ id, tall }: { id: 'plant-1' | 'plant-
     <g data-part="plant" data-plant={id}>
       <IsoBox x0={x0 + 0.05} y0={y0 + 0.05} x1={x1 - 0.05} y1={y1 - 0.05} h={14} top="#7a4f3a" left="#f4f6f8" right="#dfe3ea" />
       <g transform={`translate(${top.x} ${top.y}) scale(${size})`} stroke={INK} strokeWidth={0.6 / size}>
-        <ellipse cx="-6" cy="-8" rx="5" ry="9" fill="#4aa86a" transform="rotate(-30 -6 -8)" />
-        <ellipse cx="6" cy="-9" rx="5" ry="9" fill="#3f9a5e" transform="rotate(30 6 -9)" />
-        <ellipse cx="-2" cy="-14" rx="4" ry="10" fill="#5fbf7f" transform="rotate(-10 -2 -14)" />
-        <ellipse cx="3" cy="-15" rx="4" ry="10" fill="#6fd08e" transform="rotate(12 3 -15)" />
+        {/* Leaves sway about the pot rim, ADR-027 §3. */}
+        <g className="plant-sway">
+          <ellipse cx="-6" cy="-8" rx="5" ry="9" fill="#4aa86a" transform="rotate(-30 -6 -8)" />
+          <ellipse cx="6" cy="-9" rx="5" ry="9" fill="#3f9a5e" transform="rotate(30 6 -9)" />
+          <ellipse cx="-2" cy="-14" rx="4" ry="10" fill="#5fbf7f" transform="rotate(-10 -2 -14)" />
+          <ellipse cx="3" cy="-15" rx="4" ry="10" fill="#6fd08e" transform="rotate(12 3 -15)" />
+        </g>
       </g>
     </g>
   );

@@ -55,6 +55,29 @@ describe('stylesheet contract', () => {
     expect(officeCss).toMatch(/\.office\[data-empty="true"\] \.string-bulb\s*\{[^}]*animation:\s*none/);
   });
 
+  it('gives resting and thinking members a small loop each, offset by their beat (ADR-027 §3)', () => {
+    const loops = {
+      sofa: 'breathe',
+      'idle-desk': 'breathe',
+      coffee: 'sip',
+      water: 'sip',
+      window: 'sway',
+      plant: 'sway',
+      books: 'sway',
+      think: 'nod',
+    } as const;
+    for (const [activity, name] of Object.entries(loops)) {
+      const rule = new RegExp(`\\.member\\[data-activity="${activity}"\\] \\.member__body[^{]*\\{[^}]*animation:\\s*${name}\\b[^}]*animation-delay:\\s*calc\\(var\\(--beat`);
+      expect(officeCss, activity).toMatch(rule);
+    }
+    for (const name of new Set(Object.values(loops))) expect(officeCss).toMatch(new RegExp(`@keyframes ${name}\\b`));
+  });
+
+  it('drifts the clouds and sways the plant leaves, slowly', () => {
+    expect(officeCss).toMatch(/\.cloud-drift\s*\{[^}]*animation:\s*cloud-drift/);
+    expect(officeCss).toMatch(/\.plant-sway\s*\{[^}]*animation:\s*leaf-sway/);
+  });
+
   it('dims chips that are disabled or aria-disabled alike', () => {
     expect(appCss).toMatch(/\.chip:disabled,\s*\.chip\[aria-disabled='true'\]\s*\{[^}]*opacity:\s*0\.45/);
   });

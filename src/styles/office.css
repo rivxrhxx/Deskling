@@ -76,3 +76,53 @@
 
 /* Lights out: the night overlay fades in rather than snapping. */
 .night { transition: opacity var(--state-fade) var(--ease-soft); }
+
+/* ---- Small loops (ADR-027 §3) -------------------------------------------------------------- */
+/* A member's body moves a pixel or so, slowly, by what it does; --beat (0–1, per member) keeps them out of step.
+   The shorthand resets the delay, so each rule sets the delay after it. All off under data-motion="reduced". */
+.member[data-activity="sofa"] .member__body,
+.member[data-activity="idle-desk"] .member__body { animation: breathe 3.2s ease-in-out infinite; animation-delay: calc(var(--beat, 0) * -3.2s); }
+.member[data-activity="coffee"] .member__body,
+.member[data-activity="water"] .member__body { animation: sip 4s ease-in-out infinite; animation-delay: calc(var(--beat, 0) * -4s); }
+.member[data-activity="window"] .member__body,
+.member[data-activity="plant"] .member__body,
+.member[data-activity="books"] .member__body { animation: sway 5s ease-in-out infinite; animation-delay: calc(var(--beat, 0) * -5s); }
+.member[data-activity="think"] .member__body { animation: nod 1.6s ease-in-out infinite; animation-delay: calc(var(--beat, 0) * -1.6s); }
+/* Walking members move by their frames and their glide, not by a loop. */
+.member[data-walking="true"] .member__body { animation: none; }
+
+@keyframes breathe {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-1px); }
+}
+
+@keyframes sip {
+  0%, 60%, 100% { transform: translateY(0); }
+  70%, 85% { transform: translateY(-1.5px); }
+}
+
+@keyframes sway {
+  0%, 100% { transform: translateX(0); }
+  50% { transform: translateX(1px); }
+}
+
+@keyframes nod {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(1px); }
+}
+
+/* Clouds drift along the window, leaves sway about their pot. */
+.cloud-drift { animation: cloud-drift 26s ease-in-out infinite alternate; }
+/* Rotated about the bottom centre of the leaves themselves (the pot rim), whatever the parent transforms. */
+.plant-sway { animation: leaf-sway 4.6s ease-in-out infinite; transform-box: fill-box; transform-origin: 50% 100%; }
+[data-plant="plant-2"] .plant-sway { animation-delay: -2.1s; }
+
+@keyframes cloud-drift {
+  from { transform: translateX(-4px); }
+  to { transform: translateX(6px); }
+}
+
+@keyframes leaf-sway {
+  0%, 100% { transform: rotate(-1.5deg); }
+  50% { transform: rotate(1.5deg); }
+}
