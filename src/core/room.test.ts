@@ -236,8 +236,8 @@ describe('desks (ADR-025 §3)', () => {
 });
 
 describe('the lounge (ADR-025 §3)', () => {
-  it('has at least six resting spots', () => {
-    expect(LOUNGE_SPOTS).toEqual(['coffee', 'water', 'sofa-1', 'sofa-2', 'window', 'plant']);
+  it('has seven resting spots, the bookshelf among them (ADR-027 §1)', () => {
+    expect(LOUNGE_SPOTS).toEqual(['coffee', 'water', 'sofa-1', 'sofa-2', 'window', 'plant', 'books']);
   });
 
   it.each([

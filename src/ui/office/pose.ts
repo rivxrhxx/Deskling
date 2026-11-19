@@ -79,6 +79,7 @@ export function memberPose({ look, activity, walking, face, frame, away }: PoseI
       return pose('sit-sofa', false, 0, SOFA_LIFT);
     case 'window':
     case 'plant':
+    case 'books':
       return pose('back', true);
   }
 }

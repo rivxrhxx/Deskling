@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { SourceKind, VisualState } from './agentEvent';
 import type { ConversationInput, MemberInput, MemberView, OfficeInput, OfficeState } from './office';
-import { CHAT_MS, CHEER_MS, IDLE_SETTLE_MS, WALK_SPEED, initialOffice, memberViewsAt, stepOffice } from './office';
+import { CHAT_MS, CHEER_MS, IDLE_SETTLE_MS, LOUNGE_STAY_MS, WALK_SPEED, initialOffice, memberViewsAt, stepOffice } from './office';
 import type { LoungeSpot, Tile } from './room';
 import { DESK_IDS, LOUNGE_SPOTS, SPOTS, pathBetween, pathLength } from './room';
 
@@ -232,9 +232,12 @@ describe('the lounge (ADR-025 §3)', () => {
     expect(walking.walking).toBe(true);
     expect(walking.phase).toBe('present');
 
-    state = run(state, leaveAt + 250, leaveAt + SETTLED, [member(A.key, 'idle')]);
-    const resting = viewOf(state, leaveAt + SETTLED, A.key);
-    const expected = { coffee: 'coffee', water: 'water', 'sofa-1': 'sofa', 'sofa-2': 'sofa', window: 'window', plant: 'plant' } as const;
+    // Rests there on arrival, until its stay is over (then it wanders on, ADR-027 §1).
+    const restAt = (m?.arriveAt ?? 0) + 250;
+    expect(restAt).toBeLessThan(m?.stayUntil ?? 0);
+    state = run(state, leaveAt + 250, restAt, [member(A.key, 'idle')]);
+    const resting = viewOf(state, restAt, A.key);
+    const expected = { coffee: 'coffee', water: 'water', 'sofa-1': 'sofa', 'sofa-2': 'sofa', window: 'window', plant: 'plant', books: 'books' } as const;
     expect(resting).toMatchObject({ walking: false, at: SPOTS[spot ?? 'coffee'].at, face: SPOTS[spot ?? 'coffee'].face, activity: expected[spot ?? 'coffee'], desk: 'desk-1' });
   });
 
@@ -324,7 +327,7 @@ describe('the lounge (ADR-025 §3)', () => {
     expect(spots).toHaveLength(LOUNGE_SPOTS.length);
     expect(new Set(spots).size).toBe(spots.length);
     const atDesk = views.filter((v) => loungeSpotOf(v) === null);
-    expect(atDesk).toHaveLength(2);
+    expect(atDesk).toHaveLength(everyone.length - LOUNGE_SPOTS.length);
     for (const v of atDesk) expect(v).toMatchObject({ activity: 'idle-desk', at: SPOTS[v.desk].at });
 
     // One resting member goes back to work: a member idle at its desk takes the freed spot.
@@ -351,8 +354,8 @@ describe('the lounge (ADR-025 §3)', () => {
   it('chooses the lounge spot with the seeded randomness: the same seed the same spot, other seeds others', () => {
     const choose = (seed: number) => {
       let state = seated([member('k', 'idle')], seed);
-      state = run(state, T0 + 250, T0 + SETTLED, [member('k', 'idle')]);
-      return loungeSpotOf(viewOf(state, T0 + SETTLED, 'k'));
+      state = run(state, T0 + 250, T0 + IDLE_SETTLE_MS, [member('k', 'idle')]);
+      return loungeSpotAt(lastOf(state.members[0]?.path ?? []));
     };
     expect(choose(42)).toBe(choose(42));
     const chosen = new Set(Array.from({ length: 30 }, (_, i) => choose(i + 1)));
@@ -508,5 +511,112 @@ describe('determinism', () => {
     const copy = structuredClone(before);
     step(before, T0 + 500, [member(A.key, 'idle')]);
     expect(before).toEqual(copy);
+  });
+});
+
+describe('wandering the lounge (ADR-027 §1)', () => {
+  const idle = (key: string, ordinal = 1) => member(key, 'idle', 'claude-code', ordinal);
+  /** Steps every 250 ms and records, per step, the member's goal spot (its `spot`) and whether it walks. */
+  function trace(state: OfficeState, from: number, to: number, members: readonly MemberInput[], key: string, extra: Partial<OfficeInput> = {}) {
+    const seen: { now: number; spot: string; walking: boolean }[] = [];
+    let next = state;
+    for (let now = from; now <= to; now += 250) {
+      next = step(next, now, members, extra);
+      const m = next.members.find((x) => x.key === key);
+      if (m) seen.push({ now, spot: m.spot, walking: viewOf(next, now, key).walking });
+    }
+    return { state: next, seen };
+  }
+  const isLoungeSpot = (spot: string) => (LOUNGE_SPOTS as readonly string[]).includes(spot);
+
+  it('after resting a while at one spot, walks on to another free lounge spot', () => {
+    expect(LOUNGE_STAY_MS).toEqual({ min: 8_000, max: 16_000 });
+    let state = seated([idle('k')]);
+    state = run(state, T0 + 250, T0 + IDLE_SETTLE_MS, [idle('k')]);
+    const first = state.members[0];
+    expect(first && isLoungeSpot(first.spot)).toBe(true);
+    const arrive = first?.arriveAt ?? 0;
+    const stay = (first?.stayUntil ?? 0) - arrive;
+    expect(stay).toBeGreaterThanOrEqual(LOUNGE_STAY_MS.min);
+    expect(stay).toBeLessThanOrEqual(LOUNGE_STAY_MS.max);
+
+    // Rests where it is until the stay is over…
+    const until = first?.stayUntil ?? 0;
+    state = run(state, T0 + IDLE_SETTLE_MS + 250, until - 1, [idle('k')]);
+    expect(state.members[0]?.spot).toBe(first?.spot);
+    expect(viewOf(state, until - 1, 'k')).toMatchObject({ walking: false, at: SPOTS[first?.spot as LoungeSpot].at });
+
+    // …then walks from there to a different lounge spot, still resting (not working).
+    state = step(state, until, [idle('k')]);
+    const next = state.members[0];
+    expect(next && isLoungeSpot(next.spot)).toBe(true);
+    expect(next?.spot).not.toBe(first?.spot);
+    expect(next?.path).toEqual(pathBetween(SPOTS[first?.spot as LoungeSpot].at, SPOTS[next?.spot as LoungeSpot].at));
+    expect(viewOf(state, until + 250, 'k')).toMatchObject({ walking: true, desk: 'desk-1' });
+    expect(next?.stayUntil).toBeGreaterThanOrEqual((next?.arriveAt ?? 0) + LOUNGE_STAY_MS.min);
+  });
+
+  it('keeps wandering for as long as it is idle: several spots in two minutes, never the desk', () => {
+    const { seen } = trace(seated([idle('k')]), T0 + 250, T0 + 120_000, [idle('k')], 'k');
+    const after = seen.filter((s) => s.now >= T0 + IDLE_SETTLE_MS);
+    expect(after.every((s) => isLoungeSpot(s.spot))).toBe(true);
+    expect(new Set(after.map((s) => s.spot)).size).toBeGreaterThanOrEqual(3);
+  });
+
+  it('never wanders onto a spot someone else holds or is walking to', () => {
+    const everyone = [idle('a', 1), idle('b', 2), idle('c', 3), idle('d', 4)];
+    let state = seated(everyone, 7);
+    for (let now = T0 + 250; now <= T0 + 120_000; now += 250) {
+      state = step(state, now, everyone);
+      const goals = state.members.map((m) => m.spot).filter(isLoungeSpot);
+      expect(new Set(goals).size, `at ${now - T0} ms`).toBe(goals.length);
+    }
+  });
+
+  it('with every lounge spot taken nobody wanders; the one left at its desk stays there', () => {
+    const everyone = Array.from({ length: 8 }, (_, i) => idle(`k${i}`, i + 1));
+    let state = seated(everyone, 3);
+    state = run(state, T0 + 250, T0 + SETTLED, everyone);
+    const before = state.members.map((m) => m.spot);
+    expect(before.filter(isLoungeSpot)).toHaveLength(LOUNGE_SPOTS.length);
+    state = run(state, T0 + SETTLED + 250, T0 + SETTLED + 90_000, everyone);
+    expect(state.members.map((m) => m.spot)).toEqual(before);
+  });
+
+  it('does not wander with reduced motion: it stays at the first spot it chose', () => {
+    const { seen } = trace(seated([idle('k')]), T0 + 250, T0 + 120_000, [idle('k')], 'k', { reducedMotion: true });
+    const after = seen.filter((s) => s.now >= T0 + IDLE_SETTLE_MS);
+    expect(new Set(after.map((s) => s.spot)).size).toBe(1);
+    expect(isLoungeSpot(after[0]?.spot ?? '')).toBe(true);
+  });
+
+  it('work starting mid-wander sends it straight back to its desk from where it is', () => {
+    let state = seated([idle('k')]);
+    state = run(state, T0 + 250, T0 + IDLE_SETTLE_MS, [idle('k')]);
+    const until = state.members[0]?.stayUntil ?? 0;
+    state = run(state, T0 + IDLE_SETTLE_MS + 250, until - 1, [idle('k')]);
+    state = step(state, until, [idle('k')]);
+    expect(viewOf(state, until + 400, 'k').walking).toBe(true);
+    const mid = viewOf(state, until + 400, 'k').at;
+    state = step(state, until + 400, [member('k', 'coding')]);
+    expect(state.members[0]?.spot).toBe('desk-1');
+    expect(state.members[0]?.path).toEqual(pathBetween(mid, SPOTS['desk-1'].at));
+    expect(viewOf(state, until + 400, 'k')).toMatchObject({ activity: 'work', walking: true });
+  });
+
+  it('wanders the same way for the same seed', () => {
+    const spots = (seed: number) => trace(seated([idle('k')], seed), T0 + 250, T0 + 90_000, [idle('k')], 'k').seen.map((s) => s.spot).join();
+    expect(spots(11)).toBe(spots(11));
+    expect(spots(11)).not.toBe(spots(12));
+  });
+
+  it('has a spot by the bookshelf, where a member stands reading the shelf', () => {
+    expect(LOUNGE_SPOTS).toContain('books');
+    expect(SPOTS.books).toMatchObject({ furniture: 'bookshelf', face: 'back-left' });
+    const everyone = Array.from({ length: 8 }, (_, i) => idle(`k${i}`, i + 1));
+    let state = seated(everyone, 3);
+    state = run(state, T0 + 250, T0 + SETTLED, everyone);
+    const reader = memberViewsAt(state, T0 + SETTLED).find((v) => loungeSpotOf(v) === 'books');
+    expect(reader).toMatchObject({ activity: 'books', walking: false, face: 'back-left' });
   });
 });

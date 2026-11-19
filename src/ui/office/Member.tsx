@@ -8,7 +8,7 @@ import { LOOK_OF, MEMBER_SCALE, deskFacesAway, memberPose } from './pose';
 import { EMOTES, SPRITES, guestPalette } from './sprites';
 
 /** Standing on the floor (not on a chair or the sofa): these get a shadow. */
-const STANDING = new Set<MemberActivity>(['wave', 'cheer', 'coffee', 'water', 'window', 'plant']);
+const STANDING = new Set<MemberActivity>(['wave', 'cheer', 'coffee', 'water', 'window', 'plant', 'books']);
 
 /** A one-pixel white rim round an emote, so it reads over a busy desk or another member. */
 const HALO = [

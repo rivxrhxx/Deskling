@@ -6,6 +6,7 @@ import { DESK_IDS, LOUNGE_SPOTS, SPOTS, pathBetween, pathLength, sameTile, toScr
  * The office (ADR-025 §3–§4): one member per session, a pure and deterministic state machine.
  * - A member walks in through the door to the lowest free desk and shows its own session's facts there.
  * - Only an idle member leaves its desk: to a free lounge spot, chosen with a seeded PRNG carried in the state.
+ *   After a seeded stay it walks on to another free lounge spot (ADR-027 §1); the spot means nothing about the session.
  * - A member whose session is gone walks out through the door; its desk is free once it is outside.
  * - Conversations are staged only from real `session.message` facts (ADR-023).
  * Time comes from the caller.
@@ -46,7 +47,8 @@ export type MemberActivity =
   | 'water'
   | 'sofa'
   | 'window'
-  | 'plant';
+  | 'plant'
+  | 'books';
 
 /** How long a conversation emote shows (ms). Staging timed by the engine clock, not a fact (ADR-023). */
 export const CHAT_MS = { talk: 4_000, letter: 3_000 } as const;
@@ -54,6 +56,8 @@ export const CHAT_MS = { talk: 4_000, letter: 3_000 } as const;
 export const CHEER_MS = 3_000;
 /** How long a member stays idle at its desk before it walks to the lounge, so quick idle blips do not send it walking (ms). */
 export const IDLE_SETTLE_MS = 1_500;
+/** How long a member rests at one lounge spot before it walks on to another (ms; seeded between the two, ADR-027 §1). */
+export const LOUNGE_STAY_MS = { min: 8_000, max: 16_000 } as const;
 /** Tiles per second. */
 export const WALK_SPEED = 1.8;
 
@@ -64,6 +68,7 @@ const LOUNGE_ACTIVITY: Readonly<Record<LoungeSpot, MemberActivity>> = {
   'sofa-2': 'sofa',
   window: 'window',
   plant: 'plant',
+  books: 'books',
 };
 
 interface Walk {
@@ -87,6 +92,8 @@ export interface MemberState extends Walk {
   readonly restSince: number | null;
   /** When the cheer for the session's latest success ends; null when there is no success. */
   readonly cheerUntil: number | null;
+  /** In the lounge: when the member walks on to another spot (ADR-027 §1); null elsewhere. */
+  readonly stayUntil: number | null;
 }
 
 /** A conversation emote on show. `a`/`b` are member keys; a letter has no `b`. */
@@ -211,21 +218,44 @@ function withFacts(member: MemberState, input: MemberInput, now: number): Member
 
 const cheering = (member: MemberState, now: number) => member.cheerUntil !== null && now < member.cheerUntil;
 
+/** A stay drawn from the PRNG: [ms, next PRNG state]. */
+function drawStay(rng: number): [number, number] {
+  const [r, next] = random(rng);
+  return [Math.round(LOUNGE_STAY_MS.min + r * (LOUNGE_STAY_MS.max - LOUNGE_STAY_MS.min)), next];
+}
+
+/** Sends a member to one of the free lounge spots (seeded), to rest there for a seeded stay once it arrives. */
+function toLounge(member: MemberState, free: readonly LoungeSpot[], now: number, reduced: boolean, rng: number): [MemberState, number] {
+  const [r, afterPick] = random(rng);
+  const walked = sendTo(member, free[Math.floor(r * free.length)] as LoungeSpot, now, reduced);
+  const [stay, next] = drawStay(afterPick);
+  return [{ ...walked, stayUntil: walked.arriveAt + stay }, next];
+}
+
+/** Lounge spots nobody holds or is walking to. */
+const freeLounge = (others: readonly MemberState[]) => LOUNGE_SPOTS.filter((spot) => !others.some((o) => o.spot === spot));
+
 /** Where a present member belongs this step: its desk for any work, the lounge once it has rested a moment. */
 function placed(member: MemberState, others: readonly MemberState[], now: number, reduced: boolean, rng: number): [MemberState, number] {
   const { desk } = member;
   if (isLounge(member.spot)) {
-    if (resting(member.visual) && !cheering(member, now)) return [member, rng];
-    const back = sendTo(member, desk, now, reduced);
+    if (resting(member.visual) && !cheering(member, now)) {
+      // Resting on: after its stay it walks on to another free spot. With reduced motion it stays put (ADR-027 §1).
+      if (reduced || member.stayUntil === null || now < member.stayUntil) return [member, rng];
+      const free = freeLounge(others);
+      if (free.length > 0) return toLounge(member, free, now, reduced, rng);
+      const [stay, next] = drawStay(rng);
+      return [{ ...member, stayUntil: now + stay }, next];
+    }
+    const back = { ...sendTo(member, desk, now, reduced), stayUntil: null };
     // A new success met in the lounge: the full cheer happens back at the desk.
     return [member.visual === 'success' ? { ...back, cheerUntil: back.arriveAt + CHEER_MS } : back, rng];
   }
   const settled = member.restSince !== null && now >= Math.max(member.restSince, member.arriveAt) + IDLE_SETTLE_MS;
   if (member.spot !== desk || !resting(member.visual) || cheering(member, now) || !settled) return [member, rng];
-  const free = LOUNGE_SPOTS.filter((spot) => !others.some((o) => o.spot === spot));
+  const free = freeLounge(others);
   if (free.length === 0) return [member, rng];
-  const [r, next] = random(rng);
-  return [sendTo(member, free[Math.floor(r * free.length)] as LoungeSpot, now, reduced), next];
+  return toLounge(member, free, now, reduced, rng);
 }
 
 export function stepOffice(state: OfficeState, input: OfficeInput): OfficeState {
@@ -265,6 +295,7 @@ export function stepOffice(state: OfficeState, input: OfficeInput): OfficeState 
       ...walk,
       restSince: resting(want.visual) ? now : null,
       cheerUntil: want.visual === 'success' ? walk.arriveAt + CHEER_MS : null,
+      stayUntil: null,
     };
     members.push(newcomer);
   }

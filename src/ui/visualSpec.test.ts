@@ -101,8 +101,24 @@ describe('docs/DESIGN.md §4 matches the code', () => {
 });
 
 describe('docs/DESIGN.md §3.3 matches the member poses and emotes', () => {
-  const ACTIVITIES: readonly MemberActivity[] = ['work', 'think', 'delegate', 'idle-desk', 'wave', 'upset', 'cheer', 'coffee', 'water', 'sofa', 'window', 'plant'];
-  const LOUNGE: readonly MemberActivity[] = ['coffee', 'water', 'sofa', 'window', 'plant'];
+  // Every activity, lounge or not: a Record so a new activity cannot be left out of the docs check.
+  const IN_LOUNGE: Readonly<Record<MemberActivity, boolean>> = {
+    work: false,
+    think: false,
+    delegate: false,
+    'idle-desk': false,
+    wave: false,
+    upset: false,
+    cheer: false,
+    coffee: true,
+    water: true,
+    sofa: true,
+    window: true,
+    plant: true,
+    books: true,
+  };
+  const ACTIVITIES = Object.keys(IN_LOUNGE) as MemberActivity[];
+  const LOUNGE = ACTIVITIES.filter((activity) => IN_LOUNGE[activity]);
   const rows = tableRows('### 3.3', '### 3.4', ACTIVITIES.map((activity) => `\`${activity}\``));
   /** The states a member is in while it does this: resting in the lounge, or what the engine has it do at its desk. */
   const visualsFor = (activity: MemberActivity) => (LOUNGE.includes(activity) ? (['idle'] as const) : VISUAL_STATES.filter((state) => deskActivity(state) === activity));

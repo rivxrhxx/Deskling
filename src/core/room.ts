@@ -104,6 +104,7 @@ const spots = {
   'sofa-2': { at: { x: 0.5, y: 8 }, face: 'front-right', furniture: 'sofa' },
   window: { at: { x: 0.85, y: 3.5 }, face: 'back-left' },
   plant: { at: { x: 1.35, y: 9.3 }, face: 'back-left', furniture: 'plant-2' },
+  books: { at: { x: 1.15, y: 10.8 }, face: 'back-left', furniture: 'bookshelf' },
   door: { at: { x: 12.4, y: 0.75 }, face: 'front-left' },
   /** Beyond the door, outside the room: characters here are not drawn. */
   outside: { at: { x: 12.4, y: -0.8 }, face: 'back-right' },
@@ -114,8 +115,8 @@ export const SPOTS: Readonly<Record<SpotId, Spot>> = spots;
 /** The eight desks, taken lowest first. A desk's spot is its chair. */
 export const DESK_IDS = ['desk-1', 'desk-2', 'desk-3', 'desk-4', 'desk-5', 'desk-6', 'desk-7', 'desk-8'] as const satisfies readonly SpotId[];
 export type DeskId = (typeof DESK_IDS)[number];
-/** Where idle members rest. */
-export const LOUNGE_SPOTS = ['coffee', 'water', 'sofa-1', 'sofa-2', 'window', 'plant'] as const satisfies readonly SpotId[];
+/** Where idle members rest, moving from one to another now and then (ADR-027 §1). */
+export const LOUNGE_SPOTS = ['coffee', 'water', 'sofa-1', 'sofa-2', 'window', 'plant', 'books'] as const satisfies readonly SpotId[];
 export type LoungeSpot = (typeof LOUNGE_SPOTS)[number];
 
 export const isOutside = (tile: Tile) => tile.y < 0;
