@@ -1,6 +1,6 @@
 # PROJECT_STATE
 
-_마지막 갱신: 2026-11-18_
+_마지막 갱신: 2026-11-19_
 
 ## 현재 단계
 
@@ -21,7 +21,8 @@ _마지막 갱신: 2026-11-18_
   사용자 동의를 받아 2026-11-19 설치(백업 `~/.codex/hooks.json.deskling-backup-20261119-142545`, 기존 훅 핸들러 20개 그대로). **사용자가 Codex에서 `/hooks`로 신뢰해야 실행된다.**
   제거는 `npm run hooks:codex:uninstall`.
 - 이벤트 규격은 v3(v2 `usage.reported`, v3 `claude-code`·`codex` 종류와 `session.message`). 방 모양은 ADR-019가 ADR-017을 대체했다(이전 400×260 디오라마).
-- Hermes·Codex와는 아직 실제로 연결되지 않았다(데모로 표현). 데모가 보이는 동안에는 항상 DEMO 배지를 보인다.
+- 실제 연결은 Claude Code와 Codex. Hermes 등 다른 에이전트는 아직 연결되지 않았다(데모로 표현). 데모가 보이는 동안에는 항상 DEMO 배지를 보인다.
+- 프로젝트 문서(PRODUCT·ARCHITECTURE·ACCEPTANCE·TEST_PLAN·EVENT_PROTOCOL §3.2)를 사무실·실제 연결 기준으로 다시 썼고, Claude Code용 `CLAUDE.md`(AGENTS.md를 불러옴 + 문서 지도)를 추가했다.
 
 ## 환경 (2026-11-18 확인)
 
@@ -77,21 +78,20 @@ _마지막 갱신: 2026-11-18_
 
 ## 알려진 문제 / 메모
 
-- **세션 교차(ADR-014):** 리듀서는 마지막 세션 하나의 `(session, seq)`만 기억한다. Hermes adapter ADR에서 반드시 결정.
+- **실제 연결의 한계:** 훅은 메시지 받는 쪽을 알려주지 않아 실제 세션 사이 메시지는 편지로만 보인다. Codex 웹 검색 등 호스팅 도구는 훅을 지나지 않는다.
+  Claude Code·Codex의 토큰 수치는 읽지 않으므로 에너지·화남은 표시 없음. 세션이 비정상 종료되면 SessionEnd가 없어 직원이 앱을 다시 켤 때까지 남을 수 있다.
+- **Codex 훅 신뢰:** Codex는 새 훅을 사용자가 `/hooks`에서 신뢰해야 실행한다. 이미 열린 Codex 세션은 다시 시작해야 할 수 있다.
 - **전체 화면 앱 위 표시:** `visibleOnAllWorkspaces`만으로는 다른 앱의 전체 화면 Space 위에 뜨지 않는다. 그때 WebKit은 페이지를
   `hidden`으로 보고 그리기를 멈춘다(DOM 프로브에서 visible/hidden 전환 관찰). 필요하면 full-screen auxiliary 동작을 백로그에서 검토.
 - **dev 의존성 advisory:** `npm audit`이 picomatch ≤ 4.0.7 ReDoS(GHSA-fc5q-39xc-vjpf)를 vite·vitest·typescript-eslint 경유로 보고한다.
   dev 전용이며 `npm audit --omit=dev`는 0건. 4.0.7이 최신이라 패치 버전이 나오면 `overrides`로 올린다.
 - TypeScript는 typescript-eslint 호환 때문에 6.0.x 고정(ADR-002). npm 10.9는 Vitest 5 설치 시 arborist 버그가 있어 Node 24의 npm 11 사용(ADR-013).
 - DMG는 만들지 않는다(`--bundles app`). DMG 생성은 Finder AppleScript를 쓰기 때문.
-- **리뷰에서 받아들인 것(M9):** 데모 시나리오를 바꾸면 새 피드가 사실 없는 상태(offline)로 시작해, 그 순간 생활 엔진도 offline을 한 번 본다
-  (손님이 나가고 헤르메스가 하던 일상을 바꿀 수 있음). "사실만 반영" 원칙과 맞아 그대로 둔다.
-  헤르메스가 침대·샤워·소파 그룹을 드나들 때 스프라이트가 다시 마운트되어 이모트 흔들림이 처음부터 시작된다.
-  소파 옆을 걸어 지날 때 한순간 팔걸이가 다리 위에 그려질 수 있다(가구 하나에 깊이 하나). 짜증(annoyed)이면 작업 이모트 대신 땀 이모트가 보인다(DESIGN §3.2 우선순위).
+- **리뷰에서 받아들인 것:** 보기·데모 시나리오를 바꾸면 새 피드가 빈 사무실에서 시작한다("사실만 반영"). 짜증(annoyed)이면 작업 이모트 대신 땀 이모트가 보인다(DESIGN §3.2 우선순위).
 
 ## 다음 작업
 
-1. Hermes Agent adapter ADR — 전송 방식, 위치(Rust/TS), 세션 교차 규칙(ADR-014), 인증. `usage.reported` 매핑 포함.
-2. 사람이 직접: `npm run tauri dev`로 드래그·핀·크기·모션 버튼, 예산 선택, 이름·쓰다듬기·간식을 눌러 TEST_PLAN §5의 남은 항목 확인.
-3. 키우기 다듬기 후보(요청 시): 성장 순간 축하 연출, 더 많은 소품, 애정도에 따른 반응 차이.
-4. 백로그: 메뉴 막대 아이콘, 창 위치 기억, 클릭 통과 모드, 전체 화면 Space 위 표시.
+1. 사무실 움직임 더하기(사용자 요청 2026-11-19): 대기 중 직원이 라운지를 돌아다니고, 걷기·일하기·쉬기에 작은 애니메이션. reduced-motion에서는 꺼짐.
+2. 사람이 직접: 실제 Codex 세션 입장(`/hooks` 신뢰 후), 드래그·핀·크기·모션 버튼 — TEST_PLAN §5의 남은 항목.
+3. Hermes Agent adapter ADR — 전송 방식(같은 소켓 + 새 agent 값 / 별도 경로), 인증, `usage.reported` 매핑.
+4. 백로그: 메뉴 막대 아이콘, 창 위치 기억, 클릭 통과 모드, 전체 화면 Space 위 표시, 비정상 종료 세션 정리.

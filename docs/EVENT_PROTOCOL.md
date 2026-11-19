@@ -61,13 +61,19 @@ Deskling이 이해하는 유일한 입력 형식. provider(Hermes Agent 등)에 
 | `usage.reported` | 사용량 보고(v2) — 활동이 아니라 계측값 | `usage` |
 | `session.message` | 이 세션이 다른 세션에 메시지를 보냄(v3, ADR-023). 본문·제목 없음 | `to`(선택) |
 
-### 3.2 세션 종류와 캐릭터 (v3, ADR-022)
+### 3.2 세션 종류와 직원 (v3, ADR-022 → ADR-025)
 
-| `source.kind` | 캐릭터 | 비고 |
-| --- | --- | --- |
-| `hermes`, `demo`, `custom` | 집주인 헤르메스 | 이 종류 중 가장 최근에 이벤트를 받은 세션이 헤르메스를 움직인다 |
-| `claude-code` | Claude 친구 | 세션마다 한 명, 같은 종류 안에서 번호(1, 2, …) |
-| `codex` | Codex 친구 | 세션마다 한 명 |
+모든 세션이 사무실 직원 한 명이다(집주인 없음). 종류는 직원의 **모습과 이름표만** 정하고 행동 규칙은 모두 같다.
+
+| `source.kind` | 이름표 | 모습 | 실제 연결 |
+| --- | --- | --- | --- |
+| `claude-code` | Claude n | `claude` | Claude Code 훅(ADR-024) |
+| `codex` | Codex n | `codex` | Codex 훅(ADR-026) |
+| `hermes` | Hermes n | `agent` | 아직 없음 |
+| `demo` | 데모 n | `agent` | 데모 adapter |
+| `custom` | 에이전트 n | `agent` | — |
+
+번호 n은 같은 종류 안에서 도착 순서로 붙는다(1, 2, …). (원래 `hermes`·`demo`·`custom` = 집주인 헤르메스 한 명 → ADR-025 §1로 대체)
 
 ### 3.1 `usage.reported` (v2)
 
