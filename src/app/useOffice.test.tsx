@@ -5,7 +5,7 @@ import { CHAT_MS } from '../core/office';
 import type { Tile } from '../core/room';
 import { LOUNGE_SPOTS, SPOTS } from '../core/room';
 import type { UseOfficeOptions } from './useOffice';
-import { OFFICE_TICK_MS, useOffice } from './useOffice';
+import { GLIDE_TICK_MS, OFFICE_TICK_MS, useOffice } from './useOffice';
 
 let clock = 1_000_000;
 const now = () => clock;
@@ -166,5 +166,50 @@ describe('useOffice (ADR-025 §3)', () => {
     const { unmount } = setup({ members: [A] });
     unmount();
     expect(vi.getTimerCount()).toBe(0);
+  });
+});
+
+describe('gliding walks (ADR-027 §2)', () => {
+  it('while someone walks, the walk is read again every 50 ms, between the 300 ms steps', () => {
+    expect(GLIDE_TICK_MS).toBe(50);
+    const { result } = setup({ members: [A] });
+    advance(OFFICE_TICK_MS);
+    const stepped = result.current;
+    expect(stepped.members[0]?.walking).toBe(true);
+    const seen = [stepped.members[0]?.at];
+    for (let i = 0; i < 5; i += 1) {
+      advance(GLIDE_TICK_MS);
+      seen.push(result.current.members[0]?.at);
+      // Only the steps flip the walking frame; a glide only moves.
+      expect(result.current.frame).toBe(stepped.frame);
+    }
+    for (let i = 1; i < seen.length; i += 1) expect(seen[i], `glide ${i}`).not.toEqual(seen[i - 1]);
+  });
+
+  it('glides along the same walk the steps follow, ending where the step would put it', () => {
+    const glided = setup({ members: [A] });
+    for (let i = 0; i < 60; i += 1) advance(GLIDE_TICK_MS);
+    const at = glided.result.current.members[0]?.at;
+    glided.unmount();
+    clock = 1_000_000;
+    // The same moment read by a step alone: the hook re-steps on a change of facts.
+    const stepped = setup({ members: [A] });
+    advance(3_000);
+    expect(at).toEqual(stepped.result.current.members[0]?.at);
+  });
+
+  it('has no glide timer while nobody walks', () => {
+    const { result } = setup({ members: [A] });
+    advance(15_000);
+    expect(result.current.members[0]).toMatchObject({ walking: false, at: SPOTS['desk-1'].at });
+    expect(vi.getTimerCount()).toBe(1);
+    const empty = setup();
+    expect(empty.result.current.members).toEqual([]);
+    expect(vi.getTimerCount()).toBe(2);
+  });
+
+  it('has no glide timer with reduced motion', () => {
+    setup({ members: [A], reducedMotion: true });
+    expect(vi.getTimerCount()).toBe(1);
   });
 });

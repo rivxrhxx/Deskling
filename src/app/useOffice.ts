@@ -6,6 +6,8 @@ import { initialOffice, memberViewsAt, stepOffice } from '../core/office';
 export const OFFICE_TICK_MS = 300;
 /** With reduced motion nothing animates, so the schedule only needs a slow check. */
 const STILL_TICK_MS = 1000;
+/** While someone walks, how often the walk is read again between steps, so it glides instead of jumping (ADR-027 §2). */
+export const GLIDE_TICK_MS = 50;
 
 export interface UseOfficeOptions {
   /** Sessions present, in arrival order (ADR-025 §1). */
@@ -60,6 +62,16 @@ export function useOffice({ members, conversations, reducedMotion, seed, now = m
     }));
   }, []);
 
+  // Between steps, a walk is read again at a later moment of the same state: positions only, nothing is stepped.
+  const [glideAt, setGlideAt] = useState<number | null>(null);
+  const views = memberViewsAt(clocked.office, Math.max(clocked.at, glideAt ?? clocked.at));
+  const gliding = !reducedMotion && views.some((view) => view.walking);
+  useEffect(() => {
+    if (!gliding) return;
+    const id = setInterval(() => setGlideAt(input.current.now()), GLIDE_TICK_MS);
+    return () => clearInterval(id);
+  }, [gliding]);
+
   // Keyed on values, not on the arrays: callers build fresh arrays every render.
   const who = members.map((m) => `${m.key}\u0000${m.visual}`).join('\u0001');
   const newestMessage = conversations?.reduce((max, c) => Math.max(max, c.key), -1) ?? null;
@@ -72,5 +84,5 @@ export function useOffice({ members, conversations, reducedMotion, seed, now = m
     return () => clearInterval(id);
   }, [reducedMotion, advance]);
 
-  return { members: memberViewsAt(clocked.office, clocked.at), frame: clocked.frame };
+  return { members: views, frame: clocked.frame };
 }
