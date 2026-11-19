@@ -3,7 +3,7 @@
 AI 에이전트 세션들이 실제로 일하는 모습을, 바탕화면에 박힌 작은 아이소메트릭 픽셀 **사무실**의 직원들로 보여주는 macOS 데스크톱 앱.
 
 > **상태:** 사무실 사회(세션마다 직원 한 명), 세션 사이 대화, 사무실 성장, 활동 패널, 창 설정이 동작한다.
-> **Claude Code는 실제로 연결된다**(훅 → 앱, 동의 후 설치). Codex·Hermes 등의 실제 연결은 아직이며, 그 부분은 결정적 **데모**("사무실 하루")로 보여준다. 데모가 보이는 동안에는 항상 `DEMO` 배지가 표시된다.
+> **Claude Code와 Codex는 실제로 연결된다**(각자의 훅 → 앱, 동의 후 설치). Hermes 등 다른 에이전트의 실제 연결은 아직이며, 그 부분은 결정적 **데모**("사무실 하루")로 보여준다. 데모가 보이는 동안에는 항상 `DEMO` 배지가 표시된다.
 > 진행 상황과 검증 기록은 [PROJECT_STATE.md](PROJECT_STATE.md)에 있다.
 
 ![사무실 — 책상에서 일하는 직원들, 라운지, 도우미 봇, 해금된 소품](docs/images/room-moods.png)
@@ -41,6 +41,20 @@ npm run hooks:uninstall  # Deskling 항목만 제거
 - 패널의 **보기: 자동 / 실제 / 데모** — 자동은 실제 세션이 말하기 전까지 데모를 보여 주다가 실제 사무실로 바뀐다(DEMO 배지 사라짐).
 - Claude Code는 토큰·컨텍스트 수치를 대화 기록에서만 얻을 수 있어 읽지 않는다. 그래서 Claude 직원의 에너지·화남은 표시하지 않는다.
 - 자세한 매핑: [docs/integrations/CLAUDE_CODE.md](docs/integrations/CLAUDE_CODE.md).
+
+### Codex 연결
+
+Codex 세션도 같은 방식으로 사무실에 들어온다(`~/.codex/hooks.json`에 Deskling 항목만 덧붙이고, 먼저 백업).
+
+```bash
+npm run hooks:codex:status     # 설치 여부·훅 기능 켜짐·소켓 확인
+npm run hooks:codex:install    # 백업 후 설치
+npm run hooks:codex:uninstall  # Deskling 항목만 제거
+```
+
+- **설치 후 한 번:** Codex는 새로 추가된 훅을 사용자가 신뢰해야 실행한다. Codex를 열고 `/hooks`에서 Deskling 훅을 신뢰한다.
+- 보내는 것은 세션 ID·이벤트 종류·도구 범주(터미널/코드/위임)뿐이다. 프롬프트·명령·패치 내용·응답은 읽지도 보내지도 않는다.
+- 웹 검색 같은 호스팅 도구는 Codex 훅에 잡히지 않아 표시되지 않는다. 자세한 매핑: [docs/integrations/CODEX.md](docs/integrations/CODEX.md).
 
 ### 직원의 상태
 
@@ -92,17 +106,18 @@ npm run tauri dev      # 네이티브 오버레이 창 실행
 | `npm run tauri dev` | 개발 모드로 앱 실행 |
 | `npm run build:app` | macOS 앱 번들 빌드 → `src-tauri/target/release/bundle/macos/Deskling.app` |
 | `npm run hooks:status` / `hooks:install` / `hooks:uninstall` | Claude Code 훅 확인·설치(백업)·제거 |
+| `npm run hooks:codex:status` / `hooks:codex:install` / `hooks:codex:uninstall` | Codex 훅 확인·설치(백업)·제거 |
 
 ## 구조
 
 ```
 src/core/       이벤트 규격·정규화·리듀서 (순수 TS)
-src/adapters/   이벤트 소스 (demo, claudeCode; 향후 Hermes·Codex)
+src/adapters/   이벤트 소스 (demo, claudeCode — Claude Code·Codex 훅 레코드; 향후 Hermes)
 src/platform/   Tauri 창 API·이벤트 수신 래퍼
 src/app/        조립·설정
 src/ui/         사무실 장면과 패널 컴포넌트
 src-tauri/      Tauri 2 / Rust 셸, 훅 레코드 Unix 소켓 브리지
-integrations/   Claude Code 훅 스크립트와 설치기
+integrations/   Claude Code·Codex 훅 스크립트와 설치기
 docs/           제품·요구사항·설계·테스트 문서
 ```
 

@@ -144,7 +144,7 @@
 - [x] **T82** ADR-026, TASKS
 - [x] **T83** Codex 훅 스크립트·매핑, 레코드 `agent: codex`·`interrupt`, Rust 브리지·TS 번역기 확장
 - [x] **T84** Codex 설치기(`~/.codex/hooks.json`, 백업·덧붙이기·되돌리기) + 문서
-- [ ] **T85** 동의 후 설치, `/hooks` 신뢰 안내, 실제 Codex 세션으로 확인, verify·build·push
+- [x] **T85** 동의 후 설치, `/hooks` 신뢰 안내, 실제 Codex 세션으로 확인, verify·build·push
 
 ## 백로그 (vertical slice 이후, 각각 ADR 먼저)
 

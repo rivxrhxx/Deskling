@@ -4,7 +4,7 @@ _마지막 갱신: 2026-11-18_
 
 ## 현재 단계
 
-- **M0–M12 완료.** vertical slice, MVP 화면, 독립 리뷰 반영(T34), 생활감(M7: 에너지·화남·침대·하루 일과 데모),
+- **M0–M13 완료.** vertical slice, MVP 화면, 독립 리뷰 반영(T34), 생활감(M7: 에너지·화남·침대·하루 일과 데모),
   키우기(M8: 완료한 작업 = 경험치, 아기→어린이→어른, 방 꾸미기 해금, 이름·쓰다듬기·간식)가 동작한다.
 - **M9 미니룸(ADR-019~021):** 어두운 작업실을 밝은 아이소메트릭 픽셀 미니룸으로 교체했다. 헤르메스가 방을 걸어 다니며 대기 중 일상(샤워·밥·TV·책·창밖·스트레칭·물주기·낮잠·친구 초대)을 살고,
   에이전트 상태가 필수 행동을 정한다(작업 → 책상, 승인 대기 → 방 앞에서 손 흔들기, 위임 → 친구 도우미, 오프라인 → 불 끄고 잠). 일상은 펫의 생활이며 에이전트에 대한 주장이 아니다(ADR-020).
@@ -17,6 +17,9 @@ _마지막 갱신: 2026-11-18_
 - **M12 사무실 사회(ADR-025):** 침실·헤르메스·펫 키우기를 걷어내고 원본 아이소메트릭 픽셀 사무실(640×440, 책상 8개, 회의 테이블, 커피머신, 정수기, 소파, 책장, 화이트보드, 프린터)로 바꿨다.
   모든 세션이 직원 한 명 — 책상에서 자기 상태대로 일하고, 승인 대기면 손 흔들고, 대기면 라운지로 가서 쉬고, 끝나면 나간다. 격자 A* 걷기. 말풍선은 사무실 요약이자 패널 버튼.
   세션별 에너지·화남, 사무실 성장(소품 해금), 직원 모습 3종(Claude·Codex·에이전트). 데모 "사무실 하루".
+- **M13 Codex 실제 연결(ADR-026):** Codex 훅(`~/.codex/hooks.json`) → Codex 훅 스크립트 → 같은 Unix 소켓 → Rust(agent `codex`, 이벤트 `interrupt`) → 번역기(kind `codex`).
+  사용자 동의를 받아 2026-11-19 설치(백업 `~/.codex/hooks.json.deskling-backup-20261119-142545`, 기존 훅 핸들러 20개 그대로). **사용자가 Codex에서 `/hooks`로 신뢰해야 실행된다.**
+  제거는 `npm run hooks:codex:uninstall`.
 - 이벤트 규격은 v3(v2 `usage.reported`, v3 `claude-code`·`codex` 종류와 `session.message`). 방 모양은 ADR-019가 ADR-017을 대체했다(이전 400×260 디오라마).
 - Hermes·Codex와는 아직 실제로 연결되지 않았다(데모로 표현). 데모가 보이는 동안에는 항상 DEMO 배지를 보인다.
 
@@ -34,12 +37,15 @@ _마지막 갱신: 2026-11-18_
 
 | 명령 | 결과 |
 | --- | --- |
-| `npm run verify` (Node 24) | 통과 — typecheck, lint(경고 0), **1443 tests / 38 files**, vite build, cargo fmt·clippy(`-D warnings`)·**test 21개** (M12 완료 시점, 2026-11-19) |
+| `npm run verify` (Node 24) | 통과 — typecheck, lint(경고 0), **1655 tests**, vite build, cargo fmt·clippy(`-D warnings`)·**test 23개** (M13 완료 시점, 2026-11-19) |
 | `npm run verify:fast` (Node 23.11) | 통과 — 334 tests (T34 이전 시점). Node 23은 EBADENGINE 경고만 남 |
 | `npm run build:app` | 통과 — `src-tauri/target/release/bundle/macos/Deskling.app` (9.7 MiB, arm64, 번들 ad-hoc 서명 + hardened runtime, `codesign --verify --deep --strict` 통과, M9 실행·렌더링·바탕화면 층 확인, 2026-11-19) |
 | `npm run tauri dev` | 실행됨 — 투명 창, layer 5(항상 위), M6 시점 11개 상태 네이티브 캡처, M7은 DOM 프로브 |
 
 ### 네이티브 확인 내역
+
+- **M13 (release 번들 + Codex 경로):** 설치된 Codex 훅 스크립트에 시험용 세션 페이로드(SessionStart·UserPromptSubmit·PreToolUse Bash)를 직접 넣어
+  실제 앱이 Codex 1 직원을 1번 책상에 터미널 작업으로 앉히는 것을 창 캡처로 확인, 이어 SessionEnd로 내보냄. 실제 Codex 세션은 사용자가 `/hooks`로 신뢰한 뒤부터 들어온다.
 
 - **M12 (release 번들 + 실제 Claude Code):** 사무실 창이 바탕화면 층(layer −1)에 뜨고, 이 개발 세션이 Claude 1 직원으로 1번 책상에 앉아 터미널 작업 중인 것과
   요약 말풍선 "1명 일하는 중"을 창 캡처로 확인(자동 모드 → 실제 사무실, DEMO 배지 없음). 패널 세션 줄이 글자를 한 글자씩 세로로 접던 문제를 WebKit 렌더에서 발견해 고쳤다.
