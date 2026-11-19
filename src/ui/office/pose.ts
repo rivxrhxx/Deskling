@@ -31,6 +31,14 @@ export function beatOf(key: string): number {
   return ((hash >>> 0) % 1000) / 1000;
 }
 
+/** A level badge's plate (ADR-028 §3): Lv1–4 rookie (white), Lv5–9 pro (sky), Lv10 and up star (gold). */
+export type LevelTier = 'rookie' | 'pro' | 'star';
+
+export function levelTier(level: number): LevelTier {
+  if (level >= 10) return 'star';
+  return level >= 5 ? 'pro' : 'rookie';
+}
+
 /** Desks whose chair has its back to the viewer, so we see the monitor beyond the member (1, 2, 5, 6). */
 export const deskFacesAway = (desk: DeskId) => SPOTS[desk].face.startsWith('back');
 

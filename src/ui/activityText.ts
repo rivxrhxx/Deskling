@@ -1,6 +1,6 @@
 import type { ToolCategory } from '../core/agentEvent';
 import type { RecentEntry } from '../core/agentState';
-import type { OfficeDecorId } from '../core/growth';
+import type { MemberLevel, OfficeDecorId } from '../core/growth';
 import type { Vitals } from '../core/mood';
 import type { OfficeCounts, RoomEntry } from '../core/roomState';
 import { sessionLabel } from '../core/roomState';
@@ -99,6 +99,11 @@ export function describeUsage(vitals: Vitals): string | null {
   if (vitals.energy.remaining !== null) parts.push(`남은 ${formatTokens(vitals.energy.remaining)}`);
   if (vitals.anger.ratio !== null) parts.push(`컨텍스트 ${Math.round(vitals.anger.ratio * 100)}%`);
   return parts.length > 0 ? parts.join(' · ') : null;
+}
+
+/** A member's level in fixed copy (ADR-028 §5): "Lv 3 · 다음까지 2", or "Lv 99 · 최고" at the top. */
+export function describeLevel(level: MemberLevel): string {
+  return level.next === null ? `Lv ${level.level} · 최고` : `Lv ${level.level} · 다음까지 ${level.next - level.xp}`;
 }
 
 /** Which part of the office summary leads, most urgent first (ADR-025 §5). */

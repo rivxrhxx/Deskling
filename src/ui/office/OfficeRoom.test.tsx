@@ -197,6 +197,13 @@ describe('memberEmote (ADR-025 §3, §6; ADR-023)', () => {
     [{ chat: 'talk' }, 'talk'],
     [{ chat: 'letter', visual: 'waiting-approval', activity: 'wave' }, 'letter'],
     [{ chat: 'talk', anger: 'furious' }, 'talk'],
+    // A level-up (ADR-028 §4): after a conversation and what the user is needed for, before everything else.
+    [{ levelUp: true, visual: 'success', activity: 'cheer' }, 'level-up'],
+    [{ levelUp: true, walking: true }, 'level-up'],
+    [{ levelUp: true, anger: 'furious', energy: 'empty' }, 'level-up'],
+    [{ levelUp: true, chat: 'talk' }, 'talk'],
+    [{ levelUp: true, visual: 'waiting-approval', activity: 'wave' }, 'exclaim-amber'],
+    [{ levelUp: true, visual: 'error', activity: 'upset' }, 'exclaim-ember'],
   ] as const)('%j → %s', (overrides, emote) => {
     expect(memberEmote({ ...base, ...overrides })).toBe(emote);
   });
@@ -206,9 +213,54 @@ describe('memberEmote (ADR-025 §3, §6; ADR-023)', () => {
   });
 
   it('only names emotes that exist', () => {
-    for (const id of ['dots', 'code', 'globe', 'prompt', 'folder', 'arrow', 'sparkle', 'coffee', 'talk', 'letter', 'steam', 'vein', 'battery', 'sweat', 'exclaim-amber', 'exclaim-ember']) {
+    for (const id of ['dots', 'code', 'globe', 'prompt', 'folder', 'arrow', 'sparkle', 'coffee', 'talk', 'letter', 'steam', 'vein', 'battery', 'sweat', 'exclaim-amber', 'exclaim-ember', 'level-up']) {
       expect(EMOTES, id).toHaveProperty(id);
     }
+  });
+});
+
+describe('member levels in the scene (ADR-028 §3–§4)', () => {
+  const badgeOf = (svg: Element, desk: DeskId) => svg.querySelector(`[data-part="member"][data-desk="${desk}"] [data-part="level"]`);
+
+  it('gives every member a badge with its own level', () => {
+    const svg = office({ members: [member('desk-1', 'coding', { level: 3 }), member('desk-2', 'idle'), member('desk-3', 'thinking', { level: 12 })] });
+    expect(badgeOf(svg, 'desk-1')).toHaveAttribute('data-level', '3');
+    expect(badgeOf(svg, 'desk-2')).toHaveAttribute('data-level', '1');
+    expect(badgeOf(svg, 'desk-3')).toHaveAttribute('data-level', '12');
+    expect(badgeOf(svg, 'desk-1')?.querySelectorAll('path').length).toBeGreaterThan(0);
+  });
+
+  it('widens the badge for a two-digit level', () => {
+    const svg = office({ members: [member('desk-1', 'coding', { level: 9 }), member('desk-2', 'coding', { level: 10 })] });
+    const width = (desk: DeskId) => Number(badgeOf(svg, desk)?.querySelector('rect')?.getAttribute('width'));
+    expect(width('desk-2')).toBeGreaterThan(width('desk-1'));
+  });
+
+  it.each([
+    [1, 'rookie'],
+    [4, 'rookie'],
+    [5, 'pro'],
+    [9, 'pro'],
+    [10, 'star'],
+    [99, 'star'],
+  ])('Lv %i wears the %s plate', (level, tier) => {
+    const svg = office({ members: [member('desk-1', 'coding', { level })] });
+    expect(badgeOf(svg, 'desk-1')).toHaveAttribute('data-tier', tier);
+  });
+
+  it('draws the level in pixels: the scene holds no text but its title', () => {
+    const svg = office({ members: [member('desk-1', 'coding', { level: 42 })] });
+    expect(svg.textContent).toBe('사무실 — 1명');
+  });
+
+  it('shows LEVEL UP over the head and makes the badge shine while the level has just risen', () => {
+    const svg = office({ members: [member('desk-1', 'success', { activity: 'cheer', level: 5, levelUp: true }), member('desk-2', 'coding')] });
+    const up = svg.querySelector('[data-part="member"][data-desk="desk-1"]');
+    expect(up).toHaveAttribute('data-level-up', 'true');
+    expect(up?.querySelector('[data-part="emote"]')).toHaveAttribute('data-emote', 'level-up');
+    expect(badgeOf(svg, 'desk-1')).toHaveAttribute('data-shine', 'true');
+    expect(svg.querySelector('[data-part="member"][data-desk="desk-2"]')).toHaveAttribute('data-level-up', 'false');
+    expect(badgeOf(svg, 'desk-2')).toHaveAttribute('data-shine', 'false');
   });
 });
 

@@ -11,6 +11,8 @@ export interface EmoteInput {
   /** The session's own vitals (ADR-016); unreported is `unknown`. */
   readonly energy?: EnergyLevel;
   readonly anger?: AngerLevel;
+  /** The member's level has just risen (ADR-028 §4). */
+  readonly levelUp?: boolean;
 }
 
 /** Work signs at the desk, by the tool in use. */
@@ -23,12 +25,13 @@ const WORK_EMOTE: Partial<Record<VisualState, string>> = {
 
 /**
  * One pixel sign over a member's head (DESIGN §3.3, §4.1). Priority:
- * a conversation > what the user is needed for > anger > no energy left > walking (nothing) > its work > a coffee break.
+ * a conversation > what the user is needed for > a level-up > anger > no energy left > walking (nothing) > its work > a coffee break.
  */
-export function memberEmote({ visual, activity, walking, chat, energy = 'unknown', anger = 'unknown' }: EmoteInput): string | null {
+export function memberEmote({ visual, activity, walking, chat, energy = 'unknown', anger = 'unknown', levelUp = false }: EmoteInput): string | null {
   if (chat) return chat;
   if (activity === 'wave') return 'exclaim-amber';
   if (activity === 'upset') return 'exclaim-ember';
+  if (levelUp) return 'level-up';
   if (anger === 'furious') return 'steam';
   if (anger === 'angry') return 'vein';
   if (energy === 'empty') return 'battery';

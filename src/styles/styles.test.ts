@@ -78,6 +78,13 @@ describe('stylesheet contract', () => {
     expect(officeCss).toMatch(/\.plant-sway\s*\{[^}]*animation:\s*leaf-sway/);
   });
 
+  it('lifts the LEVEL UP sign and makes a new level’s badge shine (ADR-028 §4)', () => {
+    expect(officeCss).toMatch(/\.emote\[data-emote="level-up"\]\s*\{[^}]*animation:\s*level-rise/);
+    expect(officeCss).toMatch(/\.level-badge\[data-shine="true"\]\s*\{[^}]*animation:\s*badge-shine/);
+    expect(officeCss).toMatch(/@keyframes level-rise\b/);
+    expect(officeCss).toMatch(/@keyframes badge-shine\b/);
+  });
+
   it('dims chips that are disabled or aria-disabled alike', () => {
     expect(appCss).toMatch(/\.chip:disabled,\s*\.chip\[aria-disabled='true'\]\s*\{[^}]*opacity:\s*0\.45/);
   });

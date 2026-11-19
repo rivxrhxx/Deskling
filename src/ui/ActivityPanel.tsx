@@ -1,11 +1,11 @@
 import { useEffect, useRef } from 'react';
 import type { SourceKind, VisualState } from '../core/agentEvent';
-import type { OfficeDecorId } from '../core/growth';
+import type { MemberLevel, OfficeDecorId } from '../core/growth';
 import { OFFICE_DECOR } from '../core/growth';
 import type { Vitals } from '../core/mood';
 import type { RoomEntry } from '../core/roomState';
 import { sessionLabel } from '../core/roomState';
-import { DECOR_LABEL, activityKind, describeRoomActivity, describeUsage, formatClock, formatTokens } from './activityText';
+import { DECOR_LABEL, activityKind, describeLevel, describeRoomActivity, describeUsage, formatClock, formatTokens } from './activityText';
 import { StateIcon } from './icons';
 import { VISUAL_SPEC } from './visualSpec';
 
@@ -44,6 +44,8 @@ export interface PanelSession {
   readonly seated: boolean;
   /** The member's own energy and context readings (ADR-025 §6). Numbers show only where reported. */
   readonly vitals?: Vitals;
+  /** The member's level from its own completed tasks (ADR-028 §5). */
+  readonly level?: MemberLevel;
 }
 
 export interface ActivityPanelProps {
@@ -101,6 +103,7 @@ function SessionsSection({ sessions, budget }: { sessions: readonly PanelSession
               >
                 <span className="session__dot" aria-hidden="true" />
                 <span className="session__name">{sessionLabel(session)}</span>
+                {session.level && <span className="session__level">{describeLevel(session.level)}</span>}
                 <span className="session__state">{spec.label}</span>
                 {usage && <span className="session__usage">{usage}</span>}
                 {!session.seated && <span className="session__away">(자리 없음)</span>}

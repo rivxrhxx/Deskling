@@ -212,7 +212,12 @@ export function App({ source: providedSource, controls: providedControls, storag
         {panelOpen && (
           <ActivityPanel
             entries={room.recent}
-            sessions={members.map((member, index) => ({ ...member, seated: index < DESK_IDS.length, vitals: vitals[member.key] }))}
+            sessions={members.map((member, index) => ({
+              ...member,
+              seated: index < DESK_IDS.length,
+              vitals: vitals[member.key],
+              level: memberLevel(memberXp(member.key)),
+            }))}
             onClose={closePanel}
             office={{ xp: progress.xp, decor: progress.decor, next: progress.next, demo: source.mode === 'demo' }}
             budget={{

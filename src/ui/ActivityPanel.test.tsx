@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import type { RecentEntry } from '../core/agentState';
 import { EVENT_TYPES, TOOL_CATEGORIES } from '../core/agentEvent';
+import { memberLevel } from '../core/growth';
 import { deriveVitals } from '../core/mood';
 import type { RoomEntry } from '../core/roomState';
 import type { PanelSession } from './ActivityPanel';
@@ -284,6 +285,24 @@ describe('ActivityPanel sessions in the office (FR-MS6, FR-V5, FR-V6)', () => {
     expect(within(select).getAllByRole('option').map((o) => o.textContent)).toEqual(['50k', '100k', '200k', '500k', '1M']);
     await userEvent.selectOptions(select, '500k');
     expect(onChange).toHaveBeenCalledWith(500_000);
+  });
+
+  it('shows each member’s level and how far the next one is, when given (ADR-028 §5)', () => {
+    const levelled: PanelSession[] = [
+      { ...sessions[0]!, level: memberLevel(0) },
+      { ...sessions[1]!, level: memberLevel(4) },
+      { ...sessions[2]!, level: memberLevel(4851) },
+      sessions[3]!,
+    ];
+    render(<ActivityPanel entries={entries} onClose={vi.fn()} formatTime={formatTime} sessions={levelled} />);
+    const rows = within(group()).getAllByRole('listitem');
+    expect(rows.map((row) => row.querySelector('.session__level')?.textContent ?? null)).toEqual([
+      'Lv 1 · 다음까지 1',
+      'Lv 3 · 다음까지 2',
+      'Lv 99 · 최고',
+      null,
+    ]);
+    expect(rows[1]?.textContent).toBe('Claude 1Lv 3 · 다음까지 2승인 대기 중');
   });
 
   it('keeps the recent list separate from the session list', () => {

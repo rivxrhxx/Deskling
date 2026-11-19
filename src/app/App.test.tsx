@@ -507,9 +507,9 @@ describe('App: the office — one member per session (ADR-025 §1–§5, FR-MS*)
 
     const rows = within(screen.getByRole('group', { name: '사무실에 있는 세션' })).getAllByRole('listitem');
     expect(rows.map((row) => row.textContent)).toEqual([
-      'Claude 1코딩 중',
-      ...[2, 3, 4, 5, 6, 7, 8].map((n) => `Claude ${n}대기 중`),
-      'Claude 9대기 중(자리 없음)',
+      'Claude 1Lv 1 · 다음까지 1코딩 중',
+      ...[2, 3, 4, 5, 6, 7, 8].map((n) => `Claude ${n}Lv 1 · 다음까지 1대기 중`),
+      'Claude 9Lv 1 · 다음까지 1대기 중(자리 없음)',
     ]);
     const recent = within(screen.getByRole('list', { name: '최근 활동 목록' }));
     expect(recent.getByText('Claude 3 메시지 보냄')).toBeInTheDocument();
@@ -587,8 +587,8 @@ describe('App vitals: each member’s usage → energy/anger → its desk and th
     openPanel();
 
     const rows = within(screen.getByRole('group', { name: '사무실에 있는 세션' })).getAllByRole('listitem');
-    expect(rows[0]).toHaveTextContent('Codex 1생각 중남은 80k · 컨텍스트 78%');
-    expect(rows[1]?.textContent).toBe('Claude 1생각 중');
+    expect(rows[0]).toHaveTextContent('Codex 1Lv 1 · 다음까지 1생각 중남은 80k · 컨텍스트 78%');
+    expect(rows[1]?.textContent).toBe('Claude 1Lv 1 · 다음까지 1생각 중');
     expect(screen.getByRole('dialog')).not.toHaveTextContent('사용량 보고');
   });
 
@@ -639,6 +639,39 @@ describe('App growing the office (ADR-025 §7, FR-G1, FR-G3, FR-G6)', () => {
     expect(office()).toHaveTextContent('소품 2/6');
     expect(office()).toHaveTextContent('다음: 줄 조명 · 7');
     expect(within(office()).queryByText('DEMO')).toBeNull();
+  });
+
+  it('levels every member up on its own from its own completed tasks, and says so (ADR-028)', () => {
+    // Walks are instant, so everyone is at their desk; a level-up shows all the same.
+    mockReducedMotion(true);
+    const { live } = renderLive();
+    const memberOf = (desk: string) => scene().querySelector(`[data-part="member"][data-desk="${desk}"]`);
+    const levelAt = (desk: string) => memberOf(desk)?.querySelector('[data-part="level"]')?.getAttribute('data-level');
+    live.emit(from(claude('a'), 'turn.started'));
+    live.emit(from(codex('x'), 'turn.started'));
+    expect([levelAt('desk-1'), levelAt('desk-2')]).toEqual(['1', '1']);
+
+    completeTurns(live, [claude('a')]);
+    expect([levelAt('desk-1'), levelAt('desk-2')]).toEqual(['2', '1']);
+    expect(memberOf('desk-1')).toHaveAttribute('data-level-up', 'true');
+    expect(memberOf('desk-2')).toHaveAttribute('data-level-up', 'false');
+
+    completeTurns(live, [claude('a'), claude('a'), codex('x')]);
+    expect([levelAt('desk-1'), levelAt('desk-2')]).toEqual(['3', '2']);
+    openPanel();
+    const rows = within(screen.getByRole('group', { name: '사무실에 있는 세션' })).getAllByRole('listitem');
+    expect(rows.map((row) => row.querySelector('.session__level')?.textContent)).toEqual(['Lv 3 · 다음까지 3', 'Lv 2 · 다음까지 2']);
+  });
+
+  it('brings a returning session back at its saved level, without a level-up', () => {
+    mockReducedMotion(true);
+    const storage = fakeStorage();
+    storage.data.set('deskling.office.v1', JSON.stringify({ live: { xp: 10, members: { [memberId('claude-code:a')]: 10 } } }));
+    const { live } = renderLive(storage);
+    live.emit(from(claude('a'), 'turn.started'));
+    const member = scene().querySelector('[data-part="member"][data-desk="desk-1"]');
+    expect(member?.querySelector('[data-part="level"]')).toHaveAttribute('data-level', '5');
+    expect(member).toHaveAttribute('data-level-up', 'false');
   });
 
   it("remembers growth across restarts, carrying the pet era's XP over (and nothing else)", () => {

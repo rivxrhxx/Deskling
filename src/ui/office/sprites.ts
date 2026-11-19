@@ -1,4 +1,5 @@
 import type { Palette, PixelMap } from './pixelMap';
+import { textMap } from './pixelText';
 
 /**
  * Original pixel sprites for the office (ADR-019, ADR-025): the members' three looks, the helper bot and the emotes.
@@ -399,6 +400,10 @@ export const SPRITES: Readonly<Record<string, PixelMap>> = GUEST_SPRITES;
 export interface Emote {
   readonly map: PixelMap;
   readonly palette: Palette;
+  /** Scene units per pixel; 2 when not given. */
+  readonly scale?: number;
+  /** The colour of the one-pixel rim round the sign; white when not given. */
+  readonly rim?: string;
 }
 
 /** Little pixel signs above a head. Shapes, not text. */
@@ -429,6 +434,8 @@ export const EMOTES: Readonly<Record<string, Emote>> = {
     map: ['.w..w...', '..w..w..', '.w..w...', 'kkkkkk..', 'kuUuukkk', 'kuUuuk.k', 'kuUuukkk', '.kkkk...'],
     palette: { k: '#3b2a20', u: '#fff7ea', U: '#e8505b', w: '#e8ecf8' },
   },
+  /** A member's level has just risen (ADR-028 §4): gold pixel letters, the only words over a head. */
+  'level-up': { map: textMap('LEVEL UP!', 'y'), palette: { y: '#ffd23f' }, scale: 1.5, rim: '#7a3d0a' },
   /** A message sent to someone not in the room (ADR-023): a sealed envelope. */
   letter: {
     map: ['bbbbbbbbb', 'bLwwwwwLb', 'bwLwwwLwb', 'bwwLwLwwb', 'bwwwrwwwb', 'bbbbbbbbb'],

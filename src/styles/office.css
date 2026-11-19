@@ -126,3 +126,20 @@
   0%, 100% { transform: rotate(-1.5deg); }
   50% { transform: rotate(1.5deg); }
 }
+
+/* ---- Levels (ADR-028 §3–§4) ----------------------------------------------------------------- */
+/* LEVEL UP rises a little and fades in over the head; the new level's badge pops. Both off under data-motion="reduced". */
+.emote[data-emote="level-up"] { animation: level-rise 2.5s ease-out both; }
+.level-badge[data-shine="true"] { animation: badge-shine 0.5s ease-in-out 4 alternate; transform-box: fill-box; transform-origin: 50% 50%; }
+
+@keyframes level-rise {
+  0% { transform: translateY(4px); opacity: 0; }
+  15% { transform: translateY(0); opacity: 1; }
+  85% { transform: translateY(-3px); opacity: 1; }
+  100% { transform: translateY(-4px); opacity: 0.8; }
+}
+
+@keyframes badge-shine {
+  from { transform: scale(1); }
+  to { transform: scale(1.25); }
+}
