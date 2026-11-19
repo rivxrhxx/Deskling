@@ -1,11 +1,10 @@
 import type { AgentEvent, AgentEventSource, SourceKind, VisualState } from './agentEvent';
-import { GUEST_KINDS } from './agentEvent';
 import type { AgentFacts, AgentViewState, RecentEntry, UsageSnapshot } from './agentState';
 import { deriveVisualState, initialAgentState, RECENT_LIMIT, reduceAgentState } from './agentState';
 
 /**
- * The whole room (ADR-022, EVENT_PROTOCOL §6 v3): one view per session, keyed by `${kind}:${session}`.
- * Resident kinds (demo/hermes/custom) drive Hermes; every guest session (claude-code/codex) is one friend.
+ * The whole office (ADR-025 §1, EVENT_PROTOCOL §6 v3): one view per session, keyed by `${kind}:${session}`.
+ * Every session of every kind is one member; there is no resident.
  */
 
 export type SessionKey = string;
@@ -18,7 +17,7 @@ export interface SessionView {
   readonly key: SessionKey;
   readonly kind: SourceKind;
   readonly session: string;
-  /** Guests: 1, 2, … within their kind while present. Residents: 0. */
+  /** 1, 2, … within its kind while present. */
   readonly ordinal: number;
   readonly facts: AgentFacts;
   readonly visual: VisualState;
@@ -35,7 +34,7 @@ export interface RoomEntry extends RecentEntry {
   readonly ordinal: number;
   /** null = the sender did not say who it wrote to. */
   readonly toKey?: SessionKey | null;
-  /** The receiver as it was in the room when the message was recorded; null when unknown, absent or the sender itself. */
+  /** The receiver as it was in the office when the message was recorded; null when unknown, absent or the sender itself. */
   readonly receiver?: Pick<SessionView, 'kind' | 'ordinal'> | null;
 }
 
@@ -47,17 +46,15 @@ export interface Conversation {
 }
 
 export interface RoomViewState {
-  /** Present sessions: every online session, plus the resident session even when it is offline. */
+  /** Present sessions: every session that has not gone offline. */
   readonly sessions: Readonly<Record<SessionKey, SessionView>>;
-  /** The resident-kind session that received an event most recently (may be offline: Hermes sleeps). */
-  readonly residentKey: SessionKey | null;
-  /** Present guest sessions in arrival order. */
-  readonly guestKeys: readonly SessionKey[];
+  /** Present sessions in arrival order. */
+  readonly memberKeys: readonly SessionKey[];
   /** All sessions merged, newest first, at most RECENT_LIMIT. */
   readonly recent: readonly RoomEntry[];
   /** How many entries have ever been recorded; the source of RoomEntry keys. */
   readonly entryCount: number;
-  /** Accepted turn.succeeded across all sessions — the source of growth XP (ADR-018). */
+  /** Accepted turn.succeeded across all sessions — the source of office XP (ADR-025 §7). */
   readonly completedTurns: number;
   /** Newest first, at most CONVERSATION_LIMIT. */
   readonly conversations: readonly Conversation[];
@@ -71,8 +68,7 @@ export const ENDED_CURSOR_LIMIT = 64;
 
 export const initialRoomState: RoomViewState = Object.freeze({
   sessions: Object.freeze({}),
-  residentKey: null,
-  guestKeys: Object.freeze([]),
+  memberKeys: Object.freeze([]),
   recent: Object.freeze([]),
   entryCount: 0,
   completedTurns: 0,
@@ -80,10 +76,6 @@ export const initialRoomState: RoomViewState = Object.freeze({
   conversationCount: 0,
   endedCursors: Object.freeze({}),
 });
-
-function isGuest(kind: SourceKind): boolean {
-  return (GUEST_KINDS as readonly SourceKind[]).includes(kind);
-}
 
 function without<T>(record: Readonly<Record<SessionKey, T>>, key: SessionKey): Record<SessionKey, T> {
   return Object.fromEntries(Object.entries(record).filter(([k]) => k !== key));
@@ -162,12 +154,11 @@ export function reduceRoom(state: RoomViewState, event: AgentEvent): RoomViewSta
   const cursor = present ? present.lastSeq : state.endedCursors[key];
   if (cursor !== undefined && event.seq <= cursor) return state;
 
-  const guest = isGuest(event.source.kind);
   const view: SessionView = {
     key,
     kind: event.source.kind,
     session: event.source.session,
-    ordinal: present ? present.ordinal : guest ? nextOrdinal(state.sessions, event.source.kind) : 0,
+    ordinal: present ? present.ordinal : nextOrdinal(state.sessions, event.source.kind),
     ...advance(present, event),
     lastSeq: event.seq,
     updatedAt: event.at,
@@ -176,31 +167,22 @@ export function reduceRoom(state: RoomViewState, event: AgentEvent): RoomViewSta
   let sessions: Readonly<Record<SessionKey, SessionView>> = { ...state.sessions, [key]: view };
   // A session that re-joins is no longer ended: its live cursor takes over.
   let endedCursors = Object.hasOwn(state.endedCursors, key) ? without(state.endedCursors, key) : state.endedCursors;
-  let { residentKey, guestKeys } = state;
+  let { memberKeys } = state;
 
-  if (guest && event.type === 'agent.offline') {
-    // A friend whose session ended walks out; its cursor keeps late events out.
+  if (event.type === 'agent.offline') {
+    // A member whose session ended walks out; its cursor keeps late events out.
     sessions = without(sessions, key);
-    guestKeys = guestKeys.filter((k) => k !== key);
+    memberKeys = memberKeys.filter((k) => k !== key);
     endedCursors = withEnded(endedCursors, key, event.seq);
-  } else if (guest) {
-    if (!present) guestKeys = [...guestKeys, key];
-  } else {
-    // The latest resident session drives Hermes. One that is offline and no longer drives him leaves.
-    const previous = residentKey === null ? undefined : sessions[residentKey];
-    if (previous && previous.key !== key && previous.facts.connection === 'offline') {
-      sessions = without(sessions, previous.key);
-      endedCursors = withEnded(endedCursors, previous.key, previous.lastSeq);
-    }
-    residentKey = key;
+  } else if (!present) {
+    memberKeys = [...memberKeys, key];
   }
 
   const recorded = event.type !== 'usage.reported';
   const message = event.type === 'session.message';
   return {
     sessions,
-    residentKey,
-    guestKeys,
+    memberKeys,
     recent: recorded
       ? [toEntry(event, state.entryCount + 1, view, state.sessions), ...state.recent].slice(0, RECENT_LIMIT)
       : state.recent,
@@ -217,28 +199,54 @@ export function reduceRoom(state: RoomViewState, event: AgentEvent): RoomViewSta
   };
 }
 
-const NO_RESIDENT = Object.freeze({ visual: 'offline', usage: initialAgentState.usage, key: null } as const);
-
-/** The resident (Hermes) as the existing UI expects: visual 'offline' + empty usage when there is none. */
-export function residentView(state: RoomViewState): {
-  readonly visual: VisualState;
-  readonly usage: UsageSnapshot;
-  readonly key: SessionKey | null;
-} {
-  const resident = state.residentKey === null ? undefined : state.sessions[state.residentKey];
-  return resident ? { visual: resident.visual, usage: resident.usage, key: resident.key } : NO_RESIDENT;
-}
-
-/** Fixed display names (FR-MS1): residents are Hermes, guests are numbered within their kind. */
+/** Fixed display names (FR-MS1, ADR-025 §1): every member is numbered within its kind. */
 export function sessionLabel(view: Pick<SessionView, 'kind' | 'ordinal'>): string {
   switch (view.kind) {
     case 'claude-code':
       return `Claude ${view.ordinal}`;
     case 'codex':
       return `Codex ${view.ordinal}`;
-    case 'demo':
     case 'hermes':
+      return `Hermes ${view.ordinal}`;
+    case 'demo':
+      return `데모 ${view.ordinal}`;
     case 'custom':
-      return '헤르메스';
+      return `에이전트 ${view.ordinal}`;
   }
+}
+
+/** How many members are in each part of the office summary (ADR-025 §5). */
+export interface OfficeCounts {
+  readonly total: number;
+  readonly working: number;
+  readonly waiting: number;
+  readonly failing: number;
+  readonly resting: number;
+}
+
+/** Which summary group a visual state counts in; offline members are not in the office. */
+const OFFICE_GROUP: Readonly<Record<VisualState, Exclude<keyof OfficeCounts, 'total'> | null>> = Object.freeze({
+  offline: null,
+  idle: 'resting',
+  success: 'resting',
+  thinking: 'working',
+  coding: 'working',
+  browsing: 'working',
+  terminal: 'working',
+  'file-work': 'working',
+  delegated: 'working',
+  'waiting-approval': 'waiting',
+  error: 'failing',
+});
+
+/** Pure: counts the present members by what they are doing. */
+export function officeCounts(state: RoomViewState): OfficeCounts {
+  const counts = { total: 0, working: 0, waiting: 0, failing: 0, resting: 0 };
+  for (const view of Object.values(state.sessions)) {
+    const group = OFFICE_GROUP[view.visual];
+    if (group === null) continue;
+    counts[group] += 1;
+    counts.total += 1;
+  }
+  return counts;
 }
