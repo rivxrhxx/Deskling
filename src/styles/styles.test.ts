@@ -59,6 +59,11 @@ describe('stylesheet contract', () => {
     expect(appCss).toMatch(/\.chip:disabled,\s*\.chip\[aria-disabled='true'\]\s*\{[^}]*opacity:\s*0\.45/);
   });
 
+  it('keeps session names and states on one line; the usage numbers wrap below instead (panel rows)', () => {
+    expect(appCss).toMatch(/\.session\s*\{[^}]*flex-wrap:\s*wrap/);
+    expect(appCss).toMatch(/\.session__name,\s*\.session__state\s*\{[^}]*white-space:\s*nowrap/);
+  });
+
   it('shows the toolbar only on hover or keyboard focus (FR-W7)', () => {
     expect(appCss).toMatch(/\.window-toolbar\s*\{[^}]*opacity:\s*0;/);
     expect(appCss).toMatch(/\.deskling:hover \.window-toolbar,\s*\.deskling:focus-within \.window-toolbar\s*\{[^}]*opacity:\s*1;/);
