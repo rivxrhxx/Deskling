@@ -14,8 +14,8 @@
       {
         "label": "main",
         "title": "Deskling",
-        "width": 480,
-        "height": 340,
+        "width": 640,
+        "height": 440,
         "resizable": false,
         "maximizable": false,
         "fullscreen": false,

@@ -19,19 +19,24 @@ function memoryStorage(initial: Record<string, string> = {}) {
 }
 
 describe('source choice (FR-CC4, ADR-024)', () => {
-  it('defaults to auto and the 방 친구들 demo', () => {
+  it('defaults to auto and the 사무실 하루 demo (ADR-025)', () => {
     expect(DEFAULT_SETTINGS.sourceChoice).toBe('auto');
-    expect(DEFAULT_SETTINGS.demoScript).toBe('friends');
+    expect(DEFAULT_SETTINGS.demoScript).toBe('office');
   });
 
   it.each(['auto', 'live', 'demo'] as const)('keeps %s', (sourceChoice) => {
     expect(parseSettings({ sourceChoice }).sourceChoice).toBe(sourceChoice);
   });
 
-  it('moves settings saved before session friends from the tour to 방 친구들, once', () => {
-    expect(parseSettings({ demoScript: 'tour' }).demoScript).toBe('friends');
+  it('moves settings saved before session friends from the tour to 사무실 하루, once', () => {
+    expect(parseSettings({ demoScript: 'tour' }).demoScript).toBe('office');
     expect(parseSettings({ demoScript: 'tour', sourceChoice: 'auto' }).demoScript).toBe('tour');
     expect(parseSettings({ demoScript: 'core' }).demoScript).toBe('core');
+  });
+
+  it('moves the retired 방 친구들 demo to 사무실 하루 (ADR-025)', () => {
+    expect(parseSettings({ demoScript: 'friends' }).demoScript).toBe('office');
+    expect(parseSettings({ demoScript: 'friends', sourceChoice: 'live' })).toMatchObject({ demoScript: 'office', sourceChoice: 'live' });
   });
 });
 
@@ -134,11 +139,11 @@ describe('loadSettings / saveSettings (FR-W6, SEC-7)', () => {
   });
 });
 
-describe('windowSizeFor (FR-W4, ADR-021)', () => {
+describe('windowSizeFor (FR-W4, ADR-025 §2)', () => {
   it.each([
-    ['s', 384, 272],
-    ['m', 480, 340],
-    ['l', 624, 442],
+    ['s', 512, 352],
+    ['m', 640, 440],
+    ['l', 832, 572],
   ] as const)('%s → %dx%d', (size, width, height) => {
     expect(windowSizeFor(size)).toEqual({ width, height });
   });

@@ -10,12 +10,12 @@ export interface AttentionSession {
   readonly visual: VisualState;
 }
 
-/** What a friend can need from the user, most urgent first (FR-MS6). */
+/** What a member can need from the user, most urgent first (FR-MS6). */
 const NEEDS: readonly VisualState[] = ['waiting-approval', 'error'];
 
 /**
- * A small line under the status bubble when a session friend needs the user: one pill for the most urgent
- * friend ("Claude 2 · 승인 대기 중"), plus how many more. The bubble itself stays Hermes' state.
+ * A small line under the office summary when a member needs the user: one pill for the most urgent
+ * member ("Claude 2 · 승인 대기 중"), plus how many more (ADR-025 §5). The summary only counts; this names.
  * The live region is always there, so screen readers hear the pill appear.
  */
 export function AttentionLine({ sessions }: { sessions: readonly AttentionSession[] }) {

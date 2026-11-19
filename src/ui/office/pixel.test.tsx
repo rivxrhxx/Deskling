@@ -5,11 +5,11 @@ import type { PixelMap } from './pixelMap';
 import { pixelPaths } from './pixelMap';
 import {
   EMOTES,
-  FRIEND_PALETTES,
+  GUEST_LOOKS,
   GUEST_PALETTES,
   GUEST_POSES,
   GUEST_SPRITES,
-  HERMES_PALETTE,
+  HELPER_BOT,
   SPRITES,
   guestPalette,
   overlay,
@@ -74,29 +74,17 @@ describe('sprite sheets are well-formed', () => {
     expect(widths.size).toBe(1);
   });
 
-  const hermesFamily = Object.entries(SPRITES).filter(([name]) => !(name in GUEST_SPRITES));
-
-  it.each(hermesFamily)('%s only uses Hermes palette keys', (_name, map) => {
-    expect(() => pixelPaths(map, HERMES_PALETTE)).not.toThrow();
-  });
-
-  it.each(FRIEND_PALETTES.map((palette, index) => [index, palette] as const))('friend palette %d covers every sprite', (_i, palette) => {
-    for (const [, map] of hermesFamily) expect(() => pixelPaths(map, palette)).not.toThrow();
-  });
-
   it.each(Object.entries(EMOTES))('emote %s only uses its own palette', (_name, emote) => {
     expect(() => pixelPaths(emote.map, emote.palette)).not.toThrow();
   });
 
-  it('has the poses the room needs', () => {
-    for (const pose of ['front', 'front-walk-a', 'front-walk-b', 'back', 'back-walk-a', 'back-walk-b', 'sit-back', 'sit-back-type', 'sit-front', 'sleep', 'shower', 'friend-a-front', 'friend-b-front', 'friend-a-sit-front', 'friend-b-sit-front']) {
-      expect(SPRITES, pose).toHaveProperty(pose);
-    }
+  it('holds only the members’ looks: every sprite is `${look}-${pose}`', () => {
+    expect(Object.keys(SPRITES).sort()).toEqual(GUEST_LOOKS.flatMap((look) => GUEST_POSES.map((pose) => `${look}-${pose}`)).sort());
   });
 });
 
-describe('session friends (ADR-022)', () => {
-  const KINDS: readonly GuestKind[] = ['claude', 'codex'];
+describe('session friends (ADR-022) and office employees (ADR-025)', () => {
+  const KINDS: readonly GuestKind[] = ['claude', 'codex', 'agent'];
   const sheet = (kind: GuestKind) => GUEST_POSES.map((pose) => [`${kind}-${pose}`, SPRITES[`${kind}-${pose}`]] as const);
   /** Pixels that are not transparent in the first `rows` rows. */
   const silhouette = (map: PixelMap, rows: number) =>
@@ -108,6 +96,17 @@ describe('session friends (ADR-022)', () => {
     const h = max === r ? ((g - b) / delta) % 6 : max === g ? (b - r) / delta + 2 : (r - g) / delta + 4;
     return (h * 60 + 360) % 360;
   };
+
+  it('has three looks, each with four accent variants', () => {
+    expect(GUEST_LOOKS).toEqual(KINDS);
+    expect(Object.keys(GUEST_PALETTES).sort()).toEqual([...KINDS].sort());
+  });
+
+  it('has the office poses as well as the cushion ones (ADR-025)', () => {
+    const office = ['sit-desk', 'sit-desk-type', 'sit-desk-front', 'sit-desk-front-type', 'sit-desk-think', 'sit-desk-back-think', 'hold-mug', 'sit-sofa'];
+    const cushion = ['front', 'back', 'walk-a', 'walk-b', 'back-walk-a', 'back-walk-b', 'sit-front', 'sit-front-type', 'sit-think', 'wave', 'arms-up', 'hands-on-head'];
+    expect([...GUEST_POSES].sort()).toEqual([...cushion, ...office].sort());
+  });
 
   it.each(KINDS)('%s has every pose, each 12×16, all of them in SPRITES', (kind) => {
     for (const [name, map] of sheet(kind)) {
@@ -152,17 +151,74 @@ describe('session friends (ADR-022)', () => {
     expect(guestPalette('claude', 4)).toBe(GUEST_PALETTES.claude[3]);
     expect(guestPalette('codex', 5)).toBe(GUEST_PALETTES.codex[0]);
     expect(guestPalette('codex', 6)).toBe(GUEST_PALETTES.codex[1]);
+    expect(guestPalette('agent', 3)).toBe(GUEST_PALETTES.agent[2]);
+    expect(guestPalette('agent', 8)).toBe(GUEST_PALETTES.agent[3]);
   });
 
-  it('tells a Claude friend from a Codex friend by silhouette, not colour alone', () => {
-    const claude = silhouette(SPRITES['claude-front'] ?? [], 5);
-    const codex = silhouette(SPRITES['codex-front'] ?? [], 5);
-    const onlyOne = [...claude].filter((pixel) => !codex.has(pixel)).length + [...codex].filter((pixel) => !claude.has(pixel)).length;
+  it.each([
+    ['claude', 'codex'],
+    ['claude', 'agent'],
+    ['codex', 'agent'],
+  ] as const)('tells %s from %s by silhouette, not colour alone', (a, b) => {
+    const first = silhouette(SPRITES[`${a}-front`] ?? [], 5);
+    const second = silhouette(SPRITES[`${b}-front`] ?? [], 5);
+    const onlyOne = [...first].filter((pixel) => !second.has(pixel)).length + [...second].filter((pixel) => !first.has(pixel)).length;
     expect(onlyOne).toBeGreaterThanOrEqual(4);
   });
 
-  it('has the talk and letter emotes for session messages (ADR-023), and they render', () => {
-    for (const id of ['talk', 'letter']) {
+  describe.each(KINDS)('%s at an office desk', (kind) => {
+    const pose = (name: string) => SPRITES[`${kind}-${name}`] ?? [];
+
+    it('shows the back of the head at a desk facing away, and the face at a desk facing the viewer', () => {
+      for (const name of ['sit-desk', 'sit-desk-type']) expect(pose(name).slice(0, 8), name).toEqual(pose('back').slice(0, 8));
+      expect(pose('sit-desk-back-think').slice(0, 3)).toEqual(pose('back').slice(0, 3));
+      for (const name of ['sit-desk-front', 'sit-desk-front-type']) expect(pose(name).slice(0, 8), name).toEqual(pose('front').slice(0, 8));
+    });
+
+    it('types with frames that differ where they can be seen: above the desk edge, and at the elbows from behind', () => {
+      expect(pose('sit-desk-front-type').slice(0, 11)).not.toEqual(pose('sit-desk-front').slice(0, 11));
+      expect(pose('sit-desk-type').slice(8, 12)).not.toEqual(pose('sit-desk').slice(8, 12));
+    });
+
+    it('keeps the rows under the desk front plain: only trousers, shoes and outline on the chair', () => {
+      for (const name of ['sit-desk-front', 'sit-desk-front-type', 'sit-desk-think']) {
+        for (const row of pose(name).slice(13)) expect(row, name).toMatch(/^[.odf]+$/);
+      }
+    });
+
+    it('thinks with a hand at the chin facing the viewer, and a hand on the head from behind', () => {
+      expect(pose('sit-desk-think').slice(0, 11)).not.toEqual(pose('sit-desk-front').slice(0, 11));
+      expect(pose('sit-desk-back-think').slice(0, 8)).not.toEqual(pose('back').slice(0, 8));
+    });
+
+    it('holds a mug with coffee in it at chest height', () => {
+      const rows = pose('hold-mug');
+      expect(rows.slice(8, 12).join('')).toMatch(/k/);
+      expect(rows.slice(8, 12).join('')).toMatch(/u/);
+    });
+  });
+
+  it('has a small helper robot with two frames and its own palette, and they render', () => {
+    expect(Object.keys(HELPER_BOT.frames).sort()).toEqual(['helper-bot-a', 'helper-bot-b']);
+    const [a, b] = [HELPER_BOT.frames['helper-bot-a'], HELPER_BOT.frames['helper-bot-b']];
+    expect(a).not.toEqual(b);
+    for (const map of [a, b]) {
+      expect(map.length).toBeLessThanOrEqual(10);
+      expect(new Set(map.map((row) => row.length))).toEqual(new Set([map[0]?.length]));
+      expect(map[0]?.length).toBeLessThanOrEqual(10);
+      expect(() => pixelPaths(map, HELPER_BOT.palette)).not.toThrow();
+      const { container, unmount } = render(
+        <svg>
+          <PixelSprite map={map} palette={HELPER_BOT.palette} x={0} y={0} scale={2} />
+        </svg>,
+      );
+      expect(container.querySelectorAll('path').length).toBeGreaterThan(3);
+      unmount();
+    }
+  });
+
+  it('has the talk and letter emotes for session messages (ADR-023) and the coffee emote (ADR-025), and they render', () => {
+    for (const id of ['talk', 'letter', 'coffee']) {
       const emote = EMOTES[id];
       expect(emote, id).toBeDefined();
       const { container, unmount } = render(

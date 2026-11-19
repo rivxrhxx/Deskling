@@ -6,46 +6,43 @@ import { createDemoSource } from '../adapters/demo/demoSource';
 import type { DemoScriptId } from '../adapters/demo/scripts';
 import { DEMO_SCRIPT_IDS, DEMO_SCRIPTS } from '../adapters/demo/scripts';
 import type { AgentEventSource } from '../adapters/types';
-import type { GuestKind, SourceKind } from '../core/agentEvent';
-import { GUEST_KINDS } from '../core/agentEvent';
-import type { GuestInput } from '../core/life';
+import type { OfficeDecorId } from '../core/growth';
+import type { Vitals } from '../core/mood';
 import { deriveVitals } from '../core/mood';
-import { GUEST_SEATS, toScreen } from '../core/room';
-import { residentView } from '../core/roomState';
+import type { ConversationInput, MemberInput } from '../core/office';
+import { DESK_IDS } from '../core/room';
+import type { SessionKey } from '../core/roomState';
+import { officeCounts } from '../core/roomState';
 import { listenHookRecords } from '../platform/hookRecords';
 import type { WindowControls } from '../platform/windowControls';
 import { createWindowControls } from '../platform/windowControls';
-import type { PanelSession } from '../ui/ActivityPanel';
 import { ActivityPanel } from '../ui/ActivityPanel';
 import { AttentionLine } from '../ui/AttentionLine';
-import { CharacterHotspot } from '../ui/CharacterHotspot';
 import { DemoBadge } from '../ui/DemoBadge';
+import { OfficeRoom } from '../ui/office/OfficeRoom';
 import { StatusBubble } from '../ui/StatusBubble';
-import { MiniRoom } from '../ui/miniroom/MiniRoom';
 import { WindowToolbar } from '../ui/WindowToolbar';
 import type { Settings, SourceChoice } from './settings';
 import { SOURCE_CHOICES, TOKEN_BUDGETS, loadSettings, parseSettings, saveSettings, windowSizeFor } from './settings';
 import { useAgentFeed } from './useAgentFeed';
-import { useLife } from './useLife';
-import { usePet } from './usePet';
+import { useOffice } from './useOffice';
+import { useOfficeProgress } from './useOfficeProgress';
 import { useReducedMotion } from './useReducedMotion';
 
 type StorageLike = Pick<Storage, 'getItem' | 'setItem'>;
 
 const DEMO_LABEL: Readonly<Record<DemoScriptId, string>> = {
-  tour: '전체 상태',
+  office: '사무실 하루',
   core: '기본 흐름',
+  tour: '전체 상태',
   life: '하루 일과',
-  friends: '방 친구들',
 };
-
-const isGuestKind = (kind: SourceKind): kind is GuestKind => (GUEST_KINDS as readonly SourceKind[]).includes(kind);
 
 /** Interactive elements and overlays never start a window drag (ADR-008). */
 const NO_DRAG = 'button, input, select, textarea, a, [role="dialog"], [data-no-drag]';
 
 export interface AppProps {
-  /** Event source. Defaults to the deterministic demo tour until a real adapter exists. */
+  /** Event source. Defaults to the deterministic demo until a real adapter exists. */
   readonly source?: AgentEventSource;
   /** Native window actions. Defaults to Tauri when running inside it, no-op otherwise. */
   readonly controls?: WindowControls;
@@ -60,16 +57,18 @@ const SOURCE_LABEL: Readonly<Record<SourceChoice, string>> = { auto: '자동', l
 /** A source that never emits — the live slot when a test supplies its own source. */
 const SILENT_SOURCE: AgentEventSource = { mode: 'live', start: () => () => {} };
 
-/** Hermes first (asleep when no resident session is known), then the friends; those beyond the seats wait (FR-MS2). */
-function panelSessions(
-  resident: Pick<PanelSession, 'key' | 'kind' | 'ordinal' | 'visual'> | undefined,
-  guests: readonly GuestInput[],
-): PanelSession[] {
-  const hermes = resident ?? { key: 'resident', kind: 'hermes', ordinal: 0, visual: 'offline' };
-  return [
-    { key: hermes.key, kind: hermes.kind, ordinal: hermes.ordinal, visual: hermes.visual, seated: true },
-    ...guests.map((guest, index) => ({ ...guest, seated: index < GUEST_SEATS.length })),
-  ];
+interface OfficeSceneProps {
+  readonly members: readonly MemberInput[];
+  readonly conversations: readonly ConversationInput[];
+  readonly reducedMotion: boolean;
+  readonly decor: readonly OfficeDecorId[];
+  readonly vitals: Readonly<Record<SessionKey, Vitals>>;
+}
+
+/** The office of one feed (ADR-025 §3–§4). Keyed by the feed: a new feed is a new office, its messages counted afresh. */
+function OfficeScene({ members, conversations, reducedMotion, decor, vitals }: OfficeSceneProps) {
+  const office = useOffice({ members, conversations, reducedMotion });
+  return <OfficeRoom members={office.members} frame={office.frame} decor={decor} vitals={vitals} />;
 }
 
 function browserStorage(): StorageLike | null {
@@ -128,47 +127,49 @@ export function App({ source: providedSource, controls: providedControls, storag
     }
   }, [controls, settings.floatOnTop]);
 
-  // The whole room: Hermes is the latest resident session, every guest session a friend (ADR-022).
-  // Both rooms are always fed, so switching never drops an arrival; the choice only decides which one is shown.
+  // The whole office: every session is one member (ADR-025 §1).
+  // Both feeds are always folded, so switching never drops an arrival; the choice only decides which one is shown.
   const primaryRoom = useAgentFeed(primarySource);
   const liveRoom = useAgentFeed(liveSource);
   const showLive =
     !providedSource && (settings.sourceChoice === 'live' || (settings.sourceChoice === 'auto' && liveRoom.entryCount > 0));
   const source = showLive ? liveSource : primarySource;
   const room = showLive ? liveRoom : primaryRoom;
-  const resident = residentView(room);
   const reducedMotion = useReducedMotion(settings.motion);
-  // Energy and anger: fixed readings of Hermes' reported numbers against the user's budget (ADR-016).
-  const vitals = deriveVitals(resident.usage, settings.tokenBudget);
-  // The desktop pet grows from tasks completed in the room; demo and real agents keep separate profiles (ADR-018).
-  const pet = usePet({ mode: source.mode, completedTurns: room.completedTurns, feedKey: source, storage });
-  // Present friends in arrival order. Memoised: the life engine ticks every 300 ms and needs no new arrays then.
-  const guests = useMemo<GuestInput[]>(
+
+  // Each new feed gets its own office (adjusting state on a prop change, without an effect).
+  const [feed, setFeed] = useState({ source, id: 0 });
+  if (feed.source !== source) setFeed({ source, id: feed.id + 1 });
+
+  // Present sessions in arrival order. Memoised so the office (ticking every 300 ms) sees the same array until the next event.
+  const members = useMemo<MemberInput[]>(
     () =>
-      room.guestKeys.flatMap((key) => {
+      room.memberKeys.flatMap((key) => {
         const session = room.sessions[key];
-        return session && isGuestKind(session.kind)
-          ? [{ key, kind: session.kind, ordinal: session.ordinal, visual: session.visual }]
-          : [];
+        return session ? [{ key, kind: session.kind, ordinal: session.ordinal, visual: session.visual }] : [];
       }),
-    [room.guestKeys, room.sessions],
+    [room.memberKeys, room.sessions],
   );
-  // Hermes' life in the room: agent facts first, his own routine while idle (ADR-020); friends at their seats.
-  const life = useLife({
-    visual: resident.visual,
-    energy: vitals.energy.level,
-    reducedMotion,
-    guests,
-    conversations: room.conversations,
-    residentKey: room.residentKey,
-  });
+  // Energy and anger per member: fixed readings of its own reported numbers against the user's budget (ADR-016, ADR-025 §6).
+  const vitals = useMemo<Record<SessionKey, Vitals>>(
+    () =>
+      Object.fromEntries(
+        room.memberKeys.flatMap((key) => {
+          const session = room.sessions[key];
+          return session ? [[key, deriveVitals(session.usage, settings.tokenBudget)]] : [];
+        }),
+      ),
+    [room.memberKeys, room.sessions, settings.tokenBudget],
+  );
+  // The office grows from tasks completed by anyone in it; demo and real agents grow separately (ADR-025 §7).
+  const progress = useOfficeProgress({ mode: source.mode, completedTurns: room.completedTurns, feedKey: source, storage });
 
   const [panelOpen, setPanelOpen] = useState(false);
-  const hotspotRef = useRef<HTMLButtonElement>(null);
+  const bubbleRef = useRef<HTMLButtonElement>(null);
   const togglePanel = useCallback(() => setPanelOpen((open) => !open), []);
   const closePanel = useCallback(() => {
     setPanelOpen(false);
-    hotspotRef.current?.focus();
+    bubbleRef.current?.focus();
   }, []);
 
   const startDrag = useCallback(
@@ -183,51 +184,25 @@ export function App({ source: providedSource, controls: providedControls, storag
   const style = { '--scene-opacity': String(settings.opacity) } as CSSProperties;
 
   return (
-    <section
-      className="deskling"
-      aria-label="Deskling"
-      data-state={resident.visual}
-      data-motion={reducedMotion ? 'reduced' : 'full'}
-      style={style}
-    >
+    <section className="deskling" aria-label="Deskling" data-motion={reducedMotion ? 'reduced' : 'full'} style={style}>
       <div className="stage" onMouseDown={startDrag}>
         {source.mode === 'demo' && <DemoBadge />}
-        <StatusBubble state={resident.visual} />
-        <AttentionLine sessions={guests} />
-        <MiniRoom
-          state={resident.visual}
-          hermes={life.hermes}
-          friend={life.friend}
-          guests={life.guests}
-          hermesChat={life.hermesChat}
-          frame={life.frame}
-          energy={vitals.energy.level}
-          anger={vitals.anger.level}
-          stage={pet.stage}
-          decor={pet.decor}
-          reaction={pet.reaction}
-        />
-        <CharacterHotspot
-          expanded={panelOpen}
-          onActivate={togglePanel}
-          buttonRef={hotspotRef}
-          at={toScreen(life.hermes.at)}
+        <StatusBubble counts={officeCounts(room)} expanded={panelOpen} onToggle={togglePanel} ref={bubbleRef} />
+        <AttentionLine sessions={members} />
+        <OfficeScene
+          key={feed.id}
+          members={members}
+          conversations={room.conversations}
+          reducedMotion={reducedMotion}
+          decor={progress.decor}
+          vitals={vitals}
         />
         {panelOpen && (
           <ActivityPanel
             entries={room.recent}
-            sessions={panelSessions(room.residentKey === null ? undefined : room.sessions[room.residentKey], guests)}
+            sessions={members.map((member, index) => ({ ...member, seated: index < DESK_IDS.length, vitals: vitals[member.key] }))}
             onClose={closePanel}
-            pet={{
-              name: pet.profile.name,
-              hearts: pet.hearts,
-              snacksLeft: pet.snacksLeft,
-              demo: source.mode === 'demo',
-              onPet: () => void pet.pet(),
-              onFeed: () => void pet.feed(),
-              onRename: pet.rename,
-            }}
-            vitals={vitals}
+            office={{ xp: progress.xp, decor: progress.decor, next: progress.next, demo: source.mode === 'demo' }}
             budget={{
               value: settings.tokenBudget,
               options: TOKEN_BUDGETS,

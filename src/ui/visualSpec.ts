@@ -2,8 +2,8 @@ import type { VisualState } from '../core/agentEvent';
 
 /**
  * Single source of truth for each visual state's text, icon, tone and monitor (docs/DESIGN.md §4).
- * What Hermes does and where is the life engine's job (src/core/life.ts, ADR-020).
- * States differ by Hermes' action, icon, screen and text — never by colour alone (FR-S3).
+ * What a member does and where is the office engine's job (src/core/office.ts, ADR-025).
+ * States differ by the member's action, icon, screen and text — never by colour alone (FR-S3).
  * All text here is fixed copy; nothing comes from events.
  */
 

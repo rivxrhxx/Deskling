@@ -3,9 +3,9 @@ import designDoc from '../../docs/DESIGN.md?raw';
 import { VISUAL_SPEC } from '../ui/visualSpec';
 import appCss from './app.css?raw';
 import tokensCss from './tokens.css?raw';
-import miniroomCss from './miniroom.css?raw';
+import officeCss from './office.css?raw';
 
-const allCss = [tokensCss, appCss, miniroomCss].join('\n');
+const allCss = [tokensCss, appCss, officeCss].join('\n');
 
 describe('design tokens (DESIGN.md §2)', () => {
   const rows = designDoc
@@ -30,7 +30,7 @@ describe('stylesheet contract', () => {
   it('maps every tone used by the visual spec to a colour token', () => {
     const tones = new Set(Object.values(VISUAL_SPEC).map((spec) => spec.tone));
     for (const tone of tones) {
-      expect(miniroomCss).toMatch(new RegExp(`\\[data-tone="${tone}"\\][^{]*\\{[^}]*--tone:\\s*var\\(--tone-${tone}\\)`));
+      expect(officeCss).toMatch(new RegExp(`\\[data-tone="${tone}"\\][^{]*\\{[^}]*--tone:\\s*var\\(--tone-${tone}\\)`));
     }
   });
 
@@ -44,10 +44,15 @@ describe('stylesheet contract', () => {
     expect(appCss).toMatch(/@media \(prefers-reduced-motion: reduce\)\s*\{[^@]*:not\(\[data-motion="full"\]\)/);
   });
 
-  it('keeps the hotspot on Hermes: placed from --hx/--hy and moved in the same step as his sprite (FR-V7)', () => {
-    const rule = miniroomCss.match(/\.character-hotspot\s*\{[^}]*\}/)?.[0] ?? '';
-    expect(rule).toMatch(/var\(--hx[^}]*var\(--hy/);
-    expect(rule).not.toMatch(/transition/);
+  it('places the 640×420 office along the bottom of the window, 100vw wide', () => {
+    const rule = officeCss.match(/\.office\s*\{[^}]*\}/)?.[0] ?? '';
+    expect(rule).toMatch(/position:\s*absolute/);
+    expect(rule).toMatch(/bottom:\s*0/);
+    expect(rule).toMatch(/width:\s*100%/);
+  });
+
+  it('dims the string lights with the office lights off', () => {
+    expect(officeCss).toMatch(/\.office\[data-empty="true"\] \.string-bulb\s*\{[^}]*animation:\s*none/);
   });
 
   it('dims chips that are disabled or aria-disabled alike', () => {

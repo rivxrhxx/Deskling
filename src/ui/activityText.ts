@@ -1,7 +1,10 @@
 import type { ToolCategory } from '../core/agentEvent';
 import type { RecentEntry } from '../core/agentState';
-import type { RoomEntry } from '../core/roomState';
+import type { OfficeDecorId } from '../core/growth';
+import type { Vitals } from '../core/mood';
+import type { OfficeCounts, RoomEntry } from '../core/roomState';
 import { sessionLabel } from '../core/roomState';
+import type { IconId, Tone } from './visualSpec';
 
 /**
  * Fixed copy for the activity panel, built only from protocol enums (FR-P4).
@@ -87,5 +90,59 @@ export function formatTokens(value: number): string {
   return String(value);
 }
 
-export const ENERGY_LABEL = { unknown: '보고 없음', full: '충분', ok: '보통', low: '부족', empty: '바닥' } as const;
-export const ANGER_LABEL = { unknown: '보고 없음', calm: '평온', annoyed: '짜증', angry: '화남', furious: '폭발 직전' } as const;
+/**
+ * A member's reported numbers in fixed form (FR-V5, ADR-025 §6): "남은 80k · 컨텍스트 70%".
+ * Only what was reported; null when nothing was.
+ */
+export function describeUsage(vitals: Vitals): string | null {
+  const parts: string[] = [];
+  if (vitals.energy.remaining !== null) parts.push(`남은 ${formatTokens(vitals.energy.remaining)}`);
+  if (vitals.anger.ratio !== null) parts.push(`컨텍스트 ${Math.round(vitals.anger.ratio * 100)}%`);
+  return parts.length > 0 ? parts.join(' · ') : null;
+}
+
+/** Which part of the office summary leads, most urgent first (ADR-025 §5). */
+export type OfficeState = 'waiting' | 'failing' | 'working' | 'resting' | 'empty';
+
+const OFFICE_PARTS: ReadonlyArray<readonly [Exclude<keyof OfficeCounts, 'total'>, string]> = [
+  ['working', '일하는 중'],
+  ['waiting', '승인 대기'],
+  ['failing', '오류'],
+  ['resting', '쉬는 중'],
+];
+
+/** The office summary's fixed copy (ADR-025 §5): "3명 일하는 중 · 1명 승인 대기", or "아무도 없음". Counts only. */
+export function describeOffice(counts: OfficeCounts): string {
+  if (counts.total === 0) return '아무도 없음';
+  return OFFICE_PARTS.filter(([part]) => counts[part] > 0)
+    .map(([part, text]) => `${counts[part]}명 ${text}`)
+    .join(' · ');
+}
+
+const OFFICE_LOOK: Readonly<Record<OfficeState, { readonly tone: Tone; readonly icon: IconId }>> = {
+  waiting: { tone: 'amber', icon: 'hand' },
+  failing: { tone: 'ember', icon: 'alert' },
+  working: { tone: 'cool', icon: 'brackets' },
+  resting: { tone: 'mint', icon: 'cup' },
+  empty: { tone: 'dim', icon: 'plug' },
+};
+
+/** The summary's state, tone and icon: anyone waiting first, then a failure, then work, then rest. */
+export function officeLook(counts: OfficeCounts): { readonly state: OfficeState; readonly tone: Tone; readonly icon: IconId } {
+  let state: OfficeState = 'resting';
+  if (counts.total === 0) state = 'empty';
+  else if (counts.waiting > 0) state = 'waiting';
+  else if (counts.failing > 0) state = 'failing';
+  else if (counts.working > 0) state = 'working';
+  return { state, ...OFFICE_LOOK[state] };
+}
+
+/** Names of the office props unlocked by growth (ADR-025 §7). */
+export const DECOR_LABEL: Readonly<Record<OfficeDecorId, string>> = {
+  poster: '포스터',
+  'desk-plants': '책상 화분',
+  'string-lights': '줄 조명',
+  'lounge-rug': '라운지 러그',
+  'full-bookshelf': '책장 가득',
+  'trophy-shelf': '트로피 선반',
+};

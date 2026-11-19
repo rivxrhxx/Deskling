@@ -1,14 +1,18 @@
 import { describe, expect, it } from 'vitest';
 import designDoc from '../../docs/DESIGN.md?raw';
+import type { VisualState } from '../core/agentEvent';
 import { VISUAL_STATES } from '../core/agentEvent';
-import { IDLE_ACTIVITIES, IDLE_DURATION, IDLE_SPOT, REQUIRED } from '../core/life';
-import { emoteFor, guestEmoteFor } from './miniroom/emote';
-import { spriteFor } from './miniroom/pose';
+import { OFFICE_DECOR } from '../core/growth';
+import type { MemberActivity } from '../core/office';
+import { initialOffice, memberViewsAt, stepOffice } from '../core/office';
+import { LOUNGE_SPOTS } from '../core/room';
+import { memberEmote } from './office/emote';
+import { memberPose } from './office/pose';
 import { VISUAL_SPEC } from './visualSpec';
 
 const specs = VISUAL_STATES.map((state) => VISUAL_SPEC[state]);
-const calm = { walking: false, energy: 'full', anger: 'calm', reaction: null } as const;
 const code = (cell: string | undefined) => cell?.match(/`([^`]+)`/)?.[1];
+const codes = (cell: string | undefined) => new Set([...(cell ?? '').matchAll(/`([^`]+)`/g)].map((match) => match[1]));
 
 function uniqueCount<T>(values: T[]): number {
   return new Set(values).size;
@@ -26,6 +30,18 @@ function tableRows(from: string, to: string, keys: readonly string[]): Map<strin
   return rows;
 }
 
+/** What a member of this state does once at its desk, from the office engine itself; null when it is not in the office. */
+function deskActivity(visual: VisualState): MemberActivity | null {
+  const office = stepOffice(initialOffice(1, 0), { now: 0, members: [{ key: 'demo:a', kind: 'demo', ordinal: 1, visual }], reducedMotion: true });
+  return memberViewsAt(office, 0)[0]?.activity ?? null;
+}
+
+const calm = { walking: false, chat: null, energy: 'full', anger: 'calm' } as const;
+const emoteAtDesk = (visual: VisualState) => {
+  const activity = deskActivity(visual);
+  return activity && memberEmote({ ...calm, visual, activity });
+};
+
 describe('visualSpec (FR-S3)', () => {
   it('covers exactly the 11 visual states', () => {
     expect(Object.keys(VISUAL_SPEC).sort()).toEqual([...VISUAL_STATES].sort());
@@ -35,13 +51,12 @@ describe('visualSpec (FR-S3)', () => {
     expect(uniqueCount(specs.map((spec) => spec[key]))).toBe(VISUAL_STATES.length);
   });
 
-  it('gives every working state a distinct thing Hermes does (FR-R2)', () => {
-    const required = VISUAL_STATES.map((state) => REQUIRED[state]).filter((entry) => entry !== null);
-    expect(required).toHaveLength(VISUAL_STATES.length - 1);
-    expect(uniqueCount(required.map((entry) => entry.activity))).toBe(required.length);
+  it('tells every state apart in the office by what the member does or the sign over it, not by colour (FR-R2)', () => {
+    const looks = VISUAL_STATES.map((state) => `${deskActivity(state)}/${emoteAtDesk(state)}`);
+    expect(uniqueCount(looks)).toBe(VISUAL_STATES.length);
   });
 
-  it('leaves where Hermes is to the life engine (ADR-020)', () => {
+  it('leaves where a member is to the office engine (ADR-025)', () => {
     for (const spec of specs) {
       expect(Object.keys(spec).sort()).toEqual(['description', 'icon', 'label', 'screen', 'tone']);
     }
@@ -65,50 +80,55 @@ describe('visualSpec (FR-S3)', () => {
 describe('docs/DESIGN.md §4 matches the code', () => {
   const rows = tableRows('## 4. 상태별 사양', '### 4.1', VISUAL_STATES);
 
-  it.each([...VISUAL_STATES])('%s row agrees with the spec, the life engine and the emotes', (state) => {
+  it.each([...VISUAL_STATES])('%s row agrees with the spec, the office engine and the emotes', (state) => {
     const row = rows.get(state);
     expect(row, `DESIGN.md has no row for ${state}`).toBeDefined();
-    const [, label, icon, tone, screen, activity, spot, emote] = row ?? [];
+    const [, label, icon, tone, screen, activity, emote] = row ?? [];
     const spec = VISUAL_SPEC[state];
     expect(label).toBe(spec.label);
     expect(icon).toBe(spec.icon);
     expect(tone).toBe(spec.tone);
     expect(code(screen)).toBe(spec.screen);
-    const required = REQUIRED[state];
-    if (required) {
-      expect(code(activity)).toBe(required.activity);
-      expect(code(spot)).toBe(required.spot);
-      expect(code(emote)).toBe(emoteFor({ ...calm, activity: required.activity }));
+    const doing = deskActivity(state);
+    if (doing) {
+      expect(code(activity)).toBe(doing);
     } else {
-      expect(activity).toMatch(/일상/);
+      expect(code(activity)).toBeUndefined();
+      expect(activity).toMatch(/문/);
     }
+    expect(code(emote)).toBe(emoteAtDesk(state) ?? undefined);
   });
 });
 
-describe('docs/DESIGN.md §3.4 matches the session friends', () => {
-  const states = VISUAL_STATES.filter((state) => state !== 'offline');
-  const rows = tableRows('### 3.4', '## 4. 상태별 사양', states);
-  const codes = (cell: string | undefined) => new Set([...(cell ?? '').matchAll(/`([^`]+)`/g)].map((match) => match[1]));
+describe('docs/DESIGN.md §3.3 matches the member poses and emotes', () => {
+  const ACTIVITIES: readonly MemberActivity[] = ['work', 'think', 'delegate', 'idle-desk', 'wave', 'upset', 'cheer', 'coffee', 'water', 'sofa', 'window', 'plant'];
+  const LOUNGE: readonly MemberActivity[] = ['coffee', 'water', 'sofa', 'window', 'plant'];
+  const rows = tableRows('### 3.3', '### 3.4', ACTIVITIES.map((activity) => `\`${activity}\``));
+  /** The states a member is in while it does this: resting in the lounge, or what the engine has it do at its desk. */
+  const visualsFor = (activity: MemberActivity) => (LOUNGE.includes(activity) ? (['idle'] as const) : VISUAL_STATES.filter((state) => deskActivity(state) === activity));
 
-  it.each(states)('%s row agrees with the guest poses and emotes', (state) => {
-    const row = rows.get(state);
-    expect(row, `DESIGN.md §3.4 has no row for ${state}`).toBeDefined();
-    const [, pose, emote] = row ?? [];
-    const frames = [0, 1].map((frame) => spriteFor({ activity: 'visit', visual: state, walking: false, face: 'front-right', frame, who: 'claude' }).name.replace(/^claude-/, ''));
-    expect(codes(pose)).toEqual(new Set(frames));
-    expect(code(emote)).toBe(guestEmoteFor({ visual: state, walking: false, chat: null }) ?? undefined);
-  });
-});
-
-describe('docs/DESIGN.md §4.3 matches the idle routine', () => {
-  const rows = tableRows('### 4.3', '## 5. UI 요소', IDLE_ACTIVITIES.map((activity) => `\`${activity}\``));
-
-  it.each([...IDLE_ACTIVITIES])('%s row agrees with the life engine and the emotes', (activity) => {
+  it.each([...ACTIVITIES])('%s row agrees with the poses, places and emotes', (activity) => {
     const row = rows.get(`\`${activity}\``);
-    expect(row, `DESIGN.md has no row for ${activity}`).toBeDefined();
-    const [, spot, seconds, emote] = row ?? [];
-    expect(code(spot)).toBe(IDLE_SPOT[activity]);
-    expect(seconds).toBe(`${IDLE_DURATION[activity] / 1000}초`);
-    expect(code(emote)).toBe(emoteFor({ ...calm, activity }) ?? undefined);
+    expect(row, `DESIGN.md §3.3 has no row for ${activity}`).toBeDefined();
+    const [, place, pose, emote] = row ?? [];
+    const poses = new Set(
+      [0, 1].flatMap((frame) => [true, false].map((away) => memberPose({ look: 'claude', activity, walking: false, face: 'back-right', frame, away }).name.replace(/^claude-/, ''))),
+    );
+    expect(codes(pose)).toEqual(poses);
+    for (const spot of codes(place)) expect(LOUNGE_SPOTS, spot).toContain(spot);
+    expect(codes(place).size > 0).toBe(LOUNGE.includes(activity));
+    const signs = new Set(visualsFor(activity).map((visual) => memberEmote({ ...calm, visual, activity })).filter((sign) => sign !== null));
+    expect(visualsFor(activity).length, activity).toBeGreaterThan(0);
+    expect(codes(emote)).toEqual(signs);
+  });
+});
+
+describe('docs/DESIGN.md §4.2 matches the office growth', () => {
+  const rows = tableRows('### 4.2', '## 5. UI 요소', OFFICE_DECOR.map((decor) => `\`${decor.id}\``));
+
+  it.each(OFFICE_DECOR.map((decor) => [decor.id, decor.xp] as const))('%s unlocks at %d', (id, xp) => {
+    const row = rows.get(`\`${id}\``);
+    expect(row, `DESIGN.md §4.2 has no row for ${id}`).toBeDefined();
+    expect(row?.[1]).toBe(String(xp));
   });
 });

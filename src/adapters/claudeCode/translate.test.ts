@@ -228,7 +228,7 @@ describe('translateHookRecord — implicit agent.online', () => {
     expect(events.map((e) => e.seq)).toEqual(expected.map((_, i) => i + 1));
   });
 
-  it('only the first record brings the friend online', () => {
+  it('only the first record brings the member online', () => {
     const { events } = feed([rec('prompt'), rec('prompt')]);
     expect(types(events)).toEqual(['agent.online', 'turn.started', 'turn.started']);
   });
@@ -573,23 +573,22 @@ describe('translateHookRecord — output passes core normalization and drives th
     }
   });
 
-  it('two Claude sessions become two guests numbered 1 and 2', () => {
+  it('two Claude sessions become two members numbered 1 and 2', () => {
     const room = fold(feed([rec('session-start', {}, A), rec('prompt', {}, B)]).events);
-    expect(room.guestKeys).toEqual([keyOf(A), keyOf(B)]);
+    expect(room.memberKeys).toEqual([keyOf(A), keyOf(B)]);
     expect(room.sessions[keyOf(A)]?.ordinal).toBe(1);
     expect(room.sessions[keyOf(B)]?.ordinal).toBe(2);
-    expect(room.residentKey).toBeNull();
   });
 
-  it("a code tool-start sets that guest's visual to coding and leaves the other alone", () => {
+  it("a code tool-start sets that member's visual to coding and leaves the other alone", () => {
     const room = fold(feed([...started, rec('session-start', {}, B), rec('tool-start', { tool: 'code' }, A)]).events);
     expect(room.sessions[keyOf(A)]?.visual).toBe('coding');
     expect(room.sessions[keyOf(B)]?.visual).toBe('idle');
   });
 
-  it('a first record of tool-start brings the friend in already working', () => {
+  it('a first record of tool-start brings the member in already working', () => {
     const room = fold(feed([rec('tool-start', { tool: 'terminal' })]).events);
-    expect(room.guestKeys).toEqual([keyOf(A)]);
+    expect(room.memberKeys).toEqual([keyOf(A)]);
     expect(room.sessions[keyOf(A)]?.visual).toBe('terminal');
   });
 
@@ -635,21 +634,21 @@ describe('translateHookRecord — output passes core normalization and drives th
     expect(room.conversations).toEqual([{ key: 1, from: keyOf(A), to: null }]);
   });
 
-  it('session-end makes the guest leave; a re-start brings it back', () => {
+  it('session-end makes the member leave; a re-start brings it back', () => {
     const first = feed([rec('session-start', {}, A), rec('session-start', {}, B), rec('session-end', {}, A)]);
     let room = fold(first.events);
     expect(room.sessions[keyOf(A)]).toBeUndefined();
-    expect(room.guestKeys).toEqual([keyOf(B)]);
+    expect(room.memberKeys).toEqual([keyOf(B)]);
     expect(room.sessions[keyOf(B)]?.ordinal).toBe(2);
     expect(room.endedCursors[keyOf(A)]).toBeDefined();
 
     room = fold(feed([rec('session-start', {}, A), rec('tool-start', { tool: 'code' }, A)], first.state).events, room);
-    expect(room.guestKeys).toEqual([keyOf(B), keyOf(A)]);
+    expect(room.memberKeys).toEqual([keyOf(B), keyOf(A)]);
     expect(room.sessions[keyOf(A)]?.ordinal).toBe(1);
     expect(room.sessions[keyOf(A)]?.visual).toBe('coding');
   });
 
-  it('Claude friends never report usage (FR-CC6)', () => {
+  it('Claude members never report usage (FR-CC6)', () => {
     const room = fold(feed(EVERYTHING.slice(0, -1)).events);
     expect(room.sessions[keyOf(A)]?.usage).toEqual({ tokens: null, context: null });
   });

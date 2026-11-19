@@ -87,29 +87,31 @@ const tour: DemoScript = {
 };
 
 /**
- * "하루 일과": a day in the room (ADR-016, ADR-017). Hermes' own routine around the room, a working turn that burns through the
- * token budget while the context window fills up (calm → annoyed → angry → furious), back to his routine, exhausted
- * after the context is compacted, then lights out (offline: asleep in bed). With the default 200k budget it visits every energy level.
+ * "하루 일과": one member's day (ADR-016, ADR-025). A rest in the lounge, a working turn that burns through the
+ * token budget while the context window fills up (calm → annoyed → angry → furious), back to the lounge, exhausted
+ * after the context is compacted, then home (offline: out of the door). With the default 200k budget it visits every energy level.
  */
 const life: DemoScript = {
   id: 'life',
   session: 'demo-life',
   steps: [
-    step(4200, { type: 'agent.online' }, usage(10_000, 8_000)), // idle (own routine around the room) — full, calm
+    step(4200, { type: 'agent.online' }, usage(10_000, 8_000)), // idle (resting in the lounge) — full, calm
     step(3000, { type: 'turn.started' }, usage(30_000, 60_000)), // thinking — full, calm
     step(3600, toolStart('code'), usage(70_000, 110_000)), // coding — full, annoyed
     step(3600, toolDone('code'), toolStart('terminal'), usage(115_000, 160_000)), // terminal — ok, angry
     step(3600, toolDone('terminal'), toolStart('browser'), usage(150_000, 185_000)), // browsing — low, furious
     step(3000, toolDone('browser'), { type: 'turn.succeeded' }, usage(185_000, 192_000)), // success — empty, furious
-    step(4200, { type: 'agent.idle' }, contextOnly(20_000)), // idle again (routine) — empty, calm again
-    step(4200, { type: 'agent.offline' }), // lights out
+    step(4200, { type: 'agent.idle' }, contextOnly(20_000)), // idle again (lounge) — empty, calm again
+    step(4200, { type: 'agent.offline' }), // goes home: the office is empty, lights out
   ],
 };
 
-const HERMES: AgentEventSource = { kind: 'hermes', session: 'demo-hermes' };
 const CLAUDE_1: AgentEventSource = { kind: 'claude-code', session: 'demo-claude-a' };
 const CLAUDE_2: AgentEventSource = { kind: 'claude-code', session: 'demo-claude-b' };
+const CLAUDE_3: AgentEventSource = { kind: 'claude-code', session: 'demo-claude-c' };
 const CODEX_1: AgentEventSource = { kind: 'codex', session: 'demo-codex-a' };
+const CODEX_2: AgentEventSource = { kind: 'codex', session: 'demo-codex-b' };
+const AGENT_1: AgentEventSource = { kind: 'custom', session: 'demo-agent-a' };
 
 /** The same specs, from another session. */
 const by = (source: AgentEventSource, ...specs: DemoEventBody[]): DemoEventSpec[] => specs.map((spec) => ({ ...spec, source }));
@@ -117,34 +119,42 @@ const message = (from: AgentEventSource, to?: AgentEventSource): DemoEventSpec =
   to ? { type: 'session.message', source: from, to } : { type: 'session.message', source: from };
 
 /**
- * "방 친구들" (ADR-022, ADR-023, FR-MS7): Hermes works while session friends come in, work at their laptops,
- * talk, need the user, succeed or fail, and leave one by one. Every beat stays on screen for 2.5–5 s.
+ * "사무실 하루" (ADR-025, ADR-023, FR-MS7): six sessions — Claude ×3, Codex ×2 and one other agent — arrive one after
+ * another, work at their desks, talk, rest in the lounge and come back, need the user, delegate, succeed or fail,
+ * and leave one by one until the lights go out. Claude sessions report no usage, as in real life (FR-CC6).
+ * Every beat stays on screen for at least 3 s; the loop lasts about 1½ minutes.
  */
-const friends: DemoScript = {
-  id: 'friends',
-  session: 'demo-friends',
+const office: DemoScript = {
+  id: 'office',
+  session: 'demo-office',
   steps: [
-    step(3000, ...by(HERMES, { type: 'agent.online' }, { type: 'turn.started' }, toolStart('code'), usage(20_000, 30_000))), // Hermes codes
-    step(4000, ...by(CLAUDE_1, { type: 'agent.online' }, { type: 'turn.started' }, toolStart('code'))), // Claude 1 comes in
-    step(4000, ...by(CLAUDE_2, { type: 'agent.online' }, { type: 'turn.started' }, toolStart('browser'))), // Claude 2 comes in
-    step(4000, ...by(CODEX_1, { type: 'agent.online' }, { type: 'turn.started' }, toolStart('terminal'))), // Codex 1 comes in
-    step(4500, ...by(HERMES, toolDone('code'), toolStart('browser'), usage(45_000, 60_000))), // everyone settles in
+    step(4000, ...by(CLAUDE_1, { type: 'agent.online' }, { type: 'turn.started' }, toolStart('code'))), // Claude 1 comes in to code
+    step(4000, ...by(CODEX_1, { type: 'agent.online' }, { type: 'turn.started' }, usage(20_000, 24_000))), // Codex 1 comes in, thinking
+    step(4000, ...by(CLAUDE_2, { type: 'agent.online' }, { type: 'turn.started' }, toolStart('browser')), ...by(CODEX_1, toolStart('terminal'))), // Claude 2 browses, Codex 1 in the terminal
     step(4500, message(CLAUDE_1, CODEX_1)), // Claude 1 and Codex 1 talk
-    step(4000, ...by(CODEX_1, toolDone('terminal'), { type: 'approval.requested' })), // Codex 1 waves for approval
+    step(4000, ...by(AGENT_1, { type: 'agent.online' }, { type: 'turn.started' }, toolStart('file'), usage(15_000, 12_000)), ...by(CLAUDE_2, toolDone('browser'), { type: 'turn.succeeded' })), // 에이전트 1 files; Claude 2 is done (cheers)
+    step(4000, ...by(CODEX_2, { type: 'agent.online' }, { type: 'turn.started' }, usage(150_000, 172_000)), ...by(CLAUDE_2, { type: 'agent.idle' })), // Codex 2 comes in tired and cross; Claude 2 idles → lounge
+    step(4000, ...by(CODEX_1, toolDone('terminal'), { type: 'approval.requested' }, usage(50_000, 70_000))), // Codex 1 waves for approval
+    step(4000, ...by(CLAUDE_3, { type: 'agent.online' }, { type: 'turn.started' }, toolStart('terminal'))), // Claude 3 comes in
     step(4000, ...by(CODEX_1, { type: 'approval.resolved' }, toolStart('terminal'))), // resolved, back to work
-    step(4500, message(CLAUDE_2, HERMES)), // Claude 2 talks with Hermes
-    step(4000, ...by(CLAUDE_2, toolDone('browser'), { type: 'turn.succeeded' })), // Claude 2 is done
-    step(4000, ...by(CODEX_1, toolDone('terminal', 'error'), { type: 'turn.failed' })), // Codex 1 fails
-    step(3500, message(CLAUDE_1)), // Claude 1 sends a letter to someone not in the room
-    step(4000, ...by(CLAUDE_2, { type: 'agent.offline' })), // Claude 2 leaves
+    step(4000, ...by(AGENT_1, toolDone('file'), { type: 'delegation.started' }, usage(40_000, 90_000))), // 에이전트 1 hands work to a helper bot
+    step(4000, ...by(CODEX_2, toolStart('code'))), // Codex 2 codes
+    step(4000, ...by(CLAUDE_2, { type: 'turn.started' }, toolStart('code'))), // Claude 2 leaves the lounge for its desk
+    step(4000, ...by(CLAUDE_3, toolDone('terminal', 'error'), { type: 'turn.failed' })), // Claude 3 fails
+    step(3500, message(CLAUDE_1)), // Claude 1 sends a letter to someone not in the office
+    step(4000, ...by(AGENT_1, { type: 'delegation.finished' }, { type: 'turn.succeeded' }, usage(55_000, 100_000))), // 에이전트 1 is done (cheers)
+    step(4000, ...by(CODEX_1, toolDone('terminal'), { type: 'turn.succeeded' }, usage(70_000, 92_000))), // Codex 1 is done (cheers)
+    step(4000, ...by(CLAUDE_3, { type: 'agent.offline' })), // Claude 3 leaves
+    step(4000, ...by(CODEX_2, toolDone('code'), { type: 'turn.succeeded' }), ...by(CLAUDE_1, toolDone('code'), { type: 'turn.succeeded' })), // two more done
     step(4000, ...by(CODEX_1, { type: 'agent.offline' })), // Codex 1 leaves
-    step(4000, ...by(CLAUDE_1, toolDone('code'), { type: 'agent.offline' })), // Claude 1 leaves
-    step(4000, ...by(HERMES, toolDone('browser'), { type: 'turn.succeeded' }, usage(60_000, 72_000))), // Hermes is done
-    step(5000, ...by(HERMES, { type: 'agent.idle' })), // and lives his own life
+    step(4000, ...by(AGENT_1, { type: 'agent.offline' }), ...by(CLAUDE_2, toolDone('code'), { type: 'turn.succeeded' })), // 에이전트 1 leaves; Claude 2 is done
+    step(4000, ...by(CODEX_2, { type: 'agent.offline' })), // Codex 2 leaves
+    step(4000, ...by(CLAUDE_2, { type: 'agent.offline' })), // Claude 2 leaves
+    step(6000, ...by(CLAUDE_1, { type: 'agent.offline' })), // Claude 1 leaves last: the office empties and its lights go out
   ],
 };
 
-export const DEMO_SCRIPTS = { core, tour, life, friends } as const satisfies Record<string, DemoScript>;
+export const DEMO_SCRIPTS = { office, core, tour, life } as const satisfies Record<string, DemoScript>;
 export type DemoScriptId = keyof typeof DEMO_SCRIPTS;
 export const DEMO_SCRIPT_IDS = Object.keys(DEMO_SCRIPTS) as DemoScriptId[];
 

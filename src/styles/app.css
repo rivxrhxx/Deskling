@@ -12,8 +12,8 @@ body,
 }
 
 html {
-  /* 480px window → 10px. Everything uses rem, so S/M/L presets scale the whole scene (ADR-012, ADR-021). */
-  font-size: clamp(8px, calc(100vw / 48), 14px);
+  /* 640px window → 10px. Everything uses rem, so S/M/L presets scale the whole scene (ADR-012, ADR-025 §2). */
+  font-size: clamp(8px, calc(100vw / 64), 14px);
   color-scheme: dark;
 }
 
@@ -43,6 +43,7 @@ body {
   --tone: var(--tone-cool);
 }
 
+/* The office summary (ADR-025 §5). It is the button that opens the activity panel. */
 .status-bubble {
   position: absolute;
   top: 0.8rem;
@@ -51,20 +52,37 @@ body {
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
+  margin: 0;
   padding: 0.42rem 0.9rem 0.42rem 0.7rem;
   border-radius: 1.2rem;
   background: var(--glass);
   border: 1px solid color-mix(in srgb, var(--tone) 50%, transparent);
   box-shadow: 0 0 1.4rem -0.5rem var(--tone);
+  color: var(--text);
+  font: inherit;
   font-size: 1.15rem;
   font-weight: 600;
   letter-spacing: 0.01em;
   line-height: 1.2;
   white-space: nowrap;
+  cursor: pointer;
   transform: translateX(-50%);
   transition:
     border-color var(--state-fade) var(--ease-soft),
     box-shadow var(--state-fade) var(--ease-soft);
+}
+
+.status-bubble:hover {
+  border-color: color-mix(in srgb, var(--tone) 80%, transparent);
+}
+
+.status-bubble:focus-visible {
+  outline: 2px solid var(--tone-violet);
+  outline-offset: 2px;
+}
+
+.status-bubble[aria-expanded='true'] {
+  border-color: var(--tone);
 }
 
 .status-bubble::after {
@@ -89,7 +107,7 @@ body {
   animation: bubble-attention 1.6s var(--ease-soft) infinite;
 }
 
-/* A friend who needs the user, under the bubble (FR-MS6). The bubble stays Hermes' state. */
+/* A member who needs the user, under the summary (FR-MS6). The summary counts; this line names. */
 .attention-line {
   position: absolute;
   top: 3.75rem;
@@ -208,7 +226,7 @@ body {
   flex-direction: column;
   width: 20rem;
   max-height: calc(100% - 5rem);
-  /* With many sessions in the room the whole panel scrolls rather than squeezing the log to one line. */
+  /* With many sessions in the office the whole panel scrolls rather than squeezing the log to one line. */
   overflow-y: auto;
   border-radius: 0.8rem;
   border: 1px solid var(--glass-edge);
@@ -415,118 +433,32 @@ body {
   transform: translateX(-50%);
 }
 
-/* ---- Vitals in the activity panel (FR-V5) ------------------------------------------------- */
-.activity-panel__vitals {
+/* ---- Office growth in the activity panel (ADR-025 §7) ------------------------------------ */
+.activity-panel__office {
   display: grid;
-  gap: 0.45rem;
-  padding: 0.2rem 0.9rem 0.6rem;
+  gap: 0.15rem;
+  padding: 0.1rem 0.9rem 0.5rem;
   border-bottom: 1px solid rgba(154, 161, 187, 0.1);
 }
 
-.vital__row {
+.office__row {
   display: flex;
-  align-items: baseline;
-  justify-content: space-between;
+  align-items: center;
   gap: 0.5rem;
-  font-size: 1rem;
 }
 
-.vital__name {
-  color: var(--text-dim);
-  font-weight: 700;
+.office__facts {
+  flex-wrap: wrap;
+  font-size: 0.95rem;
+  /* Korean wraps between words, not inside one. */
+  word-break: keep-all;
 }
 
-.vital__value {
-  font-family: var(--font-mono);
-  font-size: 0.92rem;
-  white-space: nowrap;
-}
-
-.vital__level {
-  font-family: var(--font-ui);
-}
-
-.vital__meter {
-  height: 0.35rem;
-  margin-top: 0.25rem;
-  border-radius: 0.35rem;
-  background: rgba(154, 161, 187, 0.18);
-  overflow: hidden;
-}
-
-.vital__fill {
-  height: 100%;
-  border-radius: inherit;
-  background: var(--tone-cool);
-}
-
-.vital[data-vital='energy'][data-level='low'] .vital__fill,
-.vital[data-vital='energy'][data-level='empty'] .vital__fill { background: var(--text-dim); }
-.vital[data-vital='context'] .vital__fill { background: var(--tone-violet); }
-.vital[data-vital='context'][data-level='angry'] .vital__fill,
-.vital[data-vital='context'][data-level='furious'] .vital__fill { background: var(--mood-anger); }
-
-.vital__budget {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 0.4rem;
-  margin-top: 0.3rem;
-  font-size: 0.85rem;
+.office__next {
   color: var(--text-dim);
 }
 
-.vital__budget select {
-  padding: 0.05rem 0.3rem;
-  border: 1px solid var(--glass-edge);
-  border-radius: 0.4rem;
-  background: rgba(8, 10, 17, 0.9);
-  color: var(--text);
-  font: inherit;
-}
-
-/* ---- Pet card in the activity panel (ADR-018) --------------------------------------------- */
-.activity-panel__pet {
-  display: grid;
-  gap: 0.35rem;
-  padding: 0.1rem 0.9rem 0.55rem;
-  border-bottom: 1px solid rgba(154, 161, 187, 0.1);
-}
-
-.pet__row {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-}
-
-.pet__name {
-  /* WebKit keeps an input's intrinsic width in flex rows; width: 0 lets it yield to the hearts. */
-  flex: 1 1 0;
-  width: 0;
-  min-width: 0;
-  padding: 0.15rem 0.4rem;
-  border: 1px solid transparent;
-  border-radius: 0.4rem;
-  background: transparent;
-  color: var(--text);
-  font: inherit;
-  font-size: 1.05rem;
-  font-weight: 700;
-}
-
-.pet__name:hover,
-.pet__name:focus {
-  border-color: var(--glass-edge);
-  background: rgba(8, 10, 17, 0.9);
-  outline: none;
-}
-
-.pet__name::placeholder {
-  color: var(--text-dim);
-  font-weight: 500;
-}
-
-.pet__demo {
+.office__demo {
   flex: none;
   padding: 0 0.35rem;
   border: 1px solid var(--tone-violet);
@@ -537,27 +469,13 @@ body {
   letter-spacing: 0.12em;
 }
 
-.pet__hearts {
-  display: inline-flex;
-  flex: none;
-  gap: 0.1rem;
-}
-
-.pet__hearts svg { fill: rgba(154, 161, 187, 0.25); }
-.pet__hearts svg[data-filled='true'] { fill: var(--heart); }
-
-.pet__actions {
-  display: flex;
-  gap: 0.3rem;
-}
-
 .chip:disabled,
 .chip[aria-disabled='true'] {
   opacity: 0.45;
   cursor: default;
 }
 
-/* ---- Sessions in the room (FR-MS6) -------------------------------------------------------- */
+/* ---- Sessions in the office (FR-MS6, FR-V5) ----------------------------------------------- */
 .activity-panel__sessions {
   flex: none;
   padding: 0.15rem 0.9rem 0.5rem;
@@ -605,6 +523,38 @@ body {
   color: var(--text-dim);
 }
 
+.session__usage {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
 .session__away {
   font-size: 0.85rem;
+}
+
+.sessions__empty {
+  margin: 0.2rem 0 0;
+  font-size: 1rem;
+  color: var(--text-dim);
+}
+
+.sessions__budget {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.4rem;
+  margin-top: 0.35rem;
+  font-size: 0.85rem;
+  color: var(--text-dim);
+}
+
+.sessions__budget select {
+  padding: 0.05rem 0.3rem;
+  border: 1px solid var(--glass-edge);
+  border-radius: 0.4rem;
+  background: rgba(8, 10, 17, 0.9);
+  color: var(--text);
+  font: inherit;
 }

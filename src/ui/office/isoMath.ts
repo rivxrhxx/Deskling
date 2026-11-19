@@ -1,5 +1,8 @@
 import { ORIGIN, TILE_H, TILE_W, toScreen } from '../../core/room';
 
+/** The dark brown outline of every shape and sprite in the office. */
+export const INK = '#3b2a20';
+
 /** Screen point for tile (x, y) at height z (px above the floor). */
 export function pt(x: number, y: number, z = 0): { x: number; y: number } {
   const p = toScreen({ x, y });

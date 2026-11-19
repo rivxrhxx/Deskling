@@ -1,7 +1,7 @@
 import { act, renderHook } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import type { AgentEventSource } from '../adapters/types';
-import { initialRoomState, residentView } from '../core/roomState';
+import { initialRoomState } from '../core/roomState';
 import { useAgentFeed } from './useAgentFeed';
 
 function manualSource() {
@@ -32,7 +32,7 @@ const raw = (seq: number, type: string, source: { kind: string; session: string 
 const HERMES = { kind: 'hermes', session: 'h' };
 const CLAUDE = { kind: 'claude-code', session: 'c' };
 
-describe('useAgentFeed (FR-E2, ADR-022)', () => {
+describe('useAgentFeed (FR-E2, ADR-025)', () => {
   it('folds every session into the room state', () => {
     const live = manualSource();
     const onReject = vi.fn();
@@ -43,8 +43,8 @@ describe('useAgentFeed (FR-E2, ADR-022)', () => {
     live.emit(raw(1, 'tool.started', CLAUDE, { tool: 'code' }));
     live.emit(raw(2, 'session.message', CLAUDE, { to: HERMES }));
 
-    expect(residentView(result.current)).toMatchObject({ visual: 'thinking', key: 'hermes:h' });
-    expect(result.current.guestKeys).toEqual(['claude-code:c']);
+    expect(result.current.memberKeys).toEqual(['hermes:h', 'claude-code:c']);
+    expect(result.current.sessions['hermes:h']).toMatchObject({ visual: 'thinking', ordinal: 1 });
     expect(result.current.sessions['claude-code:c']).toMatchObject({ visual: 'coding', ordinal: 1 });
     expect(result.current.conversations).toEqual([{ key: 1, from: 'claude-code:c', to: 'hermes:h' }]);
     expect(result.current.recent.map((entry) => entry.type)).toEqual(['session.message', 'tool.started', 'turn.started']);
@@ -67,7 +67,7 @@ describe('useAgentFeed (FR-E2, ADR-022)', () => {
       initialProps: { source: first.source },
     });
     first.emit(raw(1, 'agent.online', CLAUDE));
-    expect(result.current.guestKeys).toHaveLength(1);
+    expect(result.current.memberKeys).toHaveLength(1);
     rerender({ source: second.source });
     expect(result.current).toBe(initialRoomState);
   });

@@ -26,8 +26,8 @@ describe('desktop-embedded window configuration (FR-W1, FR-W2, FR-R7, NFR-5)', (
     });
   });
 
-  it('opens at the 480x340 base size and keeps its aspect via presets only (ADR-021)', () => {
-    expect(mainWindow).toMatchObject({ width: 480, height: 340, resizable: false });
+  it('opens at the 640x440 office size and keeps its aspect via presets only (ADR-025 §2)', () => {
+    expect(mainWindow).toMatchObject({ width: 640, height: 440, resizable: false });
   });
 
   it('enables the macOS private API required for transparency (ADR-007)', () => {

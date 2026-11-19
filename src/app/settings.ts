@@ -14,8 +14,8 @@ export const SIZE_PRESETS = { s: 0.8, m: 1, l: 1.3 } as const;
 export type SizePreset = keyof typeof SIZE_PRESETS;
 const SIZE_IDS = Object.keys(SIZE_PRESETS) as SizePreset[];
 
-/** Base (M) window size in logical pixels (ADR-021). */
-export const BASE_WINDOW = { width: 480, height: 340 } as const;
+/** Base (M) window size in logical pixels: the office (ADR-025 §2). */
+export const BASE_WINDOW = { width: 640, height: 440 } as const;
 /** Token budget choices for the energy reading (FR-V6, ADR-016). */
 export const TOKEN_BUDGETS = [50_000, 100_000, 200_000, 500_000, 1_000_000] as const;
 export type TokenBudget = (typeof TOKEN_BUDGETS)[number];
@@ -43,7 +43,7 @@ export const DEFAULT_SETTINGS: Settings = Object.freeze({
   opacity: 1,
   floatOnTop: false,
   motion: 'system',
-  demoScript: 'friends',
+  demoScript: 'office',
   tokenBudget: 200_000,
   sourceChoice: 'auto',
 });
@@ -63,14 +63,15 @@ export function normalizeOpacity(value: unknown, fallback = DEFAULT_SETTINGS.opa
 export function parseSettings(value: unknown): Settings {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) return DEFAULT_SETTINGS;
   const record = value as Record<string, unknown>;
-  // Settings saved before session friends (no sourceChoice yet) still hold the old default demo: show the friends once.
-  const legacyTour = !('sourceChoice' in record) && record.demoScript === 'tour';
+  // Settings saved before session friends (no sourceChoice yet) still hold the old default demo, and the friends'
+  // demo is retired (ADR-025): both show the office instead.
+  const legacyDemo = (!('sourceChoice' in record) && record.demoScript === 'tour') || record.demoScript === 'friends';
   return {
     size: oneOf(SIZE_IDS, record.size, DEFAULT_SETTINGS.size),
     opacity: normalizeOpacity(record.opacity),
     floatOnTop: typeof record.floatOnTop === 'boolean' ? record.floatOnTop : DEFAULT_SETTINGS.floatOnTop,
     motion: oneOf(MOTION_SETTINGS, record.motion, DEFAULT_SETTINGS.motion),
-    demoScript: legacyTour ? 'friends' : oneOf(DEMO_SCRIPT_IDS, record.demoScript, DEFAULT_SETTINGS.demoScript),
+    demoScript: legacyDemo ? 'office' : oneOf(DEMO_SCRIPT_IDS, record.demoScript, DEFAULT_SETTINGS.demoScript),
     tokenBudget: (TOKEN_BUDGETS as readonly unknown[]).includes(record.tokenBudget)
       ? (record.tokenBudget as TokenBudget)
       : DEFAULT_SETTINGS.tokenBudget,

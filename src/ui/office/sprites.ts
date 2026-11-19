@@ -1,8 +1,8 @@
 import type { Palette, PixelMap } from './pixelMap';
 
 /**
- * Original pixel sprites for Hermes and friends (ADR-019). 12×16 pixels, drawn at 2×.
- * Hermes: winged blue cap, brown hair, white shirt, violet scarf, blue shorts, red sneakers.
+ * Original pixel sprites for the office (ADR-019, ADR-025): the members' three looks, the helper bot and the emotes.
+ * Members are 12×16 pixels; the scene draws them at 2.25×.
  */
 
 /** Replaces the non-transparent pixels of `patch` onto `base` (same size). */
@@ -25,127 +25,31 @@ const BLANK = '............';
 /** A 16-row patch from a few rows. */
 const patch = (rows: Record<number, string>): string[] => Array.from({ length: 16 }, (_, y) => rows[y] ?? BLANK);
 
-export const HERMES_PALETTE: Palette = {
+/** Outline, skin, eyes, cheeks and mouth: the same in every look, so everyone belongs to the same office. */
+const FACE: Palette = {
   o: '#3b2a20', // outline
-  h: '#7a4f3a', // hair
-  c: '#5b6fd6', // cap
-  C: '#8fa0f0', // cap light
-  W: '#ffffff', // wing
-  w: '#d8deee', // wing shade
   s: '#ffe0c7', // skin
   e: '#2b1d16', // eyes
   p: '#ff9db0', // cheeks
   m: '#c0605a', // mouth
-  t: '#fffaf2', // shirt
-  v: '#a48df0', // scarf
-  V: '#7d66c9', // scarf shade
-  b: '#4a5aa8', // shorts
-  f: '#e8505b', // shoes
-  u: '#ffffff', // foam
-  U: '#c9d6e8', // foam shade
-  k: '#6a7bb8', // book cover
-  K: '#f4f0e6', // pages
-  g: '#7fc3d8', // watering can
 };
 
-const recolour = (changes: Readonly<Record<string, string>>): Palette => ({ ...HERMES_PALETTE, ...changes });
-
-/** Friend A: pink bun, yellow tee. Friend B: mint beanie, sky tee. */
-export const FRIEND_PALETTES: readonly Palette[] = [
-  recolour({ h: '#f29ab9', t: '#ffe58f', v: '#ff8fb1', V: '#e0688f', b: '#8a5cf0', f: '#5b6fd6' }),
-  recolour({ h: '#4a3426', c: '#56c9a0', C: '#a7f0d4', t: '#bfe3ff', v: '#5b6fd6', V: '#4153b0', b: '#3b4a6b', f: '#f4b04a' }),
-];
-
-const CAP = ['.W..oooo..W.', 'WWWocCccoWWW', '.WoccccccoW.'];
-
-const HEAD_FRONT = [
-  ...CAP,
-  '.ohhhhhhhho.',
-  '.ohssssssho.',
-  '.osesssseso.',
-  '.opssmmsspo.',
-  '..osssssso..',
-  '..ovvvvvvo..',
-];
-const HEAD_BACK = [...CAP, '.ohhhhhhhho.', '.ohhhhhhhho.', '.ohhhhhhhho.', '.ohhhhhhhho.', '..ohhhhhho..', '..ovvvvvvo..'];
-const HEAD_SLEEP = [
-  ...CAP,
-  '.ohhhhhhhho.',
-  '.ohssssssho.',
-  '.osossssoso.',
-  '.opsssssspo.',
-  '..osssssso..',
-  '..ovvvvvvo..',
-];
-
-const BODY_STAND = ['..otvvvvto..', '.sottttttos.', '.sotVttttos.', '..obbbbbbo..', '..obboobbo..', '...os..so...', '..off..ffo..'];
-const BODY_BACK = ['..otvvvvto..', '.sottttttos.', '.sottttttos.', '..obbbbbbo..', '..obboobbo..', '...os..so...', '..off..ffo..'];
-const BODY_NO_ARMS = ['..otvvvvto..', '..otttttto..', '..otVtttto..', '..obbbbbbo..', '..obboobbo..', '...os..so...', '..off..ffo..'];
-const LEGS_WALK_A = ['..obbo.obbo.', '..os....so..', '.off....ffo.'];
-const LEGS_WALK_B = ['..obboobbo..', '....osso....', '...offffo...'];
-
-const withLegs = (body: readonly string[], legs: readonly string[]) => [...body.slice(0, 4), ...legs];
-
-const FRONT = [...HEAD_FRONT, ...BODY_STAND];
-const BACK = [...HEAD_BACK, ...BODY_BACK];
-
-const ARMS_UP = patch({ 4: 's..........s', 5: 's..........s', 6: 's..........s', 7: 'os........so', 8: '.o........o.' });
-const WAVE = patch({ 3: '...........s', 4: '...........s', 5: '...........s', 6: '..........os', 7: '..........o.' });
-const HANDS_ON_HEAD = patch({ 3: 's..........s', 4: 'so........os', 5: 'so........os', 6: '.o........o.' });
-const BOOK = patch({ 10: '..okkkkkko..', 11: '..okKKKKko..', 12: '..okkkkkko..' });
-const WATERING = patch({ 10: '.........ooo', 11: '........sggg', 12: '.........ggg', 13: '..........o.' });
-
-const SIT_BACK = [...HEAD_BACK, '..otvvvvto..', '.sottttttos.', '.sottttttos.', '..obbbbbbo..', '..obbbbbbo..', BLANK, BLANK];
-const SIT_BACK_TYPE = [...HEAD_BACK, '..otvvvvto..', '.oottttttos.', '..ottttttoo.', '..obbbbbbo..', '..obbbbbbo..', BLANK, BLANK];
-const SIT_FRONT = [...HEAD_FRONT, '..otvvvvto..', '.sottttttos.', '.sotVttttos.', '..obbbbbbo..', '.obbbbbbbbo.', '.os......so.', '.ff......ff.'];
-
-const SHOWER = [
-  '...uu..uu...',
-  '..uUUu.uUUu.',
-  '.ouuuuuuuuo.',
-  '.ohhhhhhhho.',
-  '.ohssssssho.',
-  '.osossssoso.',
-  '.opssmmsspo.',
-  '..osssssso..',
-  '..osssssso..',
-  '.osssssssso.',
-  '.osssssssso.',
-  BLANK,
-  BLANK,
-  BLANK,
-  BLANK,
-  BLANK,
-];
-
-/** Friend heads: A has a hair bun, B a beanie; no wings. */
-const FRIEND_A_HEAD = ['....oooo....', '...ohhhho...', '..ohhhhhho..', '.ohhhhhhhho.', '.ohssssssho.', '.osesssseso.', '.opssmmsspo.', '..osssssso..', '..ovvvvvvo..'];
-const FRIEND_A_BACK = ['....oooo....', '...ohhhho...', '..ohhhhhho..', '.ohhhhhhhho.', '.ohhhhhhhho.', '.ohhhhhhhho.', '.ohhhhhhhho.', '..ohhhhhho..', '..ovvvvvvo..'];
-const FRIEND_B_HEAD = ['............', '..occcccco..', '.occCCCCcco.', '.occcccccco.', '.ohssssssho.', '.osesssseso.', '.opssmmsspo.', '..osssssso..', '..ovvvvvvo..'];
-const FRIEND_B_BACK = ['............', '..occcccco..', '.occCCCCcco.', '.occcccccco.', '.ohhhhhhhho.', '.ohhhhhhhho.', '.ohhhhhhhho.', '..ohhhhhho..', '..ovvvvvvo..'];
-
-const friendSheet = (prefix: string, head: readonly string[], back: readonly string[]) => ({
-  [`${prefix}-front`]: [...head, ...BODY_STAND],
-  [`${prefix}-back`]: [...back, ...BODY_BACK],
-  [`${prefix}-walk-a`]: [...head, ...withLegs(BODY_STAND, LEGS_WALK_A)],
-  [`${prefix}-walk-b`]: [...head, ...withLegs(BODY_STAND, LEGS_WALK_B)],
-  [`${prefix}-back-walk-a`]: [...back, ...withLegs(BODY_BACK, LEGS_WALK_A)],
-  [`${prefix}-back-walk-b`]: [...back, ...withLegs(BODY_BACK, LEGS_WALK_B)],
-  [`${prefix}-sit-back`]: [...back, ...SIT_BACK.slice(9)],
-  [`${prefix}-sit-back-type`]: [...back, ...SIT_BACK_TYPE.slice(9)],
-  [`${prefix}-sit-front`]: [...head, ...SIT_FRONT.slice(9)],
-});
-
 /**
- * Session friends (ADR-022): each Claude Code session is a Claude friend, each Codex session a Codex friend.
- * Original characters (no marks, logos or mascots) with Hermes' 12×16 build, outline and face.
+ * Office members (ADR-025 §1): one per session, drawn in its kind's look.
+ * Original characters (no marks, logos or mascots), all with the same 12×16 build, outline and face.
  * The kinds differ by silhouette first, colour mood second:
  * - Claude: knit beanie with a pom-pom, auburn bob, open terracotta hoodie over a cream tee, brown trousers.
  * - Codex: black hood up with headphones over it, light grey fringe, white drawstrings, grey joggers.
- * Keys: o s e p m as Hermes; h hair; n/N pom-pom; j/J garment and its second tone; i tee or drawstrings;
- * d trousers; f shoes; A/a the session accent — Claude's whole beanie, Codex's headphones.
+ * - Agent (ADR-025, every other session kind): bare head of short dark hair with a cowlick, round slate glasses,
+ *   open mint cardigan over a white shirt with an office lanyard and badge, dark trousers, brown shoes.
+ * Keys: o s e p m the shared face; h hair; n/N pom-pom; g glasses; j/J garment and its second tone; i tee, shirt or
+ * drawstrings; d trousers; f shoes; u/U/k a coffee mug and its coffee; A/a the session accent — Claude's whole
+ * beanie, Codex's headphones, the agent's lanyard and badge.
  */
-export type GuestKind = 'claude' | 'codex';
+export type GuestKind = 'claude' | 'codex' | 'agent';
+
+/** Every look, in sheet order. */
+export const GUEST_LOOKS: readonly GuestKind[] = ['claude', 'codex', 'agent'];
 
 /** Pose suffixes of a guest sheet: sprite names are `${kind}-${pose}`. */
 export const GUEST_POSES = [
@@ -161,6 +65,15 @@ export const GUEST_POSES = [
   'wave',
   'arms-up',
   'hands-on-head',
+  // The office (ADR-025): desks seen from behind and from the front, the coffee corner and the lounge sofa.
+  'sit-desk',
+  'sit-desk-type',
+  'sit-desk-front',
+  'sit-desk-front-type',
+  'sit-desk-think',
+  'sit-desk-back-think',
+  'hold-mug',
+  'sit-sofa',
 ] as const;
 export type GuestPose = (typeof GUEST_POSES)[number];
 
@@ -240,7 +153,39 @@ const CODEX_LOOK: GuestLook = {
   cheer: { 6: 'ajpsmmmmspja', 7: '.jossmmssoj.' },
 };
 
-const GUEST_LEGS = ['..oddooddo..', '...od..do...', '..off..ffo..'];
+/** No hat: a round head of short hair with a cowlick (mirrored from behind), arched round lenses over the eyes. */
+const AGENT_LOOK: GuestLook = {
+  head: [
+    '......oo....',
+    '...ooohoo...',
+    '..ohhhhhho..',
+    '.ohhhhhhhho.',
+    '.ohgssssgho.',
+    '.ogegssgego.',
+    '.opssmmsspo.',
+    '..osssssso..',
+  ],
+  headBack: [
+    '....oo......',
+    '...oohooo...',
+    '..ohhhhhho..',
+    '.ohhhhhhhho.',
+    '.ohhhhhhhho.',
+    '.ghhhhhhhhg.',
+    '..ohhhhhho..',
+    '...osssso...',
+  ],
+  // Lanyard from the collar to a badge on the shirt; from behind, the cord round the neck.
+  torso: ['..ojAiiAjo..', '..ojjAAjjo..', '..ojjaajjo..', '..ojjiijjo..', '..oJJiiJJo..'],
+  torsoBack: ['..ojAAAAjo..', '..ojjjjjjo..', '..ojjjjjjo..', '..ojjjjjjo..', '..oJJJJJJo..'],
+  think: { 6: '.opsssmsspo.' },
+  thinkHand: { 7: '........ss..', 8: '.........J..', 9: '.........J..', 10: '.........Jj.', 11: '..........j.' },
+  upset: { 4: '.ohgossogho.', 6: '.opsseesspo.' },
+  call: { 6: '.opsssssspo.', 7: '..ossmmsso..' },
+  cheer: { 6: '.opsmmmmspo.', 7: '..ossmmsso..' },
+};
+
+const GUEST_LEGS =['..oddooddo..', '...od..do...', '..off..ffo..'];
 const GUEST_LEGS_WALK_A = ['..oddo.oddo.', '..od....do..', '.off....ffo.'];
 const GUEST_LEGS_WALK_B = ['..oddooddo..', '....oddo....', '...offffo...'];
 /** Cross-legged on a floor cushion. */
@@ -261,7 +206,41 @@ const GUEST_ARMS_UP = patch({ 0: 's..........s', 1: 's..........s', 2: 'j.......
 const GUEST_HANDS_ON_HEAD = patch({ 1: '..s......s..', 2: '.s........s.' });
 const GUEST_ELBOWS_OUT = patch({ 3: 'j..........j', 4: 'j..........j', 5: 'j..........j', 6: 'j..........j', 7: '.j........j.', 8: '.j........j.' });
 
-const faced = (head: readonly string[], rows: Readonly<Record<number, string>>) => head.map((row, y) => rows[y] ?? row);
+/** On an office chair facing the viewer: lap, shins, shoes. Kept plain — the desk front is drawn over rows 11–15. */
+const GUEST_LEGS_CHAIR = ['.oddddddddo.', '..od....do..', '.off....ffo.'];
+/** On an office chair seen from behind: only the seat of the trousers; the chair and the desk hide the rest. */
+const GUEST_SEAT_BACK = ['..oddddddo..', BLANK, BLANK];
+/** Sunk into a sofa: knees apart, feet on the floor. */
+const GUEST_LEGS_SOFA = ['.oddddddddo.', '.od......do.', '.ff......ff.'];
+
+/** At a desk facing the viewer: forearms forward, both hands on the keys at row 10, just above the desk edge. */
+const GUEST_ARMS_DESK = patch({ 9: '.j........j.', 10: '.jjs....sjj.' });
+/** Typing frame: the viewer's-left hand lifts off the keys, the right one reaches in. */
+const GUEST_ARMS_DESK_TYPE = patch({ 9: '.jjs......j.', 10: '.j.....sjjj.' });
+/** Thinking at the desk: the viewer's-left hand stays on the keys (the other one is the look's `thinkHand`). */
+const GUEST_ARMS_DESK_THINK = patch({ 9: '.j..........', 10: '.jjs........' });
+/** At a desk seen from behind: the upper arms hang, the forearms curl forward round the body to the keys. */
+const GUEST_ARMS_DESK_BACK = patch({ 9: '.j........j.', 10: '.j........j.', 11: '.jj......jj.' });
+/** Typing from behind: the left forearm lifts off the keys a row while the right one stays down. */
+const GUEST_ARMS_DESK_BACK_TYPE = patch({ 9: '.j........j.', 10: '.jj.......j.', 11: '.........jj.' });
+/** From behind, a hand on the back of the head, its elbow out; the left arm stays at the desk. */
+const GUEST_ARMS_HEAD_BACK = patch({
+  3: '........ss..',
+  4: '..........j.',
+  5: '...........j',
+  6: '...........j',
+  7: '...........j',
+  8: '..........j.',
+  9: '.j..........',
+  10: '.j..........',
+  11: '.jj.........',
+});
+/** A mug of coffee at chest height: the left hand under it, the right one on the handle. */
+const GUEST_HOLD_MUG = patch({ 9: '.j..okkoo.j.', 10: '.jjsuuUuosj.', 11: '....oooo....' });
+/** Lounging: the viewer's-left arm along the sofa back, the other hand resting on the tummy. */
+const GUEST_ARMS_SOFA = patch({ 8: 'sjj.........', 9: '..........j.', 10: '..........j.', 11: '........sjj.' });
+
+const faced =(head: readonly string[], rows: Readonly<Record<number, string>>) => head.map((row, y) => rows[y] ?? row);
 
 function guestSheet(prefix: GuestKind, look: GuestLook): Record<string, PixelMap> {
   const front = (face: readonly string[], legs: readonly string[]) => [...face, ...look.torso, ...legs];
@@ -280,14 +259,24 @@ function guestSheet(prefix: GuestKind, look: GuestLook): Record<string, PixelMap
     'arms-up': underlay(front(faced(look.head, look.cheer), GUEST_LEGS), GUEST_ARMS_UP),
     // Seated at the laptop, facing the viewer.
     'hands-on-head': underlay(overlay(front(faced(look.head, look.upset), GUEST_LEGS_SIT), GUEST_HANDS_ON_HEAD), GUEST_ELBOWS_OUT),
+    // The office (ADR-025).
+    'sit-desk': overlay(back(GUEST_SEAT_BACK), GUEST_ARMS_DESK_BACK),
+    'sit-desk-type': overlay(back(GUEST_SEAT_BACK), GUEST_ARMS_DESK_BACK_TYPE),
+    'sit-desk-front': overlay(front(look.head, GUEST_LEGS_CHAIR), GUEST_ARMS_DESK),
+    'sit-desk-front-type': overlay(front(look.head, GUEST_LEGS_CHAIR), GUEST_ARMS_DESK_TYPE),
+    'sit-desk-think': overlay(overlay(front(faced(look.head, look.think), GUEST_LEGS_CHAIR), GUEST_ARMS_DESK_THINK), patch(look.thinkHand)),
+    'sit-desk-back-think': overlay(back(GUEST_SEAT_BACK), GUEST_ARMS_HEAD_BACK),
+    'hold-mug': overlay(front(look.head, GUEST_LEGS), GUEST_HOLD_MUG),
+    'sit-sofa': overlay(front(look.head, GUEST_LEGS_SOFA), GUEST_ARMS_SOFA),
   };
   return Object.fromEntries(Object.entries(poses).map(([pose, map]) => [`${prefix}-${pose}`, map]));
 }
 
-/** Outline, skin, eyes, cheeks and mouth exactly as Hermes', so the friends belong to the same room. */
-const GUEST_FACE: Palette = Object.fromEntries(Object.entries(HERMES_PALETTE).filter(([key]) => 'osepm'.includes(key)));
+/** The office mug (`hold-mug`): the same white mug of coffee in every hand. */
+const GUEST_MUG: Palette = { u: '#fffaf2', U: '#d8deee', k: '#7a4a2a' };
 const claudePalette = (accent: string, shade: string): Palette => ({
-  ...GUEST_FACE,
+  ...FACE,
+  ...GUEST_MUG,
   h: '#9c4a2c', // auburn hair
   n: '#f6e6c4', // oat pom-pom
   N: '#dcc59a',
@@ -300,7 +289,8 @@ const claudePalette = (accent: string, shade: string): Palette => ({
   a: shade,
 });
 const codexPalette = (accent: string, shade: string): Palette => ({
-  ...GUEST_FACE,
+  ...FACE,
+  ...GUEST_MUG,
   h: '#d5d8de', // light grey fringe
   j: '#2a2c33', // black hoodie
   J: '#464a55',
@@ -310,10 +300,23 @@ const codexPalette = (accent: string, shade: string): Palette => ({
   A: accent,
   a: shade,
 });
+const agentPalette = (accent: string, shade: string): Palette => ({
+  ...FACE,
+  ...GUEST_MUG,
+  h: '#3d2b2a', // short dark hair
+  g: '#6b7686', // slate glasses
+  j: '#8fd6b6', // mint cardigan
+  J: '#5fb393',
+  i: '#fdfbf6', // white shirt
+  d: '#3c4256', // dark trousers
+  f: '#6b4636', // brown shoes
+  A: accent, // lanyard
+  a: shade, // badge
+});
 
 /**
  * Accent per session ordinal (ADR-022 "Claude 1", "Claude 2" …): only `A`/`a` change, in the same hue order
- * for both kinds — 1 yellow, 2 green, 3 blue, 4 pink. Use `guestPalette` to pick one.
+ * for every look — 1 yellow, 2 green, 3 blue, 4 pink. Use `guestPalette` to pick one.
  */
 export const GUEST_PALETTES: Readonly<Record<GuestKind, readonly Palette[]>> = {
   claude: [
@@ -328,6 +331,12 @@ export const GUEST_PALETTES: Readonly<Record<GuestKind, readonly Palette[]>> = {
     codexPalette('#3fc8f0', '#1f97bd'),
     codexPalette('#ff5fb8', '#d03a8c'),
   ],
+  agent: [
+    agentPalette('#f5c242', '#c99a1c'),
+    agentPalette('#4fb84a', '#35873a'),
+    agentPalette('#4f7fe0', '#3559b0'),
+    agentPalette('#e5559c', '#b23a76'),
+  ],
 };
 
 /** The palette of the n-th session friend of a kind (n ≥ 1): accents repeat every four. */
@@ -340,29 +349,52 @@ export function guestPalette(kind: GuestKind, ordinal: number): Palette {
 export const GUEST_SPRITES: Readonly<Record<string, PixelMap>> = {
   ...guestSheet('claude', CLAUDE_LOOK),
   ...guestSheet('codex', CODEX_LOOK),
+  ...guestSheet('agent', AGENT_LOOK),
 };
 
-export const SPRITES: Readonly<Record<string, PixelMap>> = {
-  front: FRONT,
-  'front-walk-a': [...HEAD_FRONT, ...withLegs(BODY_STAND, LEGS_WALK_A)],
-  'front-walk-b': [...HEAD_FRONT, ...withLegs(BODY_STAND, LEGS_WALK_B)],
-  back: BACK,
-  'back-walk-a': [...HEAD_BACK, ...withLegs(BODY_BACK, LEGS_WALK_A)],
-  'back-walk-b': [...HEAD_BACK, ...withLegs(BODY_BACK, LEGS_WALK_B)],
-  'sit-back': SIT_BACK,
-  'sit-back-type': SIT_BACK_TYPE,
-  'sit-front': SIT_FRONT,
-  sleep: [...HEAD_SLEEP, BLANK, BLANK, BLANK, BLANK, BLANK, BLANK, BLANK],
-  shower: SHOWER,
-  wave: overlay([...HEAD_FRONT, ...BODY_STAND], WAVE),
-  'arms-up': overlay([...HEAD_FRONT, ...BODY_NO_ARMS], ARMS_UP),
-  'hands-on-head': overlay([...HEAD_BACK, ...SIT_BACK.slice(9)].map((row, y) => (y === 10 || y === 11 ? '..otttttto..' : row)), HANDS_ON_HEAD),
-  read: overlay(FRONT, BOOK),
-  water: overlay(FRONT, WATERING),
-  ...friendSheet('friend-a', FRIEND_A_HEAD, FRIEND_A_BACK),
-  ...friendSheet('friend-b', FRIEND_B_HEAD, FRIEND_B_BACK),
-  ...GUEST_SPRITES,
+/**
+ * The delegation helper (ADR-025): a small original robot that stands beside a desk while its session delegates.
+ * A rounded white shell, a cyan visor with two eyes and a tiny antenna; frame b blinks the antenna and lifts an arm.
+ */
+export const HELPER_BOT: { readonly palette: Palette; readonly frames: Readonly<Record<'helper-bot-a' | 'helper-bot-b', PixelMap>> } = {
+  palette: {
+    o: '#3b2a20', // outline, as the rest of the room
+    w: '#f4f6f8', // shell
+    W: '#c9d2dc', // shell shade
+    v: '#4fd1e3', // visor
+    e: '#1d4b5a', // eyes
+    c: '#8ff0ff', // antenna light
+  },
+  frames: {
+    'helper-bot-a': [
+      '.....c....',
+      '.....o....',
+      '..oooooo..',
+      '.owwwwwwo.',
+      '.ovvvvvvo.',
+      '.ovevvevo.',
+      '.owwwwwWo.',
+      '..owwwWo..',
+      '.wowwwWow.',
+      '..oo..oo..',
+    ],
+    'helper-bot-b': [
+      '.....o....',
+      '.....o....',
+      '..oooooo..',
+      '.owwwwwwo.',
+      '.ovvvvvvo.',
+      '.ovvevveo.',
+      '.owwwwwWo.',
+      '..owwwWow.',
+      '.wowwwWo..',
+      '..oo..oo..',
+    ],
+  },
 };
+
+/** Every member sprite, by name: `${look}-${pose}`. */
+export const SPRITES: Readonly<Record<string, PixelMap>> = GUEST_SPRITES;
 
 export interface Emote {
   readonly map: PixelMap;
@@ -371,15 +403,6 @@ export interface Emote {
 
 /** Little pixel signs above a head. Shapes, not text. */
 export const EMOTES: Readonly<Record<string, Emote>> = {
-  heart: {
-    map: ['.rr.rr..', 'rRRrRRr.', 'rRRRRRr.', '.rRRRr..', '..rRr...', '...r....'],
-    palette: { r: '#c2185b', R: '#ff8fb1' },
-  },
-  zzz: {
-    map: ['....zzzz', '......z.', '.....z..', 'zzz.zzzz', '..z.....', '.z......', 'zzz.....'],
-    palette: { z: '#e8ecf8' },
-  },
-  note: { map: ['..nnnnn.', '..n...n.', '..n...n.', 'nnn.nnn.', 'nnn.nnn.'], palette: { n: '#5b6fd6' } },
   vein: { map: ['.a....a.', 'aa....aa', '........', '........', 'aa....aa', '.a....a.'], palette: { a: '#ff5c7a' } },
   sweat: { map: ['..d.', '.dd.', 'dDdd', 'dddd', '.dd.'], palette: { d: '#8fd3ff', D: '#ffffff' } },
   'exclaim-amber': { map: ['.xx.', '.xx.', '.xx.', '.xx.', '....', '.xx.'], palette: { x: '#f4b04a' } },
@@ -388,8 +411,6 @@ export const EMOTES: Readonly<Record<string, Emote>> = {
   sparkle: { map: ['..y..', '..y..', 'yyYyy', '..y..', '..y..'], palette: { y: '#f2d27a', Y: '#ffffff' } },
   steam: { map: ['..ss.ss.', '.sssssss', 'ssssssss', '.ssssss.'], palette: { s: '#e8ecf8' } },
   battery: { map: ['kkkkkkk.', 'kq....kk', 'kq....kk', 'kkkkkkk.'], palette: { k: '#3b2a20', q: '#ff5c5c' } },
-  water: { map: ['.w.', 'wWw', '.w.'], palette: { w: '#6cc7f2', W: '#ffffff' } },
-  bubbles: { map: ['..u..', '.uUu.', '..u.u'], palette: { u: '#ffffff', U: '#c9d6e8' } },
   code: {
     map: ['..c..cc..', '.c...c.c.', 'c...c...c', '.c.c...c.', '..cc..c..'],
     palette: { c: '#6cc7f2' },
@@ -398,11 +419,15 @@ export const EMOTES: Readonly<Record<string, Emote>> = {
   prompt: { map: ['p......', '.p.....', '..p....', '.p.....', 'p..pppp'], palette: { p: '#72e3bd' } },
   folder: { map: ['fff....', 'fFFffff', 'fFFFFFf', 'fFFFFFf', 'fffffff'], palette: { f: '#6a7bb8', F: '#a9b6e6' } },
   arrow: { map: ['....v..', 'vvvvvvv', '....v..'], palette: { v: '#a48df0' } },
-  moon: { map: ['.mmm.', 'mm...', 'm....', 'mm...', '.mmm.'], palette: { m: '#ffe48a' } },
   /** Two sessions talking (ADR-023): a speech bubble with three dots — never letters or content. */
   talk: {
     map: ['.bbbbbbb.', 'bwwwwwwwb', 'bwkwkwkwb', 'bwwwwwwwb', '.bbbbbbb.', '..bw.....', '..b......'],
     palette: { b: '#3b2a20', w: '#ffffff', k: '#5b6fd6' },
+  },
+  /** A coffee break (ADR-025): a mug with two curls of steam. */
+  coffee: {
+    map: ['.w..w...', '..w..w..', '.w..w...', 'kkkkkk..', 'kuUuukkk', 'kuUuuk.k', 'kuUuukkk', '.kkkk...'],
+    palette: { k: '#3b2a20', u: '#fff7ea', U: '#e8505b', w: '#e8ecf8' },
   },
   /** A message sent to someone not in the room (ADR-023): a sealed envelope. */
   letter: {

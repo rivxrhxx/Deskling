@@ -1,9 +1,11 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import type { SourceKind, VisualState } from '../core/agentEvent';
+import type { OfficeDecorId } from '../core/growth';
+import { OFFICE_DECOR } from '../core/growth';
 import type { Vitals } from '../core/mood';
 import type { RoomEntry } from '../core/roomState';
 import { sessionLabel } from '../core/roomState';
-import { ANGER_LABEL, ENERGY_LABEL, activityKind, describeRoomActivity, formatClock, formatTokens } from './activityText';
+import { DECOR_LABEL, activityKind, describeRoomActivity, describeUsage, formatClock, formatTokens } from './activityText';
 import { StateIcon } from './icons';
 import { VISUAL_SPEC } from './visualSpec';
 
@@ -12,7 +14,7 @@ export interface DemoPicker {
   readonly onSelect: (value: string) => void;
 }
 
-/** Which room the panel is showing and the user's choice (FR-CC4). */
+/** Which office the panel is showing and the user's choice (FR-CC4). */
 export interface ViewPicker extends DemoPicker {
   /** Fixed copy, e.g. '지금: 실제 세션'. */
   readonly showing: string;
@@ -24,26 +26,24 @@ export interface BudgetPicker {
   readonly onChange: (value: number) => void;
 }
 
-/** The desktop pet's card (ADR-018). Care only affects the pet — never the agent. */
-export interface PetPanel {
-  readonly name: string;
-  /** 0–5. */
-  readonly hearts: number;
-  readonly snacksLeft: number;
-  /** True for the demo profile, which grows separately from a real agent's. */
+/** How far the office has grown (ADR-025 §7). */
+export interface OfficePanel {
+  readonly xp: number;
+  readonly decor: readonly OfficeDecorId[];
+  readonly next: { readonly id: OfficeDecorId; readonly xp: number } | null;
+  /** True for the demo office, which grows separately from the real one (FR-G6). */
   readonly demo: boolean;
-  readonly onPet: () => void;
-  readonly onFeed: () => void;
-  readonly onRename: (name: string) => void;
 }
 
-/** A session in the room (FR-MS6): Hermes, or a friend. `seated` is false for friends beyond the seats. */
+/** A member of the office (FR-MS6). `seated` is false for members beyond the eight desks. */
 export interface PanelSession {
   readonly key: string;
   readonly kind: SourceKind;
   readonly ordinal: number;
   readonly visual: VisualState;
   readonly seated: boolean;
+  /** The member's own energy and context readings (ADR-025 §6). Numbers show only where reported. */
+  readonly vitals?: Vitals;
 }
 
 export interface ActivityPanelProps {
@@ -54,165 +54,79 @@ export interface ActivityPanelProps {
   readonly demo?: DemoPicker;
   /** 자동 / 실제 / 데모 (FR-CC4). */
   readonly view?: ViewPicker;
-  /** Energy and context numbers (FR-V5). The scene never shows numbers; this panel does. */
-  readonly vitals?: Vitals;
+  /** The budget every member's energy is read against (FR-V6). */
   readonly budget?: BudgetPicker;
-  readonly pet?: PetPanel;
-  /** Who is in the room, Hermes first (FR-MS6). */
+  readonly office?: OfficePanel;
+  /** Who is in the office, in arrival order (FR-MS6). */
   readonly sessions?: readonly PanelSession[];
 }
 
-const HEART = 'M8 14 C8 14 1.5 9.8 1.5 5.6 C1.5 3.4 3.2 2 5 2 C6.4 2 7.4 2.8 8 3.8 C8.6 2.8 9.6 2 11 2 C12.8 2 14.5 3.4 14.5 5.6 C14.5 9.8 8 14 8 14 Z';
-
-function PetSection({ pet }: { pet: PetPanel }) {
-  // Follow outside name changes without an effect (React: "adjusting state when a prop changes").
-  const [draft, setDraft] = useState(pet.name);
-  const [savedName, setSavedName] = useState(pet.name);
-  if (pet.name !== savedName) {
-    setSavedName(pet.name);
-    setDraft(pet.name);
-  }
-  const commit = () => {
-    if (draft !== pet.name) pet.onRename(draft);
-  };
+/** The office's growth in fixed copy: XP, unlocked props and what comes next. */
+function OfficeSection({ office }: { office: OfficePanel }) {
   return (
-    <div className="activity-panel__pet" role="group" aria-label="펫">
-      <div className="pet__row">
-        <input
-          className="pet__name"
-          aria-label="이름"
-          placeholder="헤르메스"
-          maxLength={12}
-          value={draft}
-          onChange={(event) => setDraft(event.currentTarget.value)}
-          onBlur={commit}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter') {
-              event.preventDefault();
-              commit();
-            }
-          }}
-        />
-        {pet.demo && <span className="pet__demo">DEMO</span>}
-        <span className="pet__hearts" role="img" aria-label={`애정도 하트 5개 중 ${pet.hearts}개`}>
-          {[0, 1, 2, 3, 4].map((index) => (
-            <svg key={index} viewBox="0 0 16 16" width="11" height="11" aria-hidden="true" focusable="false" data-filled={index < pet.hearts}>
-              <path d={HEART} />
-            </svg>
-          ))}
-        </span>
+    <div className="activity-panel__office" role="group" aria-label="사무실">
+      <div className="office__row">
+        <span className="activity-panel__heading">사무실</span>
+        {office.demo && <span className="office__demo">DEMO</span>}
       </div>
-      <div className="pet__actions">
-        <button type="button" className="chip" onClick={pet.onPet}>
-          쓰다듬기
-        </button>
-        <button
-          type="button"
-          className="chip"
-          onClick={pet.onFeed}
-          disabled={pet.snacksLeft === 0}
-          aria-label={`간식 주기, 오늘 ${pet.snacksLeft}개 남음`}
-        >
-          간식 주기 · {pet.snacksLeft}
-        </button>
+      <div className="office__row office__facts">
+        <span>{`경험치 ${office.xp}`}</span>
+        <span>{`소품 ${office.decor.length}/${OFFICE_DECOR.length}`}</span>
+        <span className="office__next">{office.next ? `다음: ${DECOR_LABEL[office.next.id]} · ${office.next.xp}` : '모두 해금'}</span>
       </div>
     </div>
   );
 }
 
-function Meter({ label, percent }: { label: string; percent: number }) {
+/** Everyone in the office, their state and reported numbers, in fixed copy (FR-MS6, FR-P4, FR-V5). */
+function SessionsSection({ sessions, budget }: { sessions: readonly PanelSession[]; budget?: BudgetPicker }) {
   return (
-    <div className="vital__meter" role="meter" aria-label={label} aria-valuemin={0} aria-valuemax={100} aria-valuenow={percent}>
-      <div className="vital__fill" style={{ width: `${percent}%` }} />
-    </div>
-  );
-}
-
-function VitalsSection({ vitals, budget }: { vitals: Vitals; budget?: BudgetPicker }) {
-  const { energy, anger } = vitals;
-  const energyPercent = energy.ratio === null ? null : Math.round(energy.ratio * 100);
-  const contextPercent = anger.ratio === null ? null : Math.round(anger.ratio * 100);
-  return (
-    <div className="activity-panel__vitals" role="group" aria-label="에너지와 컨텍스트">
-      <div className="vital" data-vital="energy" data-level={energy.level}>
-        <div className="vital__row">
-          <span className="vital__name">에너지</span>
-          {energy.remaining === null ? (
-            <span className="vital__value">보고 없음</span>
-          ) : (
-            <span className="vital__value">
-              남은 토큰 {formatTokens(energy.remaining)} / {formatTokens(energy.budget)}
-              <span className="vital__level"> · {ENERGY_LABEL[energy.level]}</span>
-            </span>
-          )}
-        </div>
-        {energyPercent !== null && <Meter label="남은 에너지" percent={energyPercent} />}
-        {budget && (
-          <label className="vital__budget">
-            <span>예산</span>
-            <select
-              aria-label="토큰 예산"
-              value={budget.value}
-              onChange={(event) => budget.onChange(Number(event.currentTarget.value))}
-            >
-              {budget.options.map((option) => (
-                <option key={option} value={option}>
-                  {formatTokens(option)}
-                </option>
-              ))}
-            </select>
-          </label>
-        )}
-      </div>
-      <div className="vital" data-vital="context" data-level={anger.level}>
-        <div className="vital__row">
-          <span className="vital__name">컨텍스트</span>
-          {anger.used === null || anger.limit === null ? (
-            <span className="vital__value">보고 없음</span>
-          ) : (
-            <span className="vital__value">
-              {formatTokens(anger.used)} / {formatTokens(anger.limit)} · {contextPercent}%
-              <span className="vital__level"> · {ANGER_LABEL[anger.level]}</span>
-            </span>
-          )}
-        </div>
-        {contextPercent !== null && <Meter label="컨텍스트 사용량" percent={contextPercent} />}
-      </div>
-    </div>
-  );
-}
-
-/** Everyone in the room and their state, in fixed copy (FR-MS6, FR-P4). */
-function SessionsSection({ sessions }: { sessions: readonly PanelSession[] }) {
-  return (
-    <div className="activity-panel__sessions" role="group" aria-label="방에 있는 세션">
-      <span className="activity-panel__heading">방에 있는 세션</span>
-      <ul className="sessions__list">
-        {sessions.map((session) => {
-          const spec = VISUAL_SPEC[session.visual];
-          return (
-            <li
-              key={session.key}
-              className="session"
-              data-session-kind={session.kind}
-              data-visual={session.visual}
-              data-tone={spec.tone}
-              data-seated={session.seated ? 'true' : 'false'}
-            >
-              <span className="session__dot" aria-hidden="true" />
-              <span className="session__name">{sessionLabel(session)}</span>
-              <span className="session__state">{spec.label}</span>
-              {!session.seated && <span className="session__away">(자리 없음)</span>}
-            </li>
-          );
-        })}
-      </ul>
+    <div className="activity-panel__sessions" role="group" aria-label="사무실에 있는 세션">
+      <span className="activity-panel__heading">사무실에 있는 세션</span>
+      {sessions.length === 0 ? (
+        <p className="sessions__empty">아무도 없음</p>
+      ) : (
+        <ul className="sessions__list">
+          {sessions.map((session) => {
+            const spec = VISUAL_SPEC[session.visual];
+            const usage = session.vitals ? describeUsage(session.vitals) : null;
+            return (
+              <li
+                key={session.key}
+                className="session"
+                data-session-kind={session.kind}
+                data-visual={session.visual}
+                data-tone={spec.tone}
+                data-seated={session.seated ? 'true' : 'false'}
+              >
+                <span className="session__dot" aria-hidden="true" />
+                <span className="session__name">{sessionLabel(session)}</span>
+                <span className="session__state">{spec.label}</span>
+                {usage && <span className="session__usage">{usage}</span>}
+                {!session.seated && <span className="session__away">(자리 없음)</span>}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+      {budget && (
+        <label className="sessions__budget">
+          <span>토큰 예산</span>
+          <select aria-label="토큰 예산" value={budget.value} onChange={(event) => budget.onChange(Number(event.currentTarget.value))}>
+            {budget.options.map((option) => (
+              <option key={option} value={option}>
+                {formatTokens(option)}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
     </div>
   );
 }
 
 /** A small log screen pinned to the wall: recent facts, newest first (FR-P1–P4). Read-only. */
-export function ActivityPanel({ entries, onClose, formatTime = formatClock, demo, view, vitals, budget, pet, sessions }: ActivityPanelProps) {
+export function ActivityPanel({ entries, onClose, formatTime = formatClock, demo, view, budget, office, sessions }: ActivityPanelProps) {
   const closeRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
@@ -240,9 +154,8 @@ export function ActivityPanel({ entries, onClose, formatTime = formatClock, demo
           </svg>
         </button>
       </header>
-      {pet && <PetSection pet={pet} />}
-      {vitals && <VitalsSection vitals={vitals} budget={budget} />}
-      {sessions && <SessionsSection sessions={sessions} />}
+      {office && <OfficeSection office={office} />}
+      {sessions && <SessionsSection sessions={sessions} budget={budget} />}
       {entries.length === 0 ? (
         <p className="activity-panel__empty">아직 기록된 활동이 없습니다.</p>
       ) : (

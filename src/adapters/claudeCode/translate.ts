@@ -45,7 +45,7 @@ export interface SessionTrack {
 }
 
 export interface TranslatorState {
-  /** Seen, not-ended sessions, least recently seen first. Presence means the friend is known. */
+  /** Seen, not-ended sessions, least recently seen first. Presence means the member is known. */
   readonly live: ReadonlyMap<string, SessionTrack>;
   /** Last emitted seq of sessions that ended (or were dropped from `live`), oldest first. */
   readonly ended: ReadonlyMap<string, number>;
@@ -186,7 +186,7 @@ export function translateHookRecord(
   // Nothing to show for a session that ends before we ever saw it.
   if (!known && record.event === 'session-end') return { state, events: NO_EVENTS };
 
-  // An unseen session announces itself first, so the friend appears (and resumes past its old seq).
+  // An unseen session announces itself first, so the member appears (and resumes past its old seq).
   const opening: Body[] = known ? [] : [{ type: 'agent.online' }];
   const track = known ?? { nextSeq: (state.ended.get(session) ?? 0) + 1, pendingApproval: false, openDelegations: 0 };
   const { bodies, track: mapped } = mapRecord(record, track);
