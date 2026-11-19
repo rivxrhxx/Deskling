@@ -7,6 +7,7 @@ import type { AgentEventSource, SourceMode } from '../adapters/types';
 import { VISUAL_STATES } from '../core/agentEvent';
 import { mockReducedMotion } from '../test/matchMedia';
 import { App } from './App';
+import { memberId } from './officeProgress';
 
 function manualSource(mode: SourceMode = 'live') {
   let emitter: ((raw: unknown) => void) | null = null;
@@ -624,7 +625,14 @@ describe('App growing the office (ADR-025 §7, FR-G1, FR-G3, FR-G6)', () => {
     expect(scene().querySelector('[data-part="decor-desk-plants"]')).not.toBeNull();
     expect(scene().querySelector('[data-part="decor-string-lights"]')).toBeNull();
     const book = JSON.parse(storage.data.get('deskling.office.v1') ?? '{}');
-    expect(book).toEqual({ demo: { xp: 0 }, live: { xp: 4 } });
+    expect(book).toEqual({
+      demo: { xp: 0, members: {} },
+      live: {
+        xp: 4,
+        // Every member grows on its own, under an opaque id (ADR-028 §2).
+        members: { [memberId('claude-code:a')]: 2, [memberId('codex:x')]: 1, [memberId('custom:z')]: 1 },
+      },
+    });
 
     openPanel();
     expect(office()).toHaveTextContent('경험치 4');

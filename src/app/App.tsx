@@ -161,8 +161,15 @@ export function App({ source: providedSource, controls: providedControls, storag
       ),
     [room.memberKeys, room.sessions, settings.tokenBudget],
   );
-  // The office grows from tasks completed by anyone in it; demo and real agents grow separately (ADR-025 §7).
-  const progress = useOfficeProgress({ mode: source.mode, completedTurns: room.completedTurns, feedKey: source, storage });
+  // The office grows from tasks completed by anyone in it, and every member from its own (ADR-025 §7, ADR-028 §2);
+  // demo and real agents grow separately.
+  const progress = useOfficeProgress({
+    mode: source.mode,
+    completedTurns: room.completedTurns,
+    completedBy: room.completedBy,
+    feedKey: source,
+    storage,
+  });
 
   const [panelOpen, setPanelOpen] = useState(false);
   const bubbleRef = useRef<HTMLButtonElement>(null);
