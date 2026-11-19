@@ -26,7 +26,11 @@
     "hooks:print": "node integrations/claude-code/install.mjs print",
     "hooks:install": "node integrations/claude-code/install.mjs install",
     "hooks:uninstall": "node integrations/claude-code/install.mjs uninstall",
-    "hooks:status": "node integrations/claude-code/install.mjs status"
+    "hooks:status": "node integrations/claude-code/install.mjs status",
+    "hooks:codex:print": "node integrations/codex/install.mjs print",
+    "hooks:codex:status": "node integrations/codex/install.mjs status",
+    "hooks:codex:install": "node integrations/codex/install.mjs install",
+    "hooks:codex:uninstall": "node integrations/codex/install.mjs uninstall"
   },
   "dependencies": {
     "@tauri-apps/api": "^2.12.5",
