@@ -146,6 +146,14 @@
 - [x] **T84** Codex 설치기(`~/.codex/hooks.json`, 백업·덧붙이기·되돌리기) + 문서
 - [x] **T85** 동의 후 설치, `/hooks` 신뢰 안내, 실제 Codex 세션으로 확인, verify·build·push
 
+## M14 사무실 움직임 (ADR-027)
+
+- [x] **T86** ADR-027, TASKS
+- [ ] **T87** core: 라운지 돌아다니기(머무는 시간 시드 고정, 다른 빈 자리, reduced-motion이면 안 함), 책장 앞 라운지 자리 — §1
+- [ ] **T88** app: 걷는 동안 50ms 렌더 틱(부드러운 걷기), 아무도 안 걸으면 없음 — §2
+- [ ] **T89** ui: 걷기 b 프레임 1px 뜀, 활동별 작은 반복 동작(숨쉬기·한 모금·흔들림·끄덕임)과 직원별 위상, 구름·화분 잎 — §3
+- [ ] **T90** DESIGN·README·상태 문서, verify·build·push·실행
+
 ## 백로그 (vertical slice 이후, 각각 ADR 먼저)
 
 - [ ] Hermes Agent adapter: 전송 방식·위치 결정 ADR
