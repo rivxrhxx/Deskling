@@ -80,9 +80,9 @@ exit 2는 차단 가능한 이벤트에서 차단(stderr가 Claude에게 감)이
 | 필드 | 규칙 |
 | --- | --- |
 | `v` | 정확히 `1` |
-| `agent` | 정확히 `"claude-code"` |
+| `agent` | `"claude-code"` (이 훅) \| `"codex"` (Codex 훅, ADR-026) |
 | `session` | `^[A-Za-z0-9._:-]{1,64}$` (EVENT_PROTOCOL 식별자 규칙). 어긋나면 훅은 아무것도 보내지 않는다 |
-| `event` | `session-start` \| `session-end` \| `prompt` \| `tool-start` \| `tool-end` \| `approval` \| `stop` \| `stop-failure` \| `subagent-stop` |
+| `event` | `session-start` \| `session-end` \| `prompt` \| `tool-start` \| `tool-end` \| `approval` \| `stop` \| `stop-failure` \| `subagent-stop` \| `interrupt` |
 | `tool` | `tool-start`·`tool-end`에서 **필수**, 그 밖에서는 금지. `code` \| `browser` \| `terminal` \| `file` \| `delegate` \| `message` |
 | `ok` | `tool-end`에서 **필수**, 그 밖에서는 금지. boolean |
 | `at` | 훅이 실행된 시각(epoch ms). `0` 이상 `8.64e15` 이하 정수 |
@@ -91,6 +91,11 @@ Rust 브리지는 이 밖의 모든 것을 거부한다: 모르는 필드, 중�
 200ms 안에 줄이 오지 않음, 초당 50개 초과. 거부는 코드(`Io`, `Timeout`, `Oversize`, `BadSchema`, `BadVersion`, `BadSession`,
 `BadTimestamp`, `BadTool`, `BadOutcome`, `RateLimited`)별 개수만 센다. 입력은 기록하지 않는다.
 통과한 레코드는 원문 바이트가 아니라 **검증된 구조체를 다시 직렬화한 값**이 webview로 간다.
+
+> **Codex도 같은 레코드를 쓴다 (ADR-026).** 레코드 v1은 버전을 그대로 둔 채 `agent: "codex"`와 이벤트 `interrupt`(턴이 결과 없이 끝남,
+> `tool`·`ok` 금지)를 더했다. Claude Code 훅은 `interrupt`를 보내지 않는다. 브리지·adapter는 두 agent를 같은 소켓·같은 리스너에서 받고,
+> adapter는 (agent, session)별로 seq·승인·위임을 따로 센다(`source.kind`는 agent 값, 이벤트 id 접두사 `cc-`/`cx-`).
+> Codex 훅의 매핑과 설치는 [`CODEX.md`](CODEX.md)에 있다. 소켓 쓰기·stdin·시간 상한은 두 훅이 `integrations/shared/sendRecord.mjs`를 같이 쓴다.
 
 ## 4. 매핑
 
@@ -163,7 +168,7 @@ adapter(T74)가 알아야 할 점:
 
 설치 스크립트(§8)가 사용자 설정에 덧붙이는 블록이다. 사용자가 `npm run hooks:install`을 직접 실행할 때만 들어간다
 (ADR-024 §8, FR-CC5). `<NODE>`는 설치 스크립트를 실행한 node의 절대 경로(`process.execPath`), `<HOOK>`은 `deskling-hook.mjs`의
-절대 경로다(`hookRecord.mjs`가 같은 디렉터리에 있어야 한다). 둘 다 sh용 작은따옴표로 감싸고, 경로 안의 `'`는 `'\''`로 바꾼다.
+절대 경로다(`hookRecord.mjs`가 같은 디렉터리에, `../shared/`가 그 옆에 있어야 한다). 둘 다 sh용 작은따옴표로 감싸고, 경로 안의 `'`는 `'\''`로 바꾼다.
 `install.test.mjs`가 설치 스크립트의 블록이 아래 JSON과 같은지 확인한다.
 
 ```json

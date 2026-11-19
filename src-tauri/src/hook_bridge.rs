@@ -1,7 +1,8 @@
-//! Claude Code hook bridge (ADR-024 §3–4, FR-CC2).
+//! Agent hook bridge (ADR-024 §3–4, FR-CC2; ADR-026 §2).
 //!
-//! Listens on a Unix socket for hook records written by `integrations/claude-code/deskling-hook.mjs`,
-//! validates each one strictly and forwards only the re-serialized record to the webview.
+//! Listens on a Unix socket for hook records written by `integrations/claude-code/deskling-hook.mjs`
+//! and `integrations/codex/deskling-codex-hook.mjs`, validates each one strictly and forwards only the
+//! re-serialized record to the webview.
 //! Raw bytes never leave this module, and failures are counted by code only — nothing is logged (ADR-009).
 //! The socket is receive-only: Deskling never writes back to an agent (AGENTS.md §1.1).
 
@@ -31,6 +32,7 @@ const MAX_AT: u64 = 8_640_000_000_000_000;
 #[serde(rename_all = "kebab-case")]
 pub enum Agent {
     ClaudeCode,
+    Codex,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -45,6 +47,8 @@ pub enum HookEvent {
     Stop,
     StopFailure,
     SubagentStop,
+    /// The user interrupted the turn; it ended without an outcome (ADR-026 §2).
+    Interrupt,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -312,8 +316,12 @@ mod tests {
     }
 
     fn line(event: &str, extra: &str) -> String {
+        line_of("claude-code", event, extra)
+    }
+
+    fn line_of(agent: &str, event: &str, extra: &str) -> String {
         format!(
-            r#"{{"v":1,"agent":"claude-code","session":"{SESSION}","event":"{event}"{extra},"at":1763500000000}}"#
+            r#"{{"v":1,"agent":"{agent}","session":"{SESSION}","event":"{event}"{extra},"at":1763500000000}}"#
         )
     }
 
@@ -331,6 +339,7 @@ mod tests {
             "stop",
             "stop-failure",
             "subagent-stop",
+            "interrupt",
         ] {
             let json = line(event, "");
             assert_eq!(reserialized(&json), json, "{event}");
@@ -342,6 +351,53 @@ mod tests {
                 let end = line("tool-end", &format!(r#","tool":"{tool}","ok":{ok}"#));
                 assert_eq!(reserialized(&end), end, "{tool} {ok}");
             }
+        }
+    }
+
+    #[test]
+    fn accepts_codex_records_for_every_event_it_sends() {
+        // ADR-026 §2: the same record v1, with agent "codex".
+        for event in [
+            "session-start",
+            "session-end",
+            "prompt",
+            "approval",
+            "stop",
+            "interrupt",
+        ] {
+            let json = line_of("codex", event, "");
+            assert_eq!(reserialized(&json), json, "{event}");
+        }
+        for tool in ["code", "terminal", "delegate"] {
+            let start = line_of("codex", "tool-start", &format!(r#","tool":"{tool}""#));
+            assert_eq!(reserialized(&start), start, "{tool}");
+            let end = line_of(
+                "codex",
+                "tool-end",
+                &format!(r#","tool":"{tool}","ok":true"#),
+            );
+            assert_eq!(reserialized(&end), end, "{tool}");
+        }
+    }
+
+    #[test]
+    fn interrupt_carries_neither_tool_nor_ok() {
+        for agent in ["claude-code", "codex"] {
+            assert_eq!(
+                parse(&line_of(agent, "interrupt", r#","tool":"terminal""#)),
+                Err(Reject::BadTool),
+                "{agent}"
+            );
+            assert_eq!(
+                parse(&line_of(agent, "interrupt", r#","ok":true"#)),
+                Err(Reject::BadOutcome),
+                "{agent}"
+            );
+            assert_eq!(
+                parse(&line_of(agent, "interrupt", r#","tool":"code","ok":false"#)),
+                Err(Reject::BadTool),
+                "{agent}"
+            );
         }
     }
 
@@ -413,12 +469,21 @@ mod tests {
     #[test]
     fn rejects_unknown_enum_values() {
         let cases = [
-            format!(r#"{{"v":1,"agent":"codex","session":"{SESSION}","event":"stop","at":1}}"#),
+            line_of("hermes", "stop", ""),
+            line_of("Codex", "stop", ""),
+            line_of("codex-cli", "stop", ""),
+            line_of("openai", "stop", ""),
+            line_of("", "stop", ""),
             format!(
                 r#"{{"v":1,"agent":"Claude-Code","session":"{SESSION}","event":"stop","at":1}}"#
             ),
             line("thinking", ""),
             line("Stop", ""),
+            line("Interrupt", ""),
+            line("interrupted", ""),
+            line_of("codex", "Interrupt", ""),
+            line_of("codex", "PreModelRequest", ""),
+            line_of("codex", "tool-start", r#","tool":"apply_patch""#),
             line("tool-start", r#","tool":"mcp__github__get_issue""#),
             line("tool-start", r#","tool":"Bash""#),
         ];

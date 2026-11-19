@@ -5,9 +5,10 @@ import { initialTranslatorState, translateHookRecord } from './translate';
 export type ListenHookRecords = (onRecord: (raw: unknown) => void) => Promise<() => void>;
 
 /**
- * Live Claude Code sessions (ADR-024 §5). Each hook record is translated into AgentEvent v3 objects,
- * which the app normalizes again. Translator state belongs to the source instance, so a stop/start
- * cycle (React StrictMode) keeps every session's seq increasing.
+ * Live Claude Code and Codex sessions (ADR-024 §5, ADR-026 §2). Both hooks write to the same bridge, so one
+ * listener carries both agents; each hook record is translated into AgentEvent v3 objects, which the app
+ * normalizes again. Translator state belongs to the source instance, so a stop/start cycle (React StrictMode)
+ * keeps every session's seq increasing.
  */
 export function createClaudeCodeSource(listen: ListenHookRecords): AgentEventSource {
   let state = initialTranslatorState;

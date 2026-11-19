@@ -2,11 +2,19 @@ import type { AgentEvent, AgentEventVersion, PlainEventType, ToolCategory } from
 import { AGENT_EVENT_SCHEMA, TOOL_CATEGORIES } from '../../core/agentEvent';
 
 /**
- * Claude Code hook record v1 → AgentEvent v3 (ADR-024 §2, §5; FR-CC3). Pure: no clock, no I/O.
+ * Hook record v1 → AgentEvent v3 (ADR-024 §2, §5; FR-CC3; ADR-026 §2). Pure: no clock, no I/O.
+ * Records come from the Claude Code hook (agent `claude-code`) and the Codex hook (agent `codex`); the agent
+ * becomes `source.kind`, and every session is tracked per (agent, session) so equal ids never collide.
  * The Rust bridge has validated each record already; it is checked again here and anything malformed
  * is dropped silently. Only whitelisted enum values are copied into events — never record contents.
- * No `usage.reported` is ever produced: Claude Code numbers would need the transcript (FR-CC6).
+ * No `usage.reported` is ever produced: Claude Code numbers would need the transcript (FR-CC6), and
+ * Codex token counts are deferred (ADR-026 §4).
  */
+
+const HOOK_AGENTS = ['claude-code', 'codex'] as const;
+type HookAgent = (typeof HOOK_AGENTS)[number];
+/** Event id prefix per agent: ids stay unique when a Claude and a Codex session share an id. */
+const ID_PREFIX: Readonly<Record<HookAgent, string>> = { 'claude-code': 'cc', codex: 'cx' };
 
 const HOOK_EVENTS = [
   'session-start',
@@ -18,34 +26,38 @@ const HOOK_EVENTS = [
   'stop',
   'stop-failure',
   'subagent-stop',
+  'interrupt',
 ] as const;
 type HookEvent = (typeof HOOK_EVENTS)[number];
 
 const HOOK_TOOLS = [...TOOL_CATEGORIES, 'delegate', 'message'] as const;
 type HookTool = (typeof HOOK_TOOLS)[number];
 
+interface RecordBase {
+  readonly agent: HookAgent;
+  readonly session: string;
+  readonly at: number;
+}
+
 type HookRecord =
-  | { readonly session: string; readonly at: number; readonly event: Exclude<HookEvent, 'tool-start' | 'tool-end'> }
-  | { readonly session: string; readonly at: number; readonly event: 'tool-start'; readonly tool: HookTool }
-  | {
-      readonly session: string;
-      readonly at: number;
-      readonly event: 'tool-end';
-      readonly tool: HookTool;
-      readonly ok: boolean;
-    };
+  | (RecordBase & { readonly event: Exclude<HookEvent, 'tool-start' | 'tool-end'> })
+  | (RecordBase & { readonly event: 'tool-start'; readonly tool: HookTool })
+  | (RecordBase & { readonly event: 'tool-end'; readonly tool: HookTool; readonly ok: boolean });
 
 /** What one live session remembers. */
 export interface SessionTrack {
   /** The seq of the next emitted event. */
   readonly nextSeq: number;
-  /** Claude Code shows one permission prompt at a time. */
+  /** At most one pending permission prompt per session; a repeated approval record is a duplicate. */
   readonly pendingApproval: boolean;
   readonly openDelegations: number;
 }
 
 export interface TranslatorState {
-  /** Seen, not-ended sessions, least recently seen first. Presence means the member is known. */
+  /**
+   * Seen, not-ended sessions, least recently seen first. Presence means the member is known.
+   * Keyed `${agent}:${session}` (the room's session key), so equal ids of different agents never collide.
+   */
   readonly live: ReadonlyMap<string, SessionTrack>;
   /** Last emitted seq of sessions that ended (or were dropped from `live`), oldest first. */
   readonly ended: ReadonlyMap<string, number>;
@@ -84,17 +96,18 @@ function parse(raw: unknown): HookRecord | null {
   const tool = get('tool');
   const ok = get('ok');
   const at = get('at');
-  if (get('v') !== 1 || get('agent') !== 'claude-code') return null;
+  const agent = get('agent');
+  if (get('v') !== 1 || !oneOf(HOOK_AGENTS, agent)) return null;
   if (typeof session !== 'string' || !IDENTIFIER.test(session)) return null;
   if (typeof at !== 'number' || !Number.isSafeInteger(at) || at < 0 || at > MAX_AT) return null;
   if (!oneOf(HOOK_EVENTS, event)) return null;
 
   if (event === 'tool-start' || event === 'tool-end') {
     if (!oneOf(HOOK_TOOLS, tool)) return null;
-    if (event === 'tool-start') return ok === undefined ? { session, at, event, tool } : null;
-    return typeof ok === 'boolean' ? { session, at, event, tool, ok } : null;
+    if (event === 'tool-start') return ok === undefined ? { agent, session, at, event, tool } : null;
+    return typeof ok === 'boolean' ? { agent, session, at, event, tool, ok } : null;
   }
-  return tool === undefined && ok === undefined ? { session, at, event } : null;
+  return tool === undefined && ok === undefined ? { agent, session, at, event } : null;
 }
 
 type Body =
@@ -123,6 +136,9 @@ function mapRecord(record: HookRecord, track: SessionTrack): { bodies: Body[]; t
       return { bodies: [...resolve, { type: 'turn.succeeded' }], track: { ...resolved, openDelegations: 0 } };
     case 'stop-failure':
       return { bodies: [...resolve, { type: 'turn.failed' }], track: { ...resolved, openDelegations: 0 } };
+    case 'interrupt':
+      // The turn ended without an outcome (ADR-026 §2); the reducer settles the facts on agent.idle.
+      return { bodies: [...resolve, { type: 'agent.idle' }], track: { ...resolved, openDelegations: 0 } };
     case 'session-end':
       return { bodies: [...resolve, { type: 'agent.offline' }], track: resolved };
     case 'tool-start':
@@ -181,14 +197,15 @@ export function translateHookRecord(
   }
   if (!record) return { state, events: NO_EVENTS };
 
-  const { session, at } = record;
-  const known = state.live.get(session);
+  const { agent, session, at } = record;
+  const key = `${agent}:${session}`;
+  const known = state.live.get(key);
   // Nothing to show for a session that ends before we ever saw it.
   if (!known && record.event === 'session-end') return { state, events: NO_EVENTS };
 
   // An unseen session announces itself first, so the member appears (and resumes past its old seq).
   const opening: Body[] = known ? [] : [{ type: 'agent.online' }];
-  const track = known ?? { nextSeq: (state.ended.get(session) ?? 0) + 1, pendingApproval: false, openDelegations: 0 };
+  const track = known ?? { nextSeq: (state.ended.get(key) ?? 0) + 1, pendingApproval: false, openDelegations: 0 };
   const { bodies, track: mapped } = mapRecord(record, track);
 
   const events = [...opening, ...bodies].map((b, i): AgentEvent => {
@@ -196,10 +213,10 @@ export function translateHookRecord(
     return {
       schema: AGENT_EVENT_SCHEMA,
       version: VERSION,
-      id: `cc-${seq}-${session.slice(0, 40)}`,
+      id: `${ID_PREFIX[agent]}-${seq}-${session.slice(0, 40)}`,
       seq,
       at,
-      source: { kind: 'claude-code', session },
+      source: { kind: agent, session },
       ...b,
     };
   });
@@ -207,19 +224,19 @@ export function translateHookRecord(
   const lastSeq = next.nextSeq - 1;
 
   let ended: ReadonlyMap<string, number> = state.ended;
-  if (!known && ended.has(session)) {
+  if (!known && ended.has(key)) {
     const back = new Map(ended);
-    back.delete(session);
+    back.delete(key);
     ended = back;
   }
 
   if (record.event === 'session-end') {
     const live = new Map(state.live);
-    live.delete(session);
-    return { state: { live, ended: remember(ended, session, lastSeq, ENDED_LIMIT) }, events };
+    live.delete(key);
+    return { state: { live, ended: remember(ended, key, lastSeq, ENDED_LIMIT) }, events };
   }
 
-  const live = remember(state.live, session, next, Infinity);
+  const live = remember(state.live, key, next, Infinity);
   for (const [oldest, dropped] of live) {
     if (live.size <= LIVE_LIMIT) break;
     // Too many sessions: forget the least recently seen one, but keep its seq moving forward.

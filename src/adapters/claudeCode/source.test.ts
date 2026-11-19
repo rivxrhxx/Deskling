@@ -61,6 +61,26 @@ describe('createClaudeCodeSource (ADR-024 §5)', () => {
     ]);
   });
 
+  it('translates Claude Code and Codex records from the same listener independently (ADR-026)', async () => {
+    const fake = fakeListen();
+    const events: { type: string; seq: number; source: { kind: string } }[] = [];
+    createClaudeCodeSource(fake.listen).start((raw) => events.push(raw as (typeof events)[number]));
+    fake.resolve();
+    await flush();
+
+    fake.send(rec('prompt'));
+    fake.send(rec('prompt', { agent: 'codex' }));
+    fake.send(rec('interrupt', { agent: 'codex' }));
+    expect(fake.listen).toHaveBeenCalledTimes(1);
+    expect(events.map((e) => [e.source.kind, e.type, e.seq])).toEqual([
+      ['claude-code', 'agent.online', 1],
+      ['claude-code', 'turn.started', 2],
+      ['codex', 'agent.online', 1],
+      ['codex', 'turn.started', 2],
+      ['codex', 'agent.idle', 3],
+    ]);
+  });
+
   it('ignores malformed records', async () => {
     const fake = fakeListen();
     const { emit } = collect();

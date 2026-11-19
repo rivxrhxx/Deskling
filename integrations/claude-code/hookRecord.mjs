@@ -2,7 +2,8 @@
 // Pure: no I/O, no clock. Reads only session_id, hook_event_name, tool_name and notification_type.
 // Prompts, tool input/response, paths, commands, cwd and transcript_path are never read or forwarded.
 // Mapping table: docs/integrations/CLAUDE_CODE.md.
-import path from 'node:path';
+// Socket path (ADR-024 §3), shared with the Codex hook (ADR-026).
+export { resolveSocketPath } from '../shared/socketPath.mjs';
 
 const IDENTIFIER = /^[A-Za-z0-9._:-]{1,64}$/;
 
@@ -81,14 +82,4 @@ export function toHookRecord(hookJson, now) {
   return toolEvent.ok === undefined
     ? { ...base, event: toolEvent.event, tool, at: now }
     : { ...base, event: toolEvent.event, tool, ok: toolEvent.ok, at: now };
-}
-
-/**
- * Socket Deskling listens on (ADR-024 §3). DESKLING_SOCKET overrides it for tests.
- * @param {Record<string, string | undefined>} env
- * @param {string} home fallback when HOME is unset
- */
-export function resolveSocketPath(env, home) {
-  if (env.DESKLING_SOCKET) return env.DESKLING_SOCKET;
-  return path.join(env.HOME || home, 'Library', 'Application Support', 'com.deskling.desktop', 'agent-events.sock');
 }

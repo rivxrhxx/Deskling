@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { AgentEvent } from '../../core/agentEvent';
 import { normalizeAgentEvent } from '../../core/normalize';
 import type { RoomViewState } from '../../core/roomState';
-import { initialRoomState, reduceRoom } from '../../core/roomState';
+import { initialRoomState, reduceRoom, sessionLabel } from '../../core/roomState';
 import type { TranslatorState } from './translate';
 import { initialTranslatorState, translateHookRecord } from './translate';
 
@@ -15,6 +15,11 @@ const EVENT_KEYS = new Set(['schema', 'version', 'id', 'seq', 'at', 'source', 't
 
 function rec(event: string, extra: Record<string, unknown> = {}, session = A, at = T0): Record<string, unknown> {
   return { v: 1, agent: 'claude-code', session, event, at, ...extra };
+}
+
+/** A Codex hook record (ADR-026 §2): the same schema with agent "codex". */
+function cx(event: string, extra: Record<string, unknown> = {}, session = A, at = T0): Record<string, unknown> {
+  return rec(event, { agent: 'codex', ...extra }, session, at);
 }
 
 function omit(record: Record<string, unknown>, key: string): Record<string, unknown> {
@@ -56,6 +61,7 @@ function fold(events: readonly unknown[], state: RoomViewState = initialRoomStat
 }
 
 const keyOf = (session: string) => `claude-code:${session}`;
+const codexKeyOf = (session: string) => `codex:${session}`;
 
 describe('translateHookRecord — envelope', () => {
   it('session-start on an unseen session emits agent.online as a v3 claude-code event', () => {
@@ -120,6 +126,7 @@ describe('translateHookRecord — mapping (ADR-024 §5)', () => {
     ['stop', {}, [{ type: 'turn.succeeded' }]],
     ['stop-failure', {}, [{ type: 'turn.failed' }]],
     ['subagent-stop', {}, []],
+    ['interrupt', {}, [{ type: 'agent.idle' }]],
     ['session-end', {}, [{ type: 'agent.offline' }]],
   ];
 
@@ -166,7 +173,7 @@ describe('translateHookRecord — mapping (ADR-024 §5)', () => {
   });
 
   it('a turn end closes open delegations (the reducer clears them too)', () => {
-    for (const end of ['stop', 'stop-failure']) {
+    for (const end of ['stop', 'stop-failure', 'interrupt']) {
       const before = [...started, rec('tool-start', { tool: 'delegate' }), rec(end)];
       expect(after(before, rec('tool-end', { tool: 'delegate', ok: true }))).toEqual([]);
     }
@@ -220,6 +227,7 @@ describe('translateHookRecord — implicit agent.online', () => {
     ['stop', {}, ['agent.online', 'turn.succeeded']],
     ['stop-failure', {}, ['agent.online', 'turn.failed']],
     ['subagent-stop', {}, ['agent.online']],
+    ['interrupt', {}, ['agent.online', 'agent.idle']],
   ];
 
   it.each(FIRST)('%s %o as the first record of a session → %o', (event, extra, expected) => {
@@ -250,6 +258,7 @@ describe('translateHookRecord — approvals', () => {
     ['tool-end', { tool: 'message', ok: true }, ['approval.resolved']],
     ['stop', {}, ['approval.resolved', 'turn.succeeded']],
     ['stop-failure', {}, ['approval.resolved', 'turn.failed']],
+    ['interrupt', {}, ['approval.resolved', 'agent.idle']],
     ['session-end', {}, ['approval.resolved', 'agent.offline']],
   ];
 
@@ -338,7 +347,7 @@ describe('translateHookRecord — seq', () => {
       ['turn.succeeded', 3],
       ['agent.offline', 4],
     ]);
-    expect(first.state.live.has(A)).toBe(false);
+    expect(first.state.live.has(keyOf(A))).toBe(false);
 
     const restarted = feed([rec('session-start'), rec('prompt')], first.state);
     expect(restarted.events.map((e) => [e.type, e.seq])).toEqual([
@@ -371,7 +380,9 @@ describe('translateHookRecord — malformed records are ignored', () => {
     ['v 2', rec('prompt', { v: 2 })],
     ['v "1"', rec('prompt', { v: '1' })],
     ['no v', omit(rec('prompt'), 'v')],
-    ['agent codex', rec('prompt', { agent: 'codex' })],
+    ['agent hermes', rec('prompt', { agent: 'hermes' })],
+    ['agent Codex', rec('prompt', { agent: 'Codex' })],
+    ['agent codex-cli', rec('prompt', { agent: 'codex-cli' })],
     ['no agent', omit(rec('prompt'), 'agent')],
     ['unknown event', rec('bogus')],
     ['a raw hook name', rec('PreToolUse', { tool: 'code' })],
@@ -389,6 +400,12 @@ describe('translateHookRecord — malformed records are ignored', () => {
     ['tool on stop-failure', rec('stop-failure', { tool: 'file' })],
     ['tool on subagent-stop', rec('subagent-stop', { tool: 'delegate' })],
     ['tool on session-end', rec('session-end', { tool: 'code' })],
+    ['tool on interrupt', rec('interrupt', { tool: 'terminal' })],
+    ['ok on interrupt', rec('interrupt', { ok: true })],
+    ['codex tool on interrupt', cx('interrupt', { tool: 'code' })],
+    ['codex raw hook name', cx('Interrupt')],
+    ['codex raw tool name', cx('tool-start', { tool: 'apply_patch' })],
+    ['codex extra prompt field', cx('prompt', { prompt: SECRET })],
     ['tool-start without tool', rec('tool-start')],
     ['tool-end without tool', rec('tool-end', { ok: true })],
     ['unknown tool', rec('tool-start', { tool: 'mcp' })],
@@ -479,14 +496,14 @@ describe('translateHookRecord — memory bounds', () => {
   it('tracks at most 64 live sessions, dropping the least recently seen', () => {
     const { state } = feed(startAll(0, 65));
     expect(state.live.size).toBe(64);
-    expect(state.live.has(session(0))).toBe(false);
-    expect(state.live.has(session(64))).toBe(true);
+    expect(state.live.has(keyOf(session(0)))).toBe(false);
+    expect(state.live.has(keyOf(session(64)))).toBe(true);
   });
 
   it('a record refreshes recency', () => {
     const { state } = feed([...startAll(0, 64), rec('prompt', {}, session(0)), ...startAll(64, 65)]);
-    expect(state.live.has(session(0))).toBe(true);
-    expect(state.live.has(session(1))).toBe(false);
+    expect(state.live.has(keyOf(session(0)))).toBe(true);
+    expect(state.live.has(keyOf(session(1)))).toBe(false);
   });
 
   it('a dropped session that comes back continues its seq', () => {
@@ -506,8 +523,8 @@ describe('translateHookRecord — memory bounds', () => {
     const { state } = feed(records);
     expect(state.live.size).toBe(0);
     expect(state.ended.size).toBe(64);
-    expect(state.ended.has(session(0))).toBe(false);
-    expect(state.ended.has(session(64))).toBe(true);
+    expect(state.ended.has(keyOf(session(0)))).toBe(false);
+    expect(state.ended.has(keyOf(session(64)))).toBe(true);
   });
 
   it('stays bounded under many sessions', () => {
@@ -651,5 +668,194 @@ describe('translateHookRecord — output passes core normalization and drives th
   it('Claude members never report usage (FR-CC6)', () => {
     const room = fold(feed(EVERYTHING.slice(0, -1)).events);
     expect(room.sessions[keyOf(A)]?.usage).toEqual({ tokens: null, context: null });
+  });
+});
+
+describe('translateHookRecord — Codex records (ADR-026 §2)', () => {
+  const ROWS: [string, Record<string, unknown>, Record<string, unknown>[]][] = [
+    ['session-start', {}, []],
+    ['prompt', {}, [{ type: 'turn.started' }]],
+    ['tool-start', { tool: 'code' }, [{ type: 'tool.started', tool: 'code' }]],
+    ['tool-start', { tool: 'terminal' }, [{ type: 'tool.started', tool: 'terminal' }]],
+    ['tool-start', { tool: 'delegate' }, [{ type: 'delegation.started' }]],
+    ['tool-end', { tool: 'code', ok: true }, [{ type: 'tool.finished', tool: 'code', outcome: 'ok' }]],
+    ['tool-end', { tool: 'terminal', ok: true }, [{ type: 'tool.finished', tool: 'terminal', outcome: 'ok' }]],
+    ['approval', {}, [{ type: 'approval.requested' }]],
+    ['stop', {}, [{ type: 'turn.succeeded' }]],
+    ['interrupt', {}, [{ type: 'agent.idle' }]],
+    ['session-end', {}, [{ type: 'agent.offline' }]],
+  ];
+
+  it.each(ROWS)('codex %s %o on a known session → %o', (event, extra, expected) => {
+    const events = after([cx('session-start')], cx(event, extra));
+    expect(events.map(body)).toStrictEqual(expected);
+    for (const e of events) expect(e.source).toStrictEqual({ kind: 'codex', session: A });
+  });
+
+  it('session-start on an unseen Codex session emits agent.online with kind codex and a cx- id', () => {
+    const { events } = feed([cx('session-start')]);
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({
+      schema: 'deskling.agent-event',
+      version: 3,
+      seq: 1,
+      at: T0,
+      source: { kind: 'codex', session: A },
+      type: 'agent.online',
+    });
+    expect(events[0]?.id).toMatch(/^cx-/);
+    expect(events[0]?.id).toMatch(IDENTIFIER);
+  });
+
+  it('keeps Codex ids valid and unique for 64-character sessions', () => {
+    const long = 'x'.repeat(64);
+    const { events } = feed([cx('session-start', {}, long), ...Array.from({ length: 30 }, () => cx('prompt', {}, long))]);
+    for (const event of events) expect(event.id).toMatch(IDENTIFIER);
+    expect(new Set(events.map((e) => e.id)).size).toBe(events.length);
+  });
+
+  it('a Claude and a Codex session with the same id never share seq, ids, approvals or delegations', () => {
+    const { events } = feed([
+      rec('session-start'),
+      cx('session-start'),
+      rec('prompt'),
+      cx('approval'),
+      cx('tool-start', { tool: 'delegate' }),
+      rec('tool-end', { tool: 'delegate', ok: true }),
+      rec('stop'),
+      cx('stop'),
+    ]);
+    const claude = events.filter((e) => e.source.kind === 'claude-code');
+    const codex = events.filter((e) => e.source.kind === 'codex');
+    expect(claude.map((e) => [e.type, e.seq])).toEqual([
+      ['agent.online', 1],
+      ['turn.started', 2],
+      ['turn.succeeded', 3],
+    ]);
+    expect(codex.map((e) => [e.type, e.seq])).toEqual([
+      ['agent.online', 1],
+      ['approval.requested', 2],
+      ['delegation.started', 3],
+      ['approval.resolved', 4],
+      ['turn.succeeded', 5],
+    ]);
+    expect(new Set(events.map((e) => e.id)).size).toBe(events.length);
+  });
+
+  it("ending one agent's session leaves the other agent's session with the same id live", () => {
+    const { state, events } = feed([rec('session-start'), cx('session-start'), rec('session-end'), cx('prompt')]);
+    expect(events.map((e) => [e.source.kind, e.type, e.seq])).toEqual([
+      ['claude-code', 'agent.online', 1],
+      ['codex', 'agent.online', 1],
+      ['claude-code', 'agent.offline', 2],
+      ['codex', 'turn.started', 2],
+    ]);
+    expect(state.live.has(keyOf(A))).toBe(false);
+    expect(state.live.has(codexKeyOf(A))).toBe(true);
+    expect(state.ended.has(keyOf(A))).toBe(true);
+    expect(state.ended.has(codexKeyOf(A))).toBe(false);
+  });
+
+  it('interrupt resolves a pending approval once, closes delegations and leaves the member idle', () => {
+    const before = [cx('session-start'), cx('prompt'), cx('tool-start', { tool: 'delegate' }), cx('approval')];
+    expect(types(after(before, cx('interrupt')))).toEqual(['approval.resolved', 'agent.idle']);
+    const { state } = feed([...before, cx('interrupt')]);
+    expect(types(translateHookRecord(state, cx('tool-end', { tool: 'delegate', ok: true })).events)).toEqual([]);
+    expect(types(translateHookRecord(state, cx('interrupt')).events)).toEqual(['agent.idle']);
+  });
+
+  it('interrupt mid-turn brings the Codex member back to idle without a success or failure', () => {
+    const visuals: string[] = [];
+    let state = initialTranslatorState;
+    let room = initialRoomState;
+    for (const raw of [
+      cx('session-start'),
+      cx('prompt'),
+      cx('tool-start', { tool: 'terminal' }),
+      cx('approval'),
+      cx('interrupt'),
+      cx('prompt'),
+      cx('tool-start', { tool: 'code' }),
+      cx('tool-end', { tool: 'code', ok: true }),
+      cx('stop'),
+    ]) {
+      const result = translateHookRecord(state, raw);
+      state = result.state;
+      room = fold(result.events, room);
+      visuals.push(room.sessions[codexKeyOf(A)]?.visual ?? 'gone');
+    }
+    expect(visuals).toEqual([
+      'idle',
+      'thinking',
+      'terminal',
+      'waiting-approval',
+      'idle',
+      'thinking',
+      'coding',
+      'thinking',
+      'success',
+    ]);
+    expect(room.completedTurns).toBe(1);
+  });
+
+  const EVERYTHING = [
+    cx('session-start', {}, A),
+    rec('session-start', {}, A),
+    cx('prompt', {}, A),
+    cx('tool-start', { tool: 'code' }, A),
+    cx('approval', {}, A),
+    cx('tool-end', { tool: 'code', ok: true }, A),
+    cx('tool-start', { tool: 'terminal' }, A),
+    cx('tool-end', { tool: 'terminal', ok: true }, A),
+    cx('tool-start', { tool: 'delegate' }, A),
+    cx('tool-end', { tool: 'delegate', ok: true }, A),
+    cx('stop', {}, A),
+    cx('prompt', {}, B),
+    cx('approval', {}, B),
+    cx('interrupt', {}, B),
+    rec('prompt', {}, A),
+    rec('stop', {}, A),
+    cx('session-end', {}, B),
+  ];
+
+  it('every emitted Codex event normalizes with ok:true and loses nothing', () => {
+    const { events } = feed(EVERYTHING);
+    expect(new Set(types(events)).size).toBeGreaterThanOrEqual(11);
+    for (const raw of events) {
+      const result = normalizeAgentEvent(raw);
+      expect(result).toMatchObject({ ok: true });
+      if (result.ok) expect(result.event).toEqual(raw);
+    }
+  });
+
+  it('every emitted event is accepted by the room reducer (no stale seq across agents)', () => {
+    const { events } = feed(EVERYTHING);
+    let room = initialRoomState;
+    for (const raw of events) {
+      const result = normalizeAgentEvent(raw);
+      if (!result.ok) throw new Error(result.error);
+      const next = reduceRoom(room, result.event);
+      expect(next).not.toBe(room);
+      room = next;
+    }
+  });
+
+  it("a Codex session folds into a 'codex' member labelled Codex 1, beside Claude 1 with the same id", () => {
+    const room = fold(feed([cx('session-start'), rec('session-start'), cx('tool-start', { tool: 'code' })]).events);
+    expect(room.memberKeys).toEqual([codexKeyOf(A), keyOf(A)]);
+    const member = room.sessions[codexKeyOf(A)];
+    expect(member?.kind).toBe('codex');
+    expect(member && sessionLabel(member)).toBe('Codex 1');
+    expect(member?.visual).toBe('coding');
+    const claude = room.sessions[keyOf(A)];
+    expect(claude && sessionLabel(claude)).toBe('Claude 1');
+    expect(claude?.visual).toBe('idle');
+  });
+
+  it('a second Codex session is Codex 2, and Codex members never report usage', () => {
+    const room = fold(feed([cx('session-start', {}, A), cx('prompt', {}, B)]).events);
+    const second = room.sessions[codexKeyOf(B)];
+    expect(second && sessionLabel(second)).toBe('Codex 2');
+    expect(room.sessions[codexKeyOf(A)]?.usage).toEqual({ tokens: null, context: null });
   });
 });
