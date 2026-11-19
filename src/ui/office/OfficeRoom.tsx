@@ -8,8 +8,11 @@ import { DESK_IDS, DOOR, FURNITURE, SPOTS, VIEWBOX, isOutside } from '../../core
 import type { ScreenId, Tone } from '../visualSpec';
 import { VISUAL_SPEC } from '../visualSpec';
 import { Bookshelf, CoffeeMachine, HelperBot, MeetingTable, Plant, Printer, Sofa, WaterCooler, Workstation } from './Furniture';
+import { memberEmote } from './emote';
+import { EmoteSign } from './EmoteSign';
+import { LevelBadge } from './LevelBadge';
 import { Member } from './Member';
-import { deskFacesAway, memberPose, LOOK_OF } from './pose';
+import { deskFacesAway, memberAnchor, memberPose, LOOK_OF } from './pose';
 import { Clock, Door, Floor, LoungeRug, Night, WallDecor, Walls, Whiteboard, Window } from './Shell';
 
 /** A session's vitals as the scene needs them: levels only, never numbers (ADR-016). `Vitals` from core/mood fits. */
@@ -117,6 +120,10 @@ export function OfficeRoom({ members, frame, decor = [], vitals = {} }: OfficeRo
     items.push({ key: `member-${m.key}`, depth: depthOf(m.at), node: member(m) });
   }
   items.sort((a, b) => a.depth - b.depth);
+  const heads = inRoom.map((m) => {
+    const pose = memberPose({ look: LOOK_OF[m.kind], activity: m.activity, walking: m.walking, face: m.face, frame, away: deskFacesAway(m.desk) });
+    return { m, ...memberAnchor(m.at, pose) };
+  });
 
   return (
     <svg
@@ -141,6 +148,17 @@ export function OfficeRoom({ members, frame, decor = [], vitals = {} }: OfficeRo
       {items.map((item) => (
         <g key={item.key}>{item.node}</g>
       ))}
+      {/* Above the furniture, so no desk or monitor hides them: every level badge, then any LEVEL UP over them (ADR-028 §3–§4). */}
+      <g data-part="levels">
+        {heads.map(({ m, feetX, headTop }) => (
+          <LevelBadge key={m.key} memberKey={m.key} desk={m.desk} level={m.level} feetX={feetX} headTop={headTop} shine={m.levelUp} />
+        ))}
+        {heads
+          .filter(({ m }) => memberEmote({ visual: m.visual, activity: m.activity, walking: m.walking, chat: m.chat, levelUp: m.levelUp }) === 'level-up')
+          .map(({ m, feetX, headTop }) => (
+            <EmoteSign key={`up-${m.key}`} id="level-up" centerX={feetX} headTop={headTop} desk={m.desk} />
+          ))}
+      </g>
       {empty && <Night />}
     </svg>
   );

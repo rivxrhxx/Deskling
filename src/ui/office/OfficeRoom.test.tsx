@@ -220,7 +220,7 @@ describe('memberEmote (ADR-025 §3, §6; ADR-023)', () => {
 });
 
 describe('member levels in the scene (ADR-028 §3–§4)', () => {
-  const badgeOf = (svg: Element, desk: DeskId) => svg.querySelector(`[data-part="member"][data-desk="${desk}"] [data-part="level"]`);
+  const badgeOf = (svg: Element, desk: DeskId) => svg.querySelector(`[data-part="levels"] [data-part="level"][data-desk="${desk}"]`);
 
   it('gives every member a badge with its own level', () => {
     const svg = office({ members: [member('desk-1', 'coding', { level: 3 }), member('desk-2', 'idle'), member('desk-3', 'thinking', { level: 12 })] });
@@ -228,6 +228,19 @@ describe('member levels in the scene (ADR-028 §3–§4)', () => {
     expect(badgeOf(svg, 'desk-2')).toHaveAttribute('data-level', '1');
     expect(badgeOf(svg, 'desk-3')).toHaveAttribute('data-level', '12');
     expect(badgeOf(svg, 'desk-1')?.querySelectorAll('path').length).toBeGreaterThan(0);
+  });
+
+  it('draws the badges above everything else, so no desk or monitor hides one', () => {
+    const svg = office({ members: [member('desk-1', 'coding', { level: 3 }), member('desk-7', 'coding')] });
+    const layer = svg.querySelector('[data-part="levels"]');
+    expect(layer?.parentElement).toBe(svg);
+    expect(svg.lastElementChild).toBe(layer);
+    expect(layer?.querySelectorAll('[data-part="level"]')).toHaveLength(2);
+  });
+
+  it('gives no badge to a member still outside the door', () => {
+    const svg = office({ members: [member('desk-1', 'coding', { at: SPOTS.outside.at, walking: true })] });
+    expect(svg.querySelector('[data-part="level"]')).toBeNull();
   });
 
   it('widens the badge for a two-digit level', () => {
@@ -257,7 +270,11 @@ describe('member levels in the scene (ADR-028 §3–§4)', () => {
     const svg = office({ members: [member('desk-1', 'success', { activity: 'cheer', level: 5, levelUp: true }), member('desk-2', 'coding')] });
     const up = svg.querySelector('[data-part="member"][data-desk="desk-1"]');
     expect(up).toHaveAttribute('data-level-up', 'true');
-    expect(up?.querySelector('[data-part="emote"]')).toHaveAttribute('data-emote', 'level-up');
+    // Drawn above the badges, so a neighbour's badge never covers it; not inside the member.
+    expect(svg.querySelector('[data-part="levels"] > [data-emote="level-up"][data-desk="desk-1"]')).not.toBeNull();
+    expect(up?.querySelector('[data-part="emote"]')).toBeNull();
+    const layer = svg.querySelector('[data-part="levels"]');
+    expect(layer?.lastElementChild).toHaveAttribute('data-emote', 'level-up');
     expect(badgeOf(svg, 'desk-1')).toHaveAttribute('data-shine', 'true');
     expect(svg.querySelector('[data-part="member"][data-desk="desk-2"]')).toHaveAttribute('data-level-up', 'false');
     expect(badgeOf(svg, 'desk-2')).toHaveAttribute('data-shine', 'false');

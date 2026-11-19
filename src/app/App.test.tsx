@@ -646,7 +646,7 @@ describe('App growing the office (ADR-025 §7, FR-G1, FR-G3, FR-G6)', () => {
     mockReducedMotion(true);
     const { live } = renderLive();
     const memberOf = (desk: string) => scene().querySelector(`[data-part="member"][data-desk="${desk}"]`);
-    const levelAt = (desk: string) => memberOf(desk)?.querySelector('[data-part="level"]')?.getAttribute('data-level');
+    const levelAt = (desk: string) => scene().querySelector(`[data-part="level"][data-desk="${desk}"]`)?.getAttribute('data-level');
     live.emit(from(claude('a'), 'turn.started'));
     live.emit(from(codex('x'), 'turn.started'));
     expect([levelAt('desk-1'), levelAt('desk-2')]).toEqual(['1', '1']);
@@ -670,7 +670,7 @@ describe('App growing the office (ADR-025 §7, FR-G1, FR-G3, FR-G6)', () => {
     const { live } = renderLive(storage);
     live.emit(from(claude('a'), 'turn.started'));
     const member = scene().querySelector('[data-part="member"][data-desk="desk-1"]');
-    expect(member?.querySelector('[data-part="level"]')).toHaveAttribute('data-level', '5');
+    expect(scene().querySelector('[data-part="level"][data-desk="desk-1"]')).toHaveAttribute('data-level', '5');
     expect(member).toHaveAttribute('data-level-up', 'false');
   });
 

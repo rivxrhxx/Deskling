@@ -1,7 +1,7 @@
 import type { SourceKind } from '../../core/agentEvent';
 import type { MemberActivity } from '../../core/office';
-import type { DeskId, Facing } from '../../core/room';
-import { SPOTS } from '../../core/room';
+import type { DeskId, Facing, Tile } from '../../core/room';
+import { SPOTS, toScreen } from '../../core/room';
 import type { GuestKind as Look } from './sprites';
 
 /**
@@ -63,6 +63,12 @@ export interface Pose {
   readonly bob: number;
   /** Height of the seat under the member (px above the floor). */
   readonly lift: number;
+}
+
+/** Where a member's feet are and where the top of its sprite (its head) is, as drawn (scene units). */
+export function memberAnchor(at: Tile, pose: Pose): { readonly feetX: number; readonly feetY: number; readonly headTop: number } {
+  const feet = toScreen(at);
+  return { feetX: feet.x, feetY: feet.y, headTop: feet.y - 15.5 * MEMBER_SCALE - pose.lift + pose.bob };
 }
 
 /** The pose a member takes, by what it does, which way its desk faces and the frame (DESIGN §3.3). Pure. */
