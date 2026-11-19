@@ -154,6 +154,15 @@
 - [x] **T89** ui: 걷기 b 프레임 1px 뜀, 활동별 작은 반복 동작(숨쉬기·한 모금·흔들림·끄덕임)과 직원별 위상, 구름·화분 잎 — §3
 - [x] **T90** DESIGN·README·상태 문서, verify·build·push·실행
 
+## M15 세션마다 레벨 (ADR-028)
+
+- [x] **T91** ADR-028, TASKS
+- [ ] **T92** core: 직원 레벨 규칙(`memberLevel`), 방 상태의 세션별 완료 수(`completedBy`, 떠난 세션 포함 64개) — §1, §2
+- [ ] **T93** app: 세션별 경험치 저장(해시 키, 모드별 64명), 피드별 완료 수 기억(두 번 세지 않음), 직원·패널에 레벨 전달 — §2
+- [ ] **T94** core: 엔진이 레벨을 받아 오르면 `LEVEL_UP_MS` 동안 레벨업 연출, 들어올 때는 연출 없음 — §4
+- [ ] **T95** ui: 픽셀 글자, 머리 옆 "Lv n" 배지(단계별 색), "LEVEL UP" 문구·반짝임(reduced-motion에서 멈춤), 패널 세션 줄 레벨 — §3–§5
+- [ ] **T96** DESIGN·REQUIREMENTS·ACCEPTANCE·TEST_PLAN·README·상태 문서, verify·build·push·실행
+
 ## 백로그 (vertical slice 이후, 각각 ADR 먼저)
 
 - [ ] Hermes Agent adapter: 전송 방식·위치 결정 ADR
