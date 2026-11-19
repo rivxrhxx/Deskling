@@ -4,7 +4,7 @@ _마지막 갱신: 2026-11-19_
 
 ## 현재 단계
 
-- **M0–M13 완료.** vertical slice, MVP 화면, 독립 리뷰 반영(T34), 생활감(M7: 에너지·화남·침대·하루 일과 데모),
+- **M0–M14 완료.** vertical slice, MVP 화면, 독립 리뷰 반영(T34), 생활감(M7: 에너지·화남·침대·하루 일과 데모),
   키우기(M8: 완료한 작업 = 경험치, 아기→어린이→어른, 방 꾸미기 해금, 이름·쓰다듬기·간식)가 동작한다.
 - **M9 미니룸(ADR-019~021):** 어두운 작업실을 밝은 아이소메트릭 픽셀 미니룸으로 교체했다. 헤르메스가 방을 걸어 다니며 대기 중 일상(샤워·밥·TV·책·창밖·스트레칭·물주기·낮잠·친구 초대)을 살고,
   에이전트 상태가 필수 행동을 정한다(작업 → 책상, 승인 대기 → 방 앞에서 손 흔들기, 위임 → 친구 도우미, 오프라인 → 불 끄고 잠). 일상은 펫의 생활이며 에이전트에 대한 주장이 아니다(ADR-020).
@@ -20,6 +20,8 @@ _마지막 갱신: 2026-11-19_
 - **M13 Codex 실제 연결(ADR-026):** Codex 훅(`~/.codex/hooks.json`) → Codex 훅 스크립트 → 같은 Unix 소켓 → Rust(agent `codex`, 이벤트 `interrupt`) → 번역기(kind `codex`).
   사용자 동의를 받아 2026-11-19 설치(백업 `~/.codex/hooks.json.deskling-backup-20261119-142545`, 기존 훅 핸들러 20개 그대로). **사용자가 Codex에서 `/hooks`로 신뢰해야 실행된다.**
   제거는 `npm run hooks:codex:uninstall`.
+- **M14 사무실 움직임(ADR-027):** 쉬는 직원이 8–16초마다 다른 라운지 자리로 걸어가고(책장 앞 자리 추가, 7곳), 걷는 동안 50ms마다 위치를 다시 읽어 미끄럽게 걷는다.
+  걷기 b 프레임 1px 뜀, 활동별 작은 반복 동작(숨쉬기·한 모금·흔들림·끄덕임, 직원마다 다른 박자), 창밖 구름·화분 잎. 동작 줄이기면 모두 꺼지고 돌아다니지도 않는다.
 - 이벤트 규격은 v3(v2 `usage.reported`, v3 `claude-code`·`codex` 종류와 `session.message`). 방 모양은 ADR-019가 ADR-017을 대체했다(이전 400×260 디오라마).
 - 실제 연결은 Claude Code와 Codex. Hermes 등 다른 에이전트는 아직 연결되지 않았다(데모로 표현). 데모가 보이는 동안에는 항상 DEMO 배지를 보인다.
 - 프로젝트 문서(PRODUCT·ARCHITECTURE·ACCEPTANCE·TEST_PLAN·EVENT_PROTOCOL §3.2)를 사무실·실제 연결 기준으로 다시 썼고, Claude Code용 `CLAUDE.md`(AGENTS.md를 불러옴 + 문서 지도)를 추가했다.
@@ -38,12 +40,16 @@ _마지막 갱신: 2026-11-19_
 
 | 명령 | 결과 |
 | --- | --- |
-| `npm run verify` (Node 24) | 통과 — typecheck, lint(경고 0), **1655 tests**, vite build, cargo fmt·clippy(`-D warnings`)·**test 23개** (M13 완료 시점, 2026-11-19) |
+| `npm run verify` (Node 24) | 통과 — typecheck, lint(경고 0), **1676 tests**, vite build, cargo fmt·clippy(`-D warnings`)·**test 23개** (M14 완료 시점, 2026-11-19) |
 | `npm run verify:fast` (Node 23.11) | 통과 — 334 tests (T34 이전 시점). Node 23은 EBADENGINE 경고만 남 |
 | `npm run build:app` | 통과 — `src-tauri/target/release/bundle/macos/Deskling.app` (9.7 MiB, arm64, 번들 ad-hoc 서명 + hardened runtime, `codesign --verify --deep --strict` 통과, M9 실행·렌더링·바탕화면 층 확인, 2026-11-19) |
 | `npm run tauri dev` | 실행됨 — 투명 창, layer 5(항상 위), M6 시점 11개 상태 네이티브 캡처, M7은 DOM 프로브 |
 
 ### 네이티브 확인 내역
+
+- **M14 (release 번들 + dev):** 새 번들 실행(창 layer −1). 사용자의 앱 설정이 `motion: "reduced"`(동작 줄이기)라 release 창에서는 설계대로 직원이 순간 이동하고
+  돌아다니지 않음을 확인(시험 세션 3개를 소켓으로 넣고 40초 캡처 5장, 위치 그대로 → SessionEnd로 내보냄). 같은 코드의 dev 빌드(설정 기본값 = 시스템, 데모 "사무실 하루")를
+  4초 간격 12장 캡처해 직원들이 커피머신·정수기·창가·책상·문 사이를 오가는 것을 확인. 미끄러운 걷기와 1px 반복 동작은 정지 캡처로는 보이지 않아 테스트로만 확인.
 
 - **M13 (release 번들 + Codex 경로):** 설치된 Codex 훅 스크립트에 시험용 세션 페이로드(SessionStart·UserPromptSubmit·PreToolUse Bash)를 직접 넣어
   실제 앱이 Codex 1 직원을 1번 책상에 터미널 작업으로 앉히는 것을 창 캡처로 확인, 이어 SessionEnd로 내보냄. 실제 Codex 세션은 사용자가 `/hooks`로 신뢰한 뒤부터 들어온다.
@@ -91,7 +97,7 @@ _마지막 갱신: 2026-11-19_
 
 ## 다음 작업
 
-1. 사무실 움직임 더하기(사용자 요청 2026-11-19): 대기 중 직원이 라운지를 돌아다니고, 걷기·일하기·쉬기에 작은 애니메이션. reduced-motion에서는 꺼짐.
+1. 사람이 직접: 툴바의 모션을 "전체" 또는 "시스템"으로 바꿔 움직임 확인(지금 사용자 설정은 "줄이기").
 2. 사람이 직접: 실제 Codex 세션 입장(`/hooks` 신뢰 후), 드래그·핀·크기·모션 버튼 — TEST_PLAN §5의 남은 항목.
 3. Hermes Agent adapter ADR — 전송 방식(같은 소켓 + 새 agent 값 / 별도 경로), 인증, `usage.reported` 매핑.
 4. 백로그: 메뉴 막대 아이콘, 창 위치 기억, 클릭 통과 모드, 전체 화면 Space 위 표시, 비정상 종료 세션 정리.
